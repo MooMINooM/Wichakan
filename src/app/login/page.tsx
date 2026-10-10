@@ -1,3 +1,4 @@
+import Link from 'next/link';
 'use client';
 
 import { useState } from 'react';
@@ -22,7 +23,7 @@ export default function LoginPage() {
   }
   return <main className="mx-auto max-w-md px-5 py-20">
     <div className="rounded-3xl border border-slate-200 bg-white p-8 shadow-sm">
-      <a href="/" className="text-sm text-blue-700">← Wichakan</a>
+      <Link href="/" className="text-sm text-blue-700">← Wichakan</Link>
       <h1 className="mt-5 text-3xl font-bold">เข้าสู่ระบบ</h1>
       <p className="mb-8 mt-2 text-sm text-slate-500">สำหรับบุคลากรที่ได้รับสิทธิ์จากสถานศึกษา</p>
       <form onSubmit={signIn} className="space-y-4">
