@@ -1,0 +1,11 @@
+# Wichakan v0.3: Enrollment history
+- Apply migration 003 after 001 and 002 to a **development** Supabase instance.
+- Provision `academic_years`, `classrooms` using a privileged school administration process. No public browser creation interface yet.
+- Navigate to `/students/history` with an authorized account.
+- New academic year enrollment = new row; the previous year stays unchanged.
+- Within the same year, room/status updates use a checked RPC and append events; user must provide a reason.
+- Unique(student_id, academic_year_id) prevents simultaneous duplicate enrollment in one year. A future enhancement should model multiple movements / re-enrollment spans separately.
+- Existing enrollment rows before migration 003 are not automatically backfilled into event log. A reviewed backfill is required for legacy databases.
+- The initial list loads all enrolled students and events (latest 100 per selected student); pagination and an approved academic calendar workflow are needed at scale.
+- Admission, transfer, completion and graduation are *not* yet authoritative regulatory workflows. This v0.3 module is a development prototype. No real children's data until migrations, auth, logs, recovery and privacy testing.
+- Test unauthorized writes, cross-school and cross-year room insertion, failed mutations, and event immutability with two school accounts.
