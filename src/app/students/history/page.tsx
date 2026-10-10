@@ -1,3 +1,4 @@
+import Link from 'next/link';
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
@@ -97,7 +98,7 @@ export default function StudentHistoryPage(){
   setBusy(false);
  }
  return <main className="mx-auto max-w-6xl px-5 py-8">
-  <a href="/students" className="text-sm text-blue-700">← ทะเบียนนักเรียน</a>
+  <Link href="/students" className="text-sm text-blue-700">← ทะเบียนนักเรียน</Link>
   <h1 className="mt-3 text-3xl font-bold">ประวัติการศึกษา</h1>
   <p className="mt-2 text-sm text-slate-500">การลงทะเบียนรายปี · ห้องเรียน · การเปลี่ยนสถานภาพ</p>
   {ready&&schools.length===0&&<p className="mt-6 rounded-xl bg-amber-50 p-4">ยังไม่มีสิทธิ์เข้าถึงโรงเรียน</p>}
