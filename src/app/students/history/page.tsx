@@ -71,7 +71,8 @@ export default function StudentHistoryPage(){
 
  const selectedHistory=useMemo(()=>enrollments.filter(e=>e.student_id===studentId).sort((a,b)=>(years.find(y=>y.id===b.academic_year_id)?.year_be??0)-(years.find(y=>y.id===a.academic_year_id)?.year_be??0)),[enrollments,studentId,years]);
  const existing=selectedHistory.find(e=>e.academic_year_id===yearId);
- const currentStatus=existing?(status==='active'?existing.status:status):'active';
+ const currentStatus=status;
+ useEffect(()=>{setStatus(existing?.status??'active');},[existing?.id,existing?.status]);
  const availableRooms=rooms.filter(r=>r.academic_year_id===yearId);
  const chosenRoom=roomId||existing?.classroom_id||availableRooms[0]?.id||'';
  const roomName=(id:string|null)=>{const r=rooms.find(x=>x.id===id);return r?`${r.level_code}/${r.room_code}`:'—';};
