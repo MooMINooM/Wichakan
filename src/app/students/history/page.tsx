@@ -71,6 +71,7 @@ export default function StudentHistoryPage(){
 
  const selectedHistory=useMemo(()=>enrollments.filter(e=>e.student_id===studentId).sort((a,b)=>(years.find(y=>y.id===b.academic_year_id)?.year_be??0)-(years.find(y=>y.id===a.academic_year_id)?.year_be??0)),[enrollments,studentId,years]);
  const existing=selectedHistory.find(e=>e.academic_year_id===yearId);
+ const currentStatus=existing?(status==='active'?existing.status:status):'active';
  const availableRooms=rooms.filter(r=>r.academic_year_id===yearId);
  const chosenRoom=roomId||existing?.classroom_id||availableRooms[0]?.id||'';
  const roomName=(id:string|null)=>{const r=rooms.find(x=>x.id===id);return r?`${r.level_code}/${r.room_code}`:'—';};
@@ -81,7 +82,7 @@ export default function StudentHistoryPage(){
   let problem=null;
   if(existing){
    if(!reason.trim()||reason.trim().length<3){setError('กรุณาระบุเหตุผลอย่างน้อย 3 ตัวอักษร');setBusy(false);return;}
-   const {error:e}=await db.rpc('change_student_enrollment',{p_enrollment_id:existing.id,p_classroom_id:chosenRoom,p_status:status,p_reason:reason.trim()});
+   const {error:e}=await db.rpc('change_student_enrollment',{p_enrollment_id:existing.id,p_classroom_id:chosenRoom,p_status:currentStatus,p_reason:reason.trim()});
    problem=e;
   }else{
    const {error:e}=await db.from('enrollments').insert({school_id:schoolId,student_id:studentId,academic_year_id:yearId,classroom_id:chosenRoom,status:'active'});
@@ -117,7 +118,7 @@ export default function StudentHistoryPage(){
     <form onSubmit={save} className="mt-5 space-y-4">
      <label className="block text-sm font-medium">ปีการศึกษา<select required value={yearId} onChange={e=>{setYearId(e.target.value);setRoomId('');setStatus('active');}} className="mt-2 w-full rounded-xl border p-3">{years.map(y=><option key={y.id} value={y.id}>{y.year_be}</option>)}</select></label>
      <label className="block text-sm font-medium">ห้องเรียน<select required value={chosenRoom} onChange={e=>setRoomId(e.target.value)} className="mt-2 w-full rounded-xl border p-3">{availableRooms.map(r=><option key={r.id} value={r.id}>{r.level_code}/{r.room_code}</option>)}</select></label>
-     {existing&&<><label className="block text-sm font-medium">สถานภาพ<select value={status==='active'&&existing.status!=='active'?existing.status:status} onChange={e=>setStatus(e.target.value)} className="mt-2 w-full rounded-xl border p-3">{statuses.map(s=><option key={s.id} value={s.id}>{s.label}</option>)}</select></label>
+     {existing&&<><label className="block text-sm font-medium">สถานภาพ<select value={currentStatus} onChange={e=>setStatus(e.target.value)} className="mt-2 w-full rounded-xl border p-3">{statuses.map(s=><option key={s.id} value={s.id}>{s.label}</option>)}</select></label>
       <label className="block text-sm font-medium">เหตุผลการแก้ไข<textarea required minLength={3} value={reason} onChange={e=>setReason(e.target.value)} className="mt-2 w-full rounded-xl border p-3" rows={3}/></label></>}
      <button disabled={!writable||busy||!studentId||!chosenRoom} className="w-full rounded-xl bg-blue-800 p-3 font-semibold text-white disabled:opacity-40">{busy?'กำลังบันทึก...':existing?'บันทึกการเปลี่ยนแปลง':'ลงทะเบียนปีการศึกษา'}</button>
      {!writable&&<p className="text-xs text-slate-500">เฉพาะฝ่ายทะเบียนและผู้ดูแลระบบเท่านั้นที่แก้ไขได้</p>}
