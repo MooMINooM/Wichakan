@@ -87,7 +87,7 @@ export default function StudentsPage() {
   async function logout(){const db=getSupabaseBrowserClient();await db?.auth.signOut();router.replace('/login');}
   return <main className="mx-auto max-w-6xl px-5 py-8">
     <header className="mb-8 flex flex-wrap items-center justify-between gap-4">
-      <div><a href="/" className="text-sm text-blue-700">← Wichakan</a><h1 className="mt-2 text-3xl font-bold">ทะเบียนนักเรียน</h1><p className="mt-1 text-sm text-slate-500">Student Registry · v0.2</p></div>
+      <div><a href="/" className="text-sm text-blue-700">← Wichakan</a><h1 className="mt-2 text-3xl font-bold">ทะเบียนนักเรียน</h1><p className="mt-1 text-sm text-slate-500">Student Registry · v0.3</p><a href="/students/history" className="mt-3 inline-block rounded-xl border border-blue-200 bg-white px-4 py-2 text-sm text-blue-700">ประวัติการศึกษาและเลื่อนชั้น →</a></div>
       <button onClick={logout} className="rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm">ออกจากระบบ</button>
     </header>
     {loading ? <p>กำลังตรวจสอบสิทธิ์...</p> : <>
