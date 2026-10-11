@@ -1,3 +1,7 @@
 @import 'tailwindcss';
 :root { color-scheme: light; }
 body { margin: 0; font-family: Arial, 'Noto Sans Thai', sans-serif; background: #f5f7fb; color: #142238; }
+
+:focus-visible{outline:3px solid #2563eb;outline-offset:3px}
+button,a,select,input{touch-action:manipulation}
+html{scroll-behavior:smooth}
