@@ -90,18 +90,18 @@ export default function TeachersPage(){
       {teachers.length===0&&<p className="mt-4 text-sm text-amber-700">ยังไม่มีบัญชีที่ได้รับบทบาท teacher ในโรงเรียนนี้</p>}
      </section>
      <section className="rounded-2xl border bg-white p-6 shadow-sm">
-      <h2 className="text-xl font-bold">ครูผู้สอนรายวิชา</h2><p className="mt-2 text-sm text-slate-500">สร้างรายการวิชาที่เปิดสอนในห้องและภาคเรียนนี้ก่อน</p>
+      <h2 className="text-xl font-bold">ครูผู้สอนรายวิชา</h2><p className="mt-2 text-sm text-slate-500">ขั้นที่ 1 เปิดสอนรายวิชา → ขั้นที่ 2 กดมอบหมายให้ครูในรายการวิชาด้านล่าง (การเปิดสอนไม่ได้มอบหมายครูอัตโนมัติ)</p>
       <div className="mt-4 flex gap-2">
        <select aria-label="รายวิชา" className="min-w-0 flex-1 rounded-xl border p-3" value={subjectId} onChange={e=>setSubjectId(e.target.value)}>
         <option value="">เลือกรายวิชา</option>{subjects.map(s=><option key={s.id} value={s.id}>{s.subject_code} {s.name_th}</option>)}</select>
-       <button disabled={!canWrite||busy||!subjectId||!validRoom||!validTerm} onClick={()=>act(()=>db!.from('course_offerings').insert({school_id:schoolId,term_id:validTerm,classroom_id:validRoom,subject_id:subjectId}),'เปิดสอนรายวิชาแล้ว')} className="rounded-xl bg-blue-800 px-4 text-white disabled:opacity-40">เปิดสอน</button>
+       <button disabled={!canWrite||busy||!subjectId||!validRoom||!validTerm} onClick={()=>act(()=>db!.from('course_offerings').insert({school_id:schoolId,term_id:validTerm,classroom_id:validRoom,subject_id:subjectId}),'เปิดสอนรายวิชาแล้ว')} className="rounded-xl bg-blue-800 px-4 text-white disabled:opacity-40">1. เปิดสอน</button>
       </div>
       <div className="mt-5 space-y-3">{currentOfferings.map(o=><div key={o.id} className="rounded-xl border p-3">
-       <p className="font-medium">{subjects.find(s=>s.id===o.subject_id)?.subject_code} {subjects.find(s=>s.id===o.subject_id)?.name_th}</p>
+       <p className="font-medium">{subjects.find(s=>s.id===o.subject_id)?.subject_code} {subjects.find(s=>s.id===o.subject_id)?.name_th}</p><p className="mt-1 text-xs text-amber-700">{assignments.some(a=>a.course_offering_id===o.id)?"มอบหมายครูแล้ว":"ยังไม่ได้มอบหมายครูผู้สอน"}</p>
        {assignments.filter(a=>a.course_offering_id===o.id).map(a=><div key={a.id} className="mt-2 flex justify-between text-sm"><span>{name(a.teacher_user_id)}</span><button disabled={!canWrite||busy} className="text-red-700 disabled:opacity-40" onClick={()=>act(()=>db!.from('teaching_assignments').delete().eq('id',a.id).eq('school_id',schoolId),'ยกเลิกครูผู้สอนแล้ว')}>ยกเลิก</button></div>)}
-       <button disabled={!canWrite||busy||!validTeacher} onClick={()=>act(()=>db!.from('teaching_assignments').insert({school_id:schoolId,course_offering_id:o.id,teacher_user_id:validTeacher}),'มอบหมายครูผู้สอนสำเร็จ')} className="mt-3 rounded-lg border px-3 py-2 text-xs text-blue-800 disabled:opacity-40">เพิ่มครู: {name(validTeacher)}</button>
+       <button disabled={!canWrite||busy||!validTeacher} onClick={()=>act(()=>db!.from('teaching_assignments').insert({school_id:schoolId,course_offering_id:o.id,teacher_user_id:validTeacher}),'มอบหมายครูผู้สอนสำเร็จ')} className="mt-3 rounded-lg border px-3 py-2 text-xs text-blue-800 disabled:opacity-40">2. มอบหมายให้ครู: {name(validTeacher)}</button>
       </div>)}</div>
-      {subjects.length===0&&<Link href="/curriculum" className="mt-4 inline-block text-sm text-blue-700">ยังไม่มีรายวิชา ไปตั้งค่าหลักสูตร →</Link>}
+      {currentOfferings.length===0&&<p className="mt-4 text-sm text-slate-500">ยังไม่มีวิชาเปิดสอนสำหรับห้องและภาคเรียนที่เลือก</p>}{subjects.length===0&&<Link href="/curriculum" className="mt-4 inline-block text-sm text-blue-700">ยังไม่มีรายวิชา ไปตั้งค่าหลักสูตร →</Link>}
      </section>
     </div>
   </div>}
