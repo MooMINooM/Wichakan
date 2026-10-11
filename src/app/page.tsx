@@ -15,6 +15,7 @@ export default function Home() {
       <p className="mt-3 max-w-2xl text-blue-100">ระบบบริหารงานวิชาการสถานศึกษา — โครงสร้างเริ่มต้นสำหรับการพัฒนา ยังไม่เปิดใช้กับข้อมูลจริง</p>
     </header>
     <div className="mb-6 flex flex-wrap gap-3"><Link href="/login" className="rounded-xl bg-blue-800 px-5 py-3 text-sm font-medium text-white">เข้าสู่ระบบ</Link><Link href="/students" className="rounded-xl border border-blue-200 bg-white px-5 py-3 text-sm font-medium text-blue-800">ทะเบียนนักเรียน</Link></div>
+    <div className="mb-6"><Link href="/academic" className="inline-flex rounded-xl border border-blue-200 bg-white px-5 py-3 text-sm font-medium text-blue-800">ตั้งค่าปีการศึกษาและห้องเรียน →</Link></div>
     <section aria-label="Modules" className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
       {modules.map((mod) => <article key={mod.en} className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
         <div className="mb-4 h-1 w-12 rounded-full bg-blue-500"/>
