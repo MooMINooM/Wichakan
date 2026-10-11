@@ -20,7 +20,7 @@ export default function LoginPage() {
     const { error: authError } = await supabase.auth.signInWithPassword({ email, password });
     setBusy(false);
     if (authError) { setError('ไม่สามารถเข้าสู่ระบบได้ กรุณาตรวจสอบข้อมูลบัญชี'); return; }
-    router.push('/students');
+    router.push('/workspace');
   }
   return <main className="mx-auto max-w-md px-5 py-20">
     <div className="rounded-3xl border border-slate-200 bg-white p-8 shadow-sm">
