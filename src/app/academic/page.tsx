@@ -129,7 +129,7 @@ export default function AcademicSetupPage() {
           <input value={room} onChange={e=>setRoom(e.target.value)} maxLength={12} aria-label="หมายเลขห้อง" className="w-28 rounded-xl border p-3" placeholder="ห้อง"/>
           <button disabled={!canManage||busy||!selectedYear||!room.trim()} onClick={()=>execute(()=>db!.from('classrooms').insert({school_id:schoolId,academic_year_id:selectedYear,level_code:level,room_code:room.trim()}),'เพิ่มห้องเรียนเรียบร้อย')} className="rounded-xl bg-blue-800 px-5 text-white disabled:opacity-40">เพิ่มห้อง</button>
         </div>
-        <div className="mt-5 flex flex-wrap gap-2">{yearRooms.map(r=><span key={r.id} className="rounded-xl border bg-slate-50 px-4 py-2 text-sm">{r.level_code}/{r.room_code}</span>)}{yearRooms.length===0&&<p className="text-sm text-slate-500">ยังไม่มีห้องเรียน</p>}</div>
+        <div className="mt-5 flex flex-wrap gap-2">{yearRooms.map(r=><span key={r.id} className="rounded-xl border bg-slate-50 px-4 py-2 text-sm">{r.room_code.startsWith(r.level_code+"/")?r.room_code:`${r.level_code}/${r.room_code}`}</span>)}{yearRooms.length===0&&<p className="text-sm text-slate-500">ยังไม่มีห้องเรียน</p>}</div>
         <Link href="/students/history" className="mt-6 inline-block text-sm font-medium text-blue-700">ไปจัดนักเรียนเข้าห้องเรียน →</Link>
       </section>
       {!canManage&&<p className="text-sm text-slate-500">บัญชีนี้อ่านข้อมูลได้ แต่ไม่มีสิทธิ์จัดการปีการศึกษาและห้องเรียน</p>}
