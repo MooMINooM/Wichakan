@@ -75,23 +75,23 @@ export default function TeacherPage(){
  })();return()=>{active=false;};},[db,ready,selectedCourse,revision,offerings,assignments]);
   const mine=offerings.filter(o=>assignments.some(a=>a.course_offering_id===o.id));
  const hiddenAssignments=assignments.length-mine.length;
- return <main className="mx-auto max-w-5xl px-5 py-10">
+ return <main className="mx-auto max-w-7xl px-4 py-7 sm:px-6 sm:py-9">
   <Link href="/workspace" className="text-sm text-blue-700">← เปลี่ยนพื้นที่ทำงาน</Link>
-  <header className="mt-4 rounded-2xl bg-[#116b78] p-7 text-white"><h1 className="text-3xl font-bold">Teacher Dashboard</h1><p className="mt-2 text-sm text-teal-100">ห้องเรียนและรายวิชาที่ได้รับมอบหมาย</p></header>
+  <header className="mt-4 rounded-3xl bg-[#116b78] p-6 text-white shadow-sm sm:p-8"><p className="text-xs font-semibold tracking-widest text-teal-100">TEACHER WORKSPACE</p><h1 className="mt-3 text-3xl font-bold">งานสอนของฉัน</h1><p className="mt-2 text-sm text-teal-100">เข้าถึงรายวิชา ห้องเรียน และรายชื่อนักเรียนได้จากหน้าเดียว</p><div className="mt-6 flex flex-wrap gap-3"><div className="rounded-xl bg-white/15 px-5 py-3"><span className="block text-2xl font-bold">{mine.length}</span><span className="text-xs">รายวิชาที่สอน</span></div><div className="rounded-xl bg-white/15 px-5 py-3"><span className="block text-2xl font-bold">{homerooms.length}</span><span className="text-xs">ห้องประจำชั้น</span></div></div></header>
   <div className="mt-5 flex justify-end"><button onClick={()=>{setReady(false);setError('');setRevision(x=>x+1);}} className="rounded-xl border border-teal-300 bg-white px-4 py-2 text-sm font-medium text-teal-800">รีเฟรชงานสอน ↻</button></div>
   {error&&<p role="alert" className="mt-5 rounded-xl bg-red-50 p-4 text-red-700">{error}</p>}
-  {ready&&<div className="mt-6 grid gap-5 md:grid-cols-2">
+  {ready&&<div className="mt-6 grid gap-5 lg:grid-cols-[300px_1fr]">
    <section className="rounded-2xl border bg-white p-6"><h2 className="text-xl font-bold">ห้องประจำชั้นของฉัน</h2>
     <div className="mt-4 space-y-3">{homerooms.map((h,i)=>{const room=rooms.find(r=>r.id===h.classroom_id);return <div key={i} className="rounded-xl bg-slate-50 p-3">{room?label(room):'ห้องเรียน'}</div>;})}</div>
     {!homerooms.length&&<p className="mt-4 text-sm text-slate-500">ยังไม่ได้รับมอบหมายเป็นครูประจำชั้น</p>}
    </section>
-   <section className="rounded-2xl border bg-white p-6"><h2 className="text-xl font-bold">รายวิชาที่ฉันสอน</h2>
-    <div className="mt-4 space-y-3">{mine.map(o=>{const room=rooms.find(r=>r.id===o.classroom_id);const sub=subjects.find(s=>s.id===o.subject_id);return <div key={o.id} className="rounded-xl bg-slate-50 p-3"><p className="font-medium">{sub?.subject_code} {sub?.name_th}</p><p className="mt-1 text-sm text-slate-500">{room?label(room):'ห้องเรียน'} · ปี {years.find(y=>y.id===room?.academic_year_id)?.year_be??'—'} · ภาคเรียน {terms.find(t=>t.id===o.term_id)?.term_no??'—'}</p><button onClick={()=>{setSelectedCourse(o.id);setRoster([]);}} className="mt-2 rounded-lg border border-teal-300 bg-white px-3 py-2 text-sm text-teal-800">ดูรายชื่อในห้อง →</button></div>;})}</div>
+   <section className="rounded-2xl border bg-white p-6"><div className="flex flex-wrap items-center justify-between gap-2"><h2 className="text-xl font-bold">รายวิชาที่ฉันสอน</h2><span className="rounded-full bg-teal-50 px-3 py-1 text-xs font-semibold text-teal-800">{mine.length} รายวิชา</span></div>
+    <div className="mt-4 space-y-3">{mine.map(o=>{const room=rooms.find(r=>r.id===o.classroom_id);const sub=subjects.find(s=>s.id===o.subject_id);return <div key={o.id} className="rounded-xl border border-slate-100 bg-slate-50 p-4 transition hover:border-teal-200"><p className="font-semibold text-slate-900">{sub?.subject_code} {sub?.name_th}</p><p className="mt-1 text-sm text-slate-500">{room?label(room):'ห้องเรียน'} · ปี {years.find(y=>y.id===room?.academic_year_id)?.year_be??'—'} · ภาคเรียน {terms.find(t=>t.id===o.term_id)?.term_no??'—'}</p><button onClick={()=>{setSelectedCourse(o.id);setRoster([]);}} className="mt-3 inline-flex min-h-11 items-center rounded-xl bg-teal-700 px-4 py-2 text-sm font-semibold text-white hover:bg-teal-800">ดูรายชื่อในห้อง →</button></div>;})}</div>
     {hiddenAssignments>0&&<p role="alert" className="mt-4 rounded-lg bg-amber-50 p-3 text-sm text-amber-800">พบการมอบหมาย {hiddenAssignments} รายการ แต่ไม่สามารถอ่านรายละเอียดรายวิชาได้ กรุณาแจ้งผู้ดูแลตรวจสอบสิทธิ์การอ่านข้อมูล</p>}
     {!mine.length&&assignments.length===0&&<p className="mt-4 text-sm text-slate-500">ยังไม่ได้รับมอบหมายวิชาสอน</p>}
    </section>
   </div>}
-  {ready&&selectedCourse&&mine.some(o=>o.id===selectedCourse)&&<section className="mt-5 rounded-2xl border bg-white p-6">
+  {ready&&selectedCourse&&mine.some(o=>o.id===selectedCourse)&&<section className="mt-5 scroll-mt-36 rounded-2xl border bg-white p-6">
    <div className="flex items-center justify-between"><h2 className="text-xl font-bold">รายชื่อนักเรียนในวิชาที่เลือก</h2><button className="text-sm text-teal-800" onClick={()=>setSelectedCourse('')}>ปิด</button></div>
    {rosterLoading&&<p className="mt-3 text-sm text-slate-500">กำลังโหลดรายชื่อ...</p>}
    {rosterError&&<p role="alert" className="mt-3 text-sm text-red-700">{rosterError}</p>}
