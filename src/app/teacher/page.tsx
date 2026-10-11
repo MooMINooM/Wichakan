@@ -10,9 +10,11 @@ type Assignment={course_offering_id:string};
 type Subject={id:string;subject_code:string;name_th:string};
 type Term={id:string;academic_year_id:string;term_no:number};
 type Year={id:string;year_be:number};
+type Student={id:string;student_no:string;first_name_th:string;last_name_th:string};
 const label=(r:Room)=>r.room_code.startsWith(r.level_code+'/')?r.room_code:r.level_code+'/'+r.room_code;
 export default function TeacherPage(){
  const db=getSupabaseBrowserClient(),router=useRouter();
+ const [selectedCourse,setSelectedCourse]=useState(''),[roster,setRoster]=useState<Student[]>([]),[rosterLoading,setRosterLoading]=useState(false),[rosterError,setRosterError]=useState('');
  const [revision,setRevision]=useState(0),[terms,setTerms]=useState<Term[]>([]),[years,setYears]=useState<Year[]>([]);
  const [ready,setReady]=useState(false),[error,setError]=useState(''),[rooms,setRooms]=useState<Room[]>([]),[homerooms,setHomerooms]=useState<Homeroom[]>([]),[offerings,setOfferings]=useState<Offering[]>([]),[assignments,setAssignments]=useState<Assignment[]>([]),[subjects,setSubjects]=useState<Subject[]>([]);
  useEffect(()=>{let live=true;(async()=>{
@@ -54,7 +56,24 @@ export default function TeacherPage(){
   if(y.error){setError(y.error.message);return;}
   setRooms(r.data??[]);setHomerooms(h.data??[]);setAssignments(a.data??[]);setOfferings(o.data??[]);setSubjects(s.data??[]);setTerms(t.data??[]);setYears(y.data??[]);setReady(true);
  })();return()=>{live=false;};},[db,router,revision]);
- const mine=offerings.filter(o=>assignments.some(a=>a.course_offering_id===o.id));
+ useEffect(()=>{let active=true;(async()=>{
+   if(!db||!ready||!selectedCourse){setRoster([]);setRosterError('');return;}
+   const offering=offerings.find(o=>o.id===selectedCourse);
+   if(!offering||!assignments.some(a=>a.course_offering_id===selectedCourse)){setRoster([]);return;}
+   setRosterLoading(true);setRosterError('');
+   const {data:enrollments,error:enrollmentError}=await db.from('enrollments')
+    .select('student_id').eq('classroom_id',offering.classroom_id).in('status',['active','completed']);
+   if(!active)return;
+   if(enrollmentError){setRosterError(enrollmentError.message);setRosterLoading(false);return;}
+   const ids=(enrollments??[]).map(e=>e.student_id);
+   if(!ids.length){setRoster([]);setRosterLoading(false);return;}
+   const {data:students,error:studentError}=await db.from('students')
+    .select('id,student_no,first_name_th,last_name_th').in('id',ids).order('student_no');
+   if(!active)return;
+   if(studentError)setRosterError(studentError.message);else setRoster(students??[]);
+   setRosterLoading(false);
+ })();return()=>{active=false;};},[db,ready,selectedCourse,revision,offerings,assignments]);
+  const mine=offerings.filter(o=>assignments.some(a=>a.course_offering_id===o.id));
  const hiddenAssignments=assignments.length-mine.length;
  return <main className="mx-auto max-w-5xl px-5 py-10">
   <Link href="/workspace" className="text-sm text-blue-700">← เปลี่ยนพื้นที่ทำงาน</Link>
@@ -67,11 +86,17 @@ export default function TeacherPage(){
     {!homerooms.length&&<p className="mt-4 text-sm text-slate-500">ยังไม่ได้รับมอบหมายเป็นครูประจำชั้น</p>}
    </section>
    <section className="rounded-2xl border bg-white p-6"><h2 className="text-xl font-bold">รายวิชาที่ฉันสอน</h2>
-    <div className="mt-4 space-y-3">{mine.map(o=>{const room=rooms.find(r=>r.id===o.classroom_id);const sub=subjects.find(s=>s.id===o.subject_id);return <div key={o.id} className="rounded-xl bg-slate-50 p-3"><p className="font-medium">{sub?.subject_code} {sub?.name_th}</p><p className="mt-1 text-sm text-slate-500">{room?label(room):'ห้องเรียน'} · ปี {years.find(y=>y.id===room?.academic_year_id)?.year_be??'—'} · ภาคเรียน {terms.find(t=>t.id===o.term_id)?.term_no??'—'}</p></div>;})}</div>
+    <div className="mt-4 space-y-3">{mine.map(o=>{const room=rooms.find(r=>r.id===o.classroom_id);const sub=subjects.find(s=>s.id===o.subject_id);return <div key={o.id} className="rounded-xl bg-slate-50 p-3"><p className="font-medium">{sub?.subject_code} {sub?.name_th}</p><p className="mt-1 text-sm text-slate-500">{room?label(room):'ห้องเรียน'} · ปี {years.find(y=>y.id===room?.academic_year_id)?.year_be??'—'} · ภาคเรียน {terms.find(t=>t.id===o.term_id)?.term_no??'—'}</p><button onClick={()=>{setSelectedCourse(o.id);setRoster([]);}} className="mt-2 rounded-lg border border-teal-300 bg-white px-3 py-2 text-sm text-teal-800">ดูรายชื่อในห้อง →</button></div>;})}</div>
     {hiddenAssignments>0&&<p role="alert" className="mt-4 rounded-lg bg-amber-50 p-3 text-sm text-amber-800">พบการมอบหมาย {hiddenAssignments} รายการ แต่ไม่สามารถอ่านรายละเอียดรายวิชาได้ กรุณาแจ้งผู้ดูแลตรวจสอบสิทธิ์การอ่านข้อมูล</p>}
     {!mine.length&&assignments.length===0&&<p className="mt-4 text-sm text-slate-500">ยังไม่ได้รับมอบหมายวิชาสอน</p>}
    </section>
   </div>}
+  {ready&&selectedCourse&&mine.some(o=>o.id===selectedCourse)&&<section className="mt-5 rounded-2xl border bg-white p-6">
+   <div className="flex items-center justify-between"><h2 className="text-xl font-bold">รายชื่อนักเรียนในวิชาที่เลือก</h2><button className="text-sm text-teal-800" onClick={()=>setSelectedCourse('')}>ปิด</button></div>
+   {rosterLoading&&<p className="mt-3 text-sm text-slate-500">กำลังโหลดรายชื่อ...</p>}
+   {rosterError&&<p role="alert" className="mt-3 text-sm text-red-700">{rosterError}</p>}
+   {!rosterLoading&&!rosterError&&<div className="mt-4 divide-y">{roster.map(s=><div key={s.id} className="py-3 text-sm">{s.student_no} — {s.first_name_th} {s.last_name_th}</div>)}{roster.length===0&&<p className="py-4 text-sm text-slate-500">ไม่มีนักเรียนที่ลงทะเบียนในห้องนี้</p>}</div>}
+  </section>}
   <p className="mt-6 text-sm text-slate-500">ระบบ ปพ.5 และบันทึกคะแนนจะเปิดใช้หลังทดสอบการจำกัดสิทธิ์รายวิชา ยังไม่มีฟังก์ชันแก้คะแนนในหน้านี้</p>
  </main>;
 }
