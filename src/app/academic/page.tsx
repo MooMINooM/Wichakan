@@ -87,7 +87,7 @@ export default function AcademicSetupPage() {
   const yearRooms=rooms.filter(r=>r.academic_year_id===selectedYear);
   return <main className="mx-auto max-w-6xl px-5 py-8">
     <Link href="/" className="text-sm text-blue-700">← Wichakan</Link>
-    <div className="mb-7 mt-3"><h1 className="text-3xl font-bold">ตั้งค่างานวิชาการ</h1><p className="mt-2 text-sm text-slate-500">Academic Setup · ปีการศึกษา ภาคเรียน และห้องเรียน</p></div>
+    <div className="mb-7 mt-3"><h1 className="text-3xl font-bold">ตั้งค่างานวิชาการ</h1><Link href="/academic/templates" className="mt-3 inline-block rounded-xl border border-blue-200 bg-white px-4 py-2 text-sm text-blue-800">แม่แบบห้องเรียน · เตรียมปีใหม่ →</Link><p className="mt-2 text-sm text-slate-500">Academic Setup · ปีการศึกษา ภาคเรียน และห้องเรียน</p></div>
     {loading&&<p>กำลังโหลด...</p>}
     {!loading&&schools.length===0&&<p className="rounded-xl bg-amber-50 p-4">บัญชีนี้ยังไม่ได้รับสิทธิ์ในโรงเรียน</p>}
     {schools.length>1&&<label className="mb-6 block text-sm">โรงเรียน <select value={schoolId} onChange={e=>setSchoolId(e.target.value)} className="ml-2 rounded-xl border p-2">{schools.map(s=><option key={s.id} value={s.id}>{s.name_th}</option>)}</select></label>}
