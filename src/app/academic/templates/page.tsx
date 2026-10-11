@@ -80,7 +80,7 @@ export default function ClassroomTemplatesPage(){
           {['อ.1','อ.2','อ.3','ป.1','ป.2','ป.3','ป.4','ป.5','ป.6','ม.1','ม.2','ม.3'].map(x=><option key={x}>{x}</option>)}
         </select>
         <input aria-label="เลขห้องแม่แบบ" className="w-24 rounded-xl border p-3" maxLength={12} value={room} onChange={e=>setRoom(e.target.value)} />
-        <button disabled={!canManage||busy||!room.trim()} className="rounded-xl bg-blue-800 px-4 text-white disabled:opacity-40" onClick={()=>run(()=>db!.from('classroom_templates').insert({school_id:schoolId,level_code:level,room_code:room.trim()}),'เพิ่มแม่แบบสำเร็จ')}>เพิ่ม</button>
+        <button disabled={!canManage||busy||!room.trim()} className="rounded-xl bg-blue-800 px-4 text-white disabled:opacity-40" onClick={()=>run(()=>db!.from('classroom_templates').insert({school_id:schoolId,level_code:level,room_code:room.trim()}),()=> 'เพิ่มแม่แบบสำเร็จ')}>เพิ่ม</button>
       </div>
       <div className="mt-6 flex gap-2">
         <select aria-label="ปีต้นทาง" className="min-w-0 flex-1 rounded-xl border p-3" value={sourceYear} onChange={e=>setSourceYear(e.target.value)}>
