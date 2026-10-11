@@ -71,7 +71,7 @@ export default function AcademicSetupPage() {
 
   useEffect(()=>{if(schoolId){setError('');setSelectedYear('');void load(schoolId);}},[schoolId,load]);
 
-  async function execute(action:()=>Promise<{error?:{message:string}|null}>,success:string){
+  async function execute(action:()=>PromiseLike<{error:{message:string}|null}>,success:string){
     if(!schoolId||busy||!canManage)return;
     setBusy(true);setError('');setMessage('');
     try{
