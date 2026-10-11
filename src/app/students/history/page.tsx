@@ -77,7 +77,7 @@ export default function StudentHistoryPage(){
  useEffect(()=>{setStatus(existing?.status??'active');},[existing?.id,existing?.status]);
  const availableRooms=rooms.filter(r=>r.academic_year_id===yearId);
  const chosenRoom=roomId||existing?.classroom_id||availableRooms[0]?.id||'';
- const roomName=(id:string|null)=>{const r=rooms.find(x=>x.id===id);return r?`${r.level_code}/${r.room_code}`:'—';};
+ const roomName=(id:string|null)=>{const r=rooms.find(x=>x.id===id);return r?(r.room_code.startsWith(r.level_code+'/')?r.room_code:`${r.level_code}/${r.room_code}`):'—';};
 
  async function save(e:React.FormEvent){e.preventDefault();if(!writable||!studentId||!yearId||!chosenRoom)return;
   setBusy(true);setError('');setNotice('');
@@ -100,7 +100,7 @@ export default function StudentHistoryPage(){
  }
  return <main className="mx-auto max-w-6xl px-5 py-8">
   <Link href="/students" className="text-sm text-blue-700">← ทะเบียนนักเรียน</Link>
-  <h1 className="mt-3 text-3xl font-bold">ประวัติการศึกษา</h1>
+  <h1 className="mt-3 text-3xl font-bold">ประวัติการศึกษา</h1><Link href="/students/promote" className="mt-3 inline-block rounded-xl border border-blue-200 bg-white px-4 py-2 text-sm text-blue-800">เลื่อนชั้นแบบกลุ่ม →</Link>
   <p className="mt-2 text-sm text-slate-500">การลงทะเบียนรายปี · ห้องเรียน · การเปลี่ยนสถานภาพ</p>
   {ready&&schools.length===0&&<p className="mt-6 rounded-xl bg-amber-50 p-4">ยังไม่มีสิทธิ์เข้าถึงโรงเรียน</p>}
   {schools.length>1&&<select aria-label="โรงเรียน" value={schoolId} onChange={e=>setSchoolId(e.target.value)} className="mt-5 rounded-xl border p-3">{schools.map(s=><option key={s.id} value={s.id}>{s.name_th}</option>)}</select>}
