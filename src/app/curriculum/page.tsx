@@ -17,6 +17,8 @@ export default function CurriculumPage(){
  const [gradeLevel,setGradeLevel]=useState('ป.1'),[filterGrade,setFilterGrade]=useState('ป.1');
  const gradeLevels=['ป.1','ป.2','ป.3','ป.4','ป.5','ป.6','ม.1','ม.2','ม.3','ม.4','ม.5','ม.6'];
  const [subjectCode,setSubjectCode]=useState(''),[subjectName,setSubjectName]=useState(''),[hours,setHours]=useState('40'),[category,setCategory]=useState('basic');
+ const [editing,setEditing]=useState<Subject|null>(null),[usedSubjectIds,setUsedSubjectIds]=useState<string[]>([]);
+ const [editCode,setEditCode]=useState(''),[editName,setEditName]=useState(''),[editGrade,setEditGrade]=useState('ป.1'),[editHours,setEditHours]=useState('40'),[editCategory,setEditCategory]=useState('basic');
  const [error,setError]=useState(''),[notice,setNotice]=useState(''),[busy,setBusy]=useState(false);
  useEffect(()=>{let mounted=true;(async()=>{
   if(!db){setError('ยังไม่ได้เชื่อมต่อ Supabase');setLoading(false);return;}
@@ -31,21 +33,38 @@ export default function CurriculumPage(){
  useEffect(()=>{let mounted=true;(async()=>{
   if(!db||!schoolId)return;
   const {data:{user}}=await db.auth.getUser();if(!user)return;
-  const [c,v,s,m]=await Promise.all([
+  const [c,v,s,m,o]=await Promise.all([
    db.from('curricula').select('id,name_th').eq('school_id',schoolId).order('name_th'),
    db.from('curriculum_versions').select('id,curriculum_id,version_label,effective_year_be').eq('school_id',schoolId),
    db.from('subjects').select('id,curriculum_version_id,subject_code,name_th,learning_hours,category,grade_level').eq('school_id',schoolId),
-   db.from('school_memberships').select('role').eq('school_id',schoolId).eq('user_id',user.id).eq('active',true)
+   db.from('school_memberships').select('role').eq('school_id',schoolId).eq('user_id',user.id).eq('active',true),
+   db.from('course_offerings').select('subject_id').eq('school_id',schoolId)
   ]);
-  if(!mounted)return;const e=[c.error,v.error,s.error,m.error].find(Boolean);
+  if(!mounted)return;const e=[c.error,v.error,s.error,m.error,o.error].find(Boolean);
   if(e){setError(e.message);return;}
-  setCurricula(c.data??[]);setVersions(v.data??[]);setSubjects(s.data??[]);
+  setCurricula(c.data??[]);setVersions(v.data??[]);setSubjects(s.data??[]);setUsedSubjectIds([...(new Set((o.data??[]).map(x=>x.subject_id)))]);
   setCanEdit((m.data??[]).some(x=>['school_admin','academic'].includes(x.role)));
   setCurriculumId(old=>(c.data??[]).some(x=>x.id===old)?old:c.data?.[0]?.id??'');
  })();return()=>{mounted=false;};},[db,schoolId,notice]);
  const filteredVersions=versions.filter(v=>v.curriculum_id===curriculumId);
  const selectedVersion=filteredVersions.some(v=>v.id===versionId)?versionId:filteredVersions[0]?.id??'';
  const selectedSubjects=subjects.filter(s=>s.curriculum_version_id===selectedVersion&&s.grade_level===filterGrade);
+ function beginEdit(s:Subject){
+  setEditing(s);setEditCode(s.subject_code);setEditName(s.name_th);setEditGrade(s.grade_level??'ป.1');
+  setEditCategory(s.category);setEditHours(String(s.learning_hours));setError('');setNotice('');
+ }
+ async function saveEdit(){
+  if(!db||!editing||!canEdit||busy)return;
+  if(!editCode.trim()||!editName.trim()||!Number.isInteger(Number(editHours))||Number(editHours)<0||Number(editHours)>2000){
+   setError('กรุณากรอกข้อมูลรายวิชาให้ครบและชั่วโมงเรียนให้ถูกต้อง');return;
+  }
+  setBusy(true);setError('');setNotice('');
+  try{
+   const {error:e}=await db.rpc('edit_curriculum_subject',{p_subject_id:editing.id,p_subject_code:editCode.trim(),p_name_th:editName.trim(),p_grade_level:editGrade,p_category:editCategory,p_learning_hours:Number(editHours)});
+   if(e)setError(e.message);else{setEditing(null);setNotice('แก้ไขรายวิชาเรียบร้อยแล้ว');setFilterGrade(editGrade);}
+  }catch(e){setError(e instanceof Error?e.message:'แก้ไขรายวิชาไม่สำเร็จ');}
+  finally{setBusy(false);}
+ }
  async function save(task:()=>PromiseLike<{error:{message:string}|null}>,message:string){
   if(!canEdit||busy)return;setBusy(true);setError('');setNotice('');
   try{const result=await task();if(result.error)setError(result.error.message);else setNotice(message);}
@@ -82,7 +101,20 @@ export default function CurriculumPage(){
    </div>
    <button disabled={!canEdit||busy||!selectedVersion||!subjectCode.trim()||!subjectName.trim()||Number(hours)<0||Number(hours)>2000} className="mt-4 rounded-xl bg-blue-800 px-5 py-3 text-sm text-white disabled:opacity-40" onClick={()=>save(()=>db!.from('subjects').insert({school_id:schoolId,curriculum_version_id:selectedVersion,subject_code:subjectCode.trim(),name_th:subjectName.trim(),learning_hours:Number(hours),category,grade_level:gradeLevel}),'เพิ่มรายวิชาแล้ว')}>เพิ่มรายวิชา</button>
    <label className="mt-6 block text-sm font-medium">แสดงรายวิชาของระดับชั้น<select value={filterGrade} onChange={e=>setFilterGrade(e.target.value)} className="mt-2 w-full rounded-xl border p-3">{gradeLevels.map(g=><option key={g} value={g}>{g}</option>)}</select></label>
-   <div className="mt-4 overflow-x-auto"><table className="w-full text-left text-sm"><thead><tr className="border-b"><th className="py-3">รหัสวิชา</th><th>รายวิชา</th><th>ประเภท</th><th className="text-right">ชั่วโมง</th></tr></thead><tbody>{selectedSubjects.map(s=><tr className="border-b" key={s.id}><td className="py-3">{s.subject_code}</td><td>{s.name_th}</td><td>{s.category==='basic'?'พื้นฐาน':s.category==='additional'?'เพิ่มเติม':'กิจกรรม'}</td><td className="text-right">{s.learning_hours}</td></tr>)}</tbody></table></div>
+   <div className="mt-4 overflow-x-auto"><table className="w-full text-left text-sm"><thead><tr className="border-b"><th className="py-3">รหัสวิชา</th><th>รายวิชา</th><th>ประเภท</th><th className="text-right">ชั่วโมง</th><th className="text-right">จัดการ</th></tr></thead><tbody>{selectedSubjects.map(s=><tr className="border-b" key={s.id}><td className="py-3">{s.subject_code}</td><td>{s.name_th}</td><td>{s.category==='basic'?'พื้นฐาน':s.category==='additional'?'เพิ่มเติม':'กิจกรรม'}</td><td className="text-right">{s.learning_hours}</td><td className="text-right"><button type="button" disabled={!canEdit} onClick={()=>beginEdit(s)} className="rounded-lg border px-3 py-2 text-blue-800 hover:bg-blue-50 disabled:opacity-40">แก้ไข</button></td></tr>)}</tbody></table></div>
+   {editing&&<div className="mt-6 rounded-2xl border-2 border-blue-200 bg-blue-50/40 p-5">
+    <div className="flex items-center justify-between gap-3"><h3 className="text-lg font-bold">แก้ไขรายวิชา</h3><button type="button" onClick={()=>setEditing(null)} className="rounded-lg border px-3 py-2 text-sm">ยกเลิก</button></div>
+    {usedSubjectIds.includes(editing.id)&&<p role="alert" className="mt-3 rounded-xl bg-amber-50 p-3 text-sm text-amber-900">รายวิชานี้ถูกเปิดสอนแล้ว ระบบล็อกการแก้ไขเพื่อรักษาประวัติ กรุณาสร้างฉบับหลักสูตรใหม่สำหรับการเปลี่ยนแปลง</p>}
+    {versions.find(v=>v.id===editing.curriculum_version_id)&&<p className="mt-2 text-xs text-slate-500">แก้ไขข้อมูลในฉบับหลักสูตรที่เลือกเท่านั้น</p>}
+    <div className="mt-4 grid gap-3 md:grid-cols-3">
+     <label className="text-sm">รหัสวิชา<input className="mt-2 w-full rounded-xl border p-3" value={editCode} onChange={e=>setEditCode(e.target.value)}/></label>
+     <label className="text-sm md:col-span-2">ชื่อรายวิชา<input className="mt-2 w-full rounded-xl border p-3" value={editName} onChange={e=>setEditName(e.target.value)}/></label>
+     <label className="text-sm">ระดับชั้น<select className="mt-2 w-full rounded-xl border p-3" value={editGrade} onChange={e=>setEditGrade(e.target.value)}>{gradeLevels.map(g=><option key={g} value={g}>{g}</option>)}</select></label>
+     <label className="text-sm">ประเภท<select className="mt-2 w-full rounded-xl border p-3" value={editCategory} onChange={e=>setEditCategory(e.target.value)}><option value="basic">พื้นฐาน</option><option value="additional">เพิ่มเติม</option><option value="activity">กิจกรรม</option></select></label>
+     <label className="text-sm">ชั่วโมงเรียน<input type="number" min="0" max="2000" className="mt-2 w-full rounded-xl border p-3" value={editHours} onChange={e=>setEditHours(e.target.value)}/></label>
+    </div>
+    <button type="button" disabled={!canEdit||busy||usedSubjectIds.includes(editing.id)} onClick={saveEdit} className="mt-4 rounded-xl bg-blue-800 px-5 py-3 font-medium text-white disabled:opacity-40">{busy?'กำลังบันทึก...':'บันทึกการแก้ไข'}</button>
+   </div>}
    <p className="mt-4 text-sm text-slate-500">รวมชั่วโมงระดับชั้น {filterGrade}: {selectedSubjects.reduce((a,s)=>a+s.learning_hours,0)} ชั่วโมง (รวมเฉพาะรายวิชาของฉบับที่เลือก)</p>
   </section>
  </div>}
