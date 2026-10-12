@@ -9,7 +9,7 @@ type Member={user_id:string;role:string};
 type Teacher={user_id:string;display_name:string};
 type Homeroom={id:string;classroom_id:string;teacher_user_id:string};
 type Term={id:string;academic_year_id:string;term_no:number};
-type Subject={id:string;subject_code:string;name_th:string};
+type Subject={id:string;subject_code:string;name_th:string;grade_level:string|null};
 type Offering={id:string;term_id:string;classroom_id:string;subject_id:string};
 type Assignment={id:string;course_offering_id:string;teacher_user_id:string};
 const roomName=(r:Room)=>r.room_code.startsWith(r.level_code+'/')?r.room_code:r.level_code+'/'+r.room_code;
@@ -37,7 +37,7 @@ export default function TeachersPage(){
   db.from('school_memberships').select('user_id,role').eq('school_id',schoolId).eq('active',true),
   db.from('homeroom_assignments').select('id,classroom_id,teacher_user_id').eq('school_id',schoolId),
   db.from('terms').select('id,academic_year_id,term_no').eq('school_id',schoolId),
-  db.from('subjects').select('id,subject_code,name_th').eq('school_id',schoolId),
+  db.from('subjects').select('id,subject_code,name_th,grade_level').eq('school_id',schoolId),
   db.from('course_offerings').select('id,term_id,classroom_id,subject_id').eq('school_id',schoolId),
   db.from('teaching_assignments').select('id,course_offering_id,teacher_user_id').eq('school_id',schoolId),
  ]);
@@ -57,6 +57,9 @@ export default function TeachersPage(){
  const validTeacher=teachers.some(t=>t.user_id===teacherId)?teacherId:teachers[0]?.user_id??'';
  const yearTerms=terms.filter(t=>t.academic_year_id===yearId);
  const validTerm=yearTerms.some(t=>t.id===termId)?termId:yearTerms[0]?.id??'';
+ const selectedGrade=yearRooms.find(r=>r.id===validRoom)?.level_code??'';
+ const availableSubjects=subjects.filter(s=>s.grade_level===selectedGrade);
+ const validSubject=availableSubjects.some(s=>s.id===subjectId)?subjectId:'';
  const currentOfferings=offerings.filter(o=>o.classroom_id===validRoom&&o.term_id===validTerm);
  const assignmentsForSelection=currentOfferings.flatMap(o=>assignments.filter(a=>a.course_offering_id===o.id).map(a=>({id:a.id,teacher:a.teacher_user_id,subject:o.subject_id})));
  const name=(id:string)=>teachers.find(t=>t.user_id===id)?.display_name??'ไม่พบชื่อครู';
@@ -100,15 +103,15 @@ export default function TeachersPage(){
         </select>
        </label>
        <label className="block text-sm font-medium">รายวิชา
-        <select className="mt-2 w-full rounded-xl border p-3" value={subjectId} onChange={e=>setSubjectId(e.target.value)}>
+        <select className="mt-2 w-full rounded-xl border p-3" value={validSubject} onChange={e=>setSubjectId(e.target.value)}>
          <option value="">เลือกรายวิชา</option>
-         {subjects.map(s=><option key={s.id} value={s.id}>{s.subject_code} {s.name_th}</option>)}
+         {availableSubjects.map(s=><option key={s.id} value={s.id}>{s.subject_code} {s.name_th}</option>)}
         </select>
        </label>
        <div className="rounded-xl bg-blue-50 p-3 text-sm text-blue-900">
         ห้อง {yearRooms.find(r=>r.id===validRoom)?roomName(yearRooms.find(r=>r.id===validRoom)!):'—'} · ปี {years.find(y=>y.id===yearId)?.year_be??'—'} · ภาคเรียน {yearTerms.find(t=>t.id===validTerm)?.term_no??'—'}
        </div>
-       <button disabled={!canWrite||busy||!validTeacher||!validRoom||!validTerm||!subjectId} onClick={()=>act(()=>db!.rpc('assign_teacher_to_subject',{p_school_id:schoolId,p_teacher_user_id:validTeacher,p_classroom_id:validRoom,p_subject_id:subjectId,p_term_id:validTerm}),'บันทึกมอบหมายครูผู้สอนเรียบร้อยแล้ว')} className="w-full rounded-xl bg-blue-800 px-4 py-3 font-semibold text-white disabled:opacity-40">
+       <button disabled={!canWrite||busy||!validTeacher||!validRoom||!validTerm||!validSubject} onClick={()=>act(()=>db!.rpc('assign_teacher_to_subject',{p_school_id:schoolId,p_teacher_user_id:validTeacher,p_classroom_id:validRoom,p_subject_id:validSubject,p_term_id:validTerm}),'บันทึกมอบหมายครูผู้สอนเรียบร้อยแล้ว')} className="w-full rounded-xl bg-blue-800 px-4 py-3 font-semibold text-white disabled:opacity-40">
         {busy?'กำลังบันทึก...':'บันทึกการมอบหมาย'}
        </button>
        <p className="text-xs text-slate-500">หากวิชานี้ยังไม่เปิดสอน ระบบจะเปิดสอนและมอบหมายครูในรายการเดียว หากเคยมอบหมายครูคนเดิมแล้วจะไม่สร้างข้อมูลซ้ำ</p>
@@ -119,6 +122,7 @@ export default function TeachersPage(){
        <button disabled={!canWrite||busy} onClick={()=>act(()=>db!.from('teaching_assignments').delete().eq('id',a.id).eq('school_id',schoolId),'ยกเลิกการมอบหมายแล้ว')} className="rounded-lg px-3 py-2 text-red-700 hover:bg-red-50 disabled:opacity-40">ยกเลิก</button>
       </div>)}</div>
       {assignmentsForSelection.length===0&&<p className="mt-3 text-sm text-slate-500">ยังไม่มีครูผู้สอนสำหรับห้องและภาคเรียนที่เลือก</p>}
+      {availableSubjects.length===0&&<p className="mt-3 text-sm text-amber-700">ไม่มีรายวิชาสำหรับระดับชั้น {selectedGrade} กรุณากำหนดระดับชั้นของรายวิชาในหน้าหลักสูตรก่อน</p>}
       {subjects.length===0&&<Link href="/curriculum" className="mt-4 inline-block text-sm text-blue-700">ยังไม่มีรายวิชา ไปตั้งค่าหลักสูตร →</Link>}
      </section>
     </div>
