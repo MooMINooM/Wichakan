@@ -58,6 +58,7 @@ export default function TeachersPage(){
  const yearTerms=terms.filter(t=>t.academic_year_id===yearId);
  const validTerm=yearTerms.some(t=>t.id===termId)?termId:yearTerms[0]?.id??'';
  const currentOfferings=offerings.filter(o=>o.classroom_id===validRoom&&o.term_id===validTerm);
+ const assignmentsForSelection=currentOfferings.flatMap(o=>assignments.filter(a=>a.course_offering_id===o.id).map(a=>({id:a.id,teacher:a.teacher_user_id,subject:o.subject_id})));
  const name=(id:string)=>teachers.find(t=>t.user_id===id)?.display_name??'ไม่พบชื่อครู';
  async function act(task:()=>PromiseLike<{error:{message:string}|null}>,success:string){
   if(!db||!canWrite||busy)return;setBusy(true);setError('');setNotice('');
@@ -90,18 +91,35 @@ export default function TeachersPage(){
       {teachers.length===0&&<p className="mt-4 text-sm text-amber-700">ยังไม่มีบัญชีที่ได้รับบทบาท teacher ในโรงเรียนนี้</p>}
      </section>
      <section className="rounded-2xl border bg-white p-6 shadow-sm">
-      <h2 className="text-xl font-bold">ครูผู้สอนรายวิชา</h2><p className="mt-2 text-sm text-slate-500">ขั้นที่ 1 เปิดสอนรายวิชา → ขั้นที่ 2 กดมอบหมายให้ครูในรายการวิชาด้านล่าง (การเปิดสอนไม่ได้มอบหมายครูอัตโนมัติ)</p>
-      <div className="mt-4 flex gap-2">
-       <select aria-label="รายวิชา" className="min-w-0 flex-1 rounded-xl border p-3" value={subjectId} onChange={e=>setSubjectId(e.target.value)}>
-        <option value="">เลือกรายวิชา</option>{subjects.map(s=><option key={s.id} value={s.id}>{s.subject_code} {s.name_th}</option>)}</select>
-       <button disabled={!canWrite||busy||!subjectId||!validRoom||!validTerm} onClick={()=>act(()=>db!.from('course_offerings').insert({school_id:schoolId,term_id:validTerm,classroom_id:validRoom,subject_id:subjectId}),'เปิดสอนรายวิชาแล้ว')} className="rounded-xl bg-blue-800 px-4 text-white disabled:opacity-40">1. เปิดสอน</button>
+      <h2 className="text-xl font-bold">มอบหมายครูผู้สอนรายวิชา</h2>
+      <p className="mt-2 text-sm text-slate-500">เลือกปีและภาคเรียนด้านบน จากนั้นเลือกครู ห้องเรียน และรายวิชา กดบันทึกครั้งเดียว</p>
+      <div className="mt-5 space-y-4">
+       <label className="block text-sm font-medium">ครูผู้สอน
+        <select className="mt-2 w-full rounded-xl border p-3" value={validTeacher} onChange={e=>setTeacherId(e.target.value)}>
+         {teachers.map(t=><option key={t.user_id} value={t.user_id}>{t.display_name}</option>)}
+        </select>
+       </label>
+       <label className="block text-sm font-medium">รายวิชา
+        <select className="mt-2 w-full rounded-xl border p-3" value={subjectId} onChange={e=>setSubjectId(e.target.value)}>
+         <option value="">เลือกรายวิชา</option>
+         {subjects.map(s=><option key={s.id} value={s.id}>{s.subject_code} {s.name_th}</option>)}
+        </select>
+       </label>
+       <div className="rounded-xl bg-blue-50 p-3 text-sm text-blue-900">
+        ห้อง {yearRooms.find(r=>r.id===validRoom)?roomName(yearRooms.find(r=>r.id===validRoom)!):'—'} · ปี {years.find(y=>y.id===yearId)?.year_be??'—'} · ภาคเรียน {yearTerms.find(t=>t.id===validTerm)?.term_no??'—'}
+       </div>
+       <button disabled={!canWrite||busy||!validTeacher||!validRoom||!validTerm||!subjectId} onClick={()=>act(()=>db!.rpc('assign_teacher_to_subject',{p_school_id:schoolId,p_teacher_user_id:validTeacher,p_classroom_id:validRoom,p_subject_id:subjectId,p_term_id:validTerm}),'บันทึกมอบหมายครูผู้สอนเรียบร้อยแล้ว')} className="w-full rounded-xl bg-blue-800 px-4 py-3 font-semibold text-white disabled:opacity-40">
+        {busy?'กำลังบันทึก...':'บันทึกการมอบหมาย'}
+       </button>
+       <p className="text-xs text-slate-500">หากวิชานี้ยังไม่เปิดสอน ระบบจะเปิดสอนและมอบหมายครูในรายการเดียว หากเคยมอบหมายครูคนเดิมแล้วจะไม่สร้างข้อมูลซ้ำ</p>
       </div>
-      <div className="mt-5 space-y-3">{currentOfferings.map(o=><div key={o.id} className="rounded-xl border p-3">
-       <p className="font-medium">{subjects.find(s=>s.id===o.subject_id)?.subject_code} {subjects.find(s=>s.id===o.subject_id)?.name_th}</p><p className="mt-1 text-xs text-amber-700">{assignments.some(a=>a.course_offering_id===o.id)?"มอบหมายครูแล้ว":"ยังไม่ได้มอบหมายครูผู้สอน"}</p>
-       {assignments.filter(a=>a.course_offering_id===o.id).map(a=><div key={a.id} className="mt-2 flex justify-between text-sm"><span>{name(a.teacher_user_id)}</span><button disabled={!canWrite||busy} className="text-red-700 disabled:opacity-40" onClick={()=>act(()=>db!.from('teaching_assignments').delete().eq('id',a.id).eq('school_id',schoolId),'ยกเลิกครูผู้สอนแล้ว')}>ยกเลิก</button></div>)}
-       <button disabled={!canWrite||busy||!validTeacher} onClick={()=>act(()=>db!.from('teaching_assignments').insert({school_id:schoolId,course_offering_id:o.id,teacher_user_id:validTeacher}),'มอบหมายครูผู้สอนสำเร็จ')} className="mt-3 rounded-lg border px-3 py-2 text-xs text-blue-800 disabled:opacity-40">2. มอบหมายให้ครู: {name(validTeacher)}</button>
+      <h3 className="mt-7 font-bold">ครูผู้สอนที่มอบหมายแล้ว ({assignmentsForSelection.length})</h3>
+      <div className="mt-3 space-y-2">{assignmentsForSelection.map(a=><div key={a.id} className="flex items-center justify-between gap-2 rounded-xl border p-3 text-sm">
+       <div><p className="font-semibold">{subjects.find(s=>s.id===a.subject)?.name_th??'รายวิชา'}</p><p className="mt-1 text-slate-500">{name(a.teacher)}</p></div>
+       <button disabled={!canWrite||busy} onClick={()=>act(()=>db!.from('teaching_assignments').delete().eq('id',a.id).eq('school_id',schoolId),'ยกเลิกการมอบหมายแล้ว')} className="rounded-lg px-3 py-2 text-red-700 hover:bg-red-50 disabled:opacity-40">ยกเลิก</button>
       </div>)}</div>
-      {currentOfferings.length===0&&<p className="mt-4 text-sm text-slate-500">ยังไม่มีวิชาเปิดสอนสำหรับห้องและภาคเรียนที่เลือก</p>}{subjects.length===0&&<Link href="/curriculum" className="mt-4 inline-block text-sm text-blue-700">ยังไม่มีรายวิชา ไปตั้งค่าหลักสูตร →</Link>}
+      {assignmentsForSelection.length===0&&<p className="mt-3 text-sm text-slate-500">ยังไม่มีครูผู้สอนสำหรับห้องและภาคเรียนที่เลือก</p>}
+      {subjects.length===0&&<Link href="/curriculum" className="mt-4 inline-block text-sm text-blue-700">ยังไม่มีรายวิชา ไปตั้งค่าหลักสูตร →</Link>}
      </section>
     </div>
   </div>}
