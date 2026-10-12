@@ -17,6 +17,7 @@ export default function CurriculumPage(){
  const [gradeLevel,setGradeLevel]=useState('ป.1'),[filterGrade,setFilterGrade]=useState('ป.1');
  const gradeLevels=['ป.1','ป.2','ป.3','ป.4','ป.5','ป.6','ม.1','ม.2','ม.3','ม.4','ม.5','ม.6'];
  const [subjectCode,setSubjectCode]=useState(''),[subjectName,setSubjectName]=useState(''),[hours,setHours]=useState('40'),[category,setCategory]=useState('basic');
+ const [offerings,setOfferings]=useState<{id:string;subject_id:string;term_id:string;classroom_id:string}[]>([]),[assignedOfferingIds,setAssignedOfferingIds]=useState<string[]>([]),[cancelReason,setCancelReason]=useState(''),[cancelId,setCancelId]=useState('');
  const [editing,setEditing]=useState<Subject|null>(null),[usedSubjectIds,setUsedSubjectIds]=useState<string[]>([]);
  const [editCode,setEditCode]=useState(''),[editName,setEditName]=useState(''),[editGrade,setEditGrade]=useState('ป.1'),[editHours,setEditHours]=useState('40'),[editCategory,setEditCategory]=useState('basic');
  const [error,setError]=useState(''),[notice,setNotice]=useState(''),[busy,setBusy]=useState(false);
@@ -33,16 +34,17 @@ export default function CurriculumPage(){
  useEffect(()=>{let mounted=true;(async()=>{
   if(!db||!schoolId)return;
   const {data:{user}}=await db.auth.getUser();if(!user)return;
-  const [c,v,s,m,o]=await Promise.all([
+  const [c,v,s,m,o,a]=await Promise.all([
    db.from('curricula').select('id,name_th').eq('school_id',schoolId).order('name_th'),
    db.from('curriculum_versions').select('id,curriculum_id,version_label,effective_year_be').eq('school_id',schoolId),
    db.from('subjects').select('id,curriculum_version_id,subject_code,name_th,learning_hours,category,grade_level').eq('school_id',schoolId),
    db.from('school_memberships').select('role').eq('school_id',schoolId).eq('user_id',user.id).eq('active',true),
-   db.from('course_offerings').select('subject_id').eq('school_id',schoolId)
+   db.from('course_offerings').select('id,subject_id,term_id,classroom_id').eq('school_id',schoolId),
+   db.from('teaching_assignments').select('course_offering_id').eq('school_id',schoolId)
   ]);
-  if(!mounted)return;const e=[c.error,v.error,s.error,m.error,o.error].find(Boolean);
+  if(!mounted)return;const e=[c.error,v.error,s.error,m.error,o.error,a.error].find(Boolean);
   if(e){setError(e.message);return;}
-  setCurricula(c.data??[]);setVersions(v.data??[]);setSubjects(s.data??[]);setUsedSubjectIds([...(new Set((o.data??[]).map(x=>x.subject_id)))]);
+  setCurricula(c.data??[]);setVersions(v.data??[]);setSubjects(s.data??[]);setOfferings(o.data??[]);setUsedSubjectIds([...(new Set((o.data??[]).map(x=>x.subject_id)))]);setAssignedOfferingIds((a.data??[]).map(x=>x.course_offering_id));
   setCanEdit((m.data??[]).some(x=>['school_admin','academic'].includes(x.role)));
   setCurriculumId(old=>(c.data??[]).some(x=>x.id===old)?old:c.data?.[0]?.id??'');
  })();return()=>{mounted=false;};},[db,schoolId,notice]);
@@ -52,6 +54,14 @@ export default function CurriculumPage(){
  function beginEdit(s:Subject){
   setEditing(s);setEditCode(s.subject_code);setEditName(s.name_th);setEditGrade(s.grade_level??'ป.1');
   setEditCategory(s.category);setEditHours(String(s.learning_hours));setError('');setNotice('');
+ }
+ async function cancelOffering(){
+  if(!db||!canEdit||busy||!cancelId||cancelReason.trim().length<5)return;
+  setBusy(true);setError('');setNotice('');
+  try{
+   const {error:e}=await db.rpc('cancel_unused_course_offering',{p_offering_id:cancelId,p_reason:cancelReason.trim()});
+   if(e)setError(e.message);else{setCancelId('');setCancelReason('');setNotice('ยกเลิกรายการเปิดสอนแล้ว โดยบันทึกเหตุผลและประวัติการยกเลิกไว้');}
+  }catch(e){setError(e instanceof Error?e.message:'ไม่สามารถยกเลิกรายการเปิดสอนได้');}finally{setBusy(false);}
  }
  async function saveEdit(){
   if(!db||!editing||!canEdit||busy)return;
@@ -104,7 +114,19 @@ export default function CurriculumPage(){
    <div className="mt-4 overflow-x-auto"><table className="w-full text-left text-sm"><thead><tr className="border-b"><th className="py-3">รหัสวิชา</th><th>รายวิชา</th><th>ประเภท</th><th className="text-right">ชั่วโมง</th><th className="text-right">จัดการ</th></tr></thead><tbody>{selectedSubjects.map(s=><tr className="border-b" key={s.id}><td className="py-3">{s.subject_code}</td><td>{s.name_th}</td><td>{s.category==='basic'?'พื้นฐาน':s.category==='additional'?'เพิ่มเติม':'กิจกรรม'}</td><td className="text-right">{s.learning_hours}</td><td className="text-right"><button type="button" disabled={!canEdit} onClick={()=>beginEdit(s)} className="rounded-lg border px-3 py-2 text-blue-800 hover:bg-blue-50 disabled:opacity-40">แก้ไข</button></td></tr>)}</tbody></table></div>
    {editing&&<div className="mt-6 rounded-2xl border-2 border-blue-200 bg-blue-50/40 p-5">
     <div className="flex items-center justify-between gap-3"><h3 className="text-lg font-bold">แก้ไขรายวิชา</h3><button type="button" onClick={()=>setEditing(null)} className="rounded-lg border px-3 py-2 text-sm">ยกเลิก</button></div>
-    {usedSubjectIds.includes(editing.id)&&<p role="alert" className="mt-3 rounded-xl bg-amber-50 p-3 text-sm text-amber-900">รายวิชานี้ถูกเปิดสอนแล้ว ระบบล็อกการแก้ไขเพื่อรักษาประวัติ กรุณาสร้างฉบับหลักสูตรใหม่สำหรับการเปลี่ยนแปลง</p>}
+    {usedSubjectIds.includes(editing.id)&&<p role="alert" className="mt-3 rounded-xl bg-amber-50 p-3 text-sm text-amber-900">รายวิชานี้มีรายการเปิดสอนอยู่ หากสร้างผิดและยังไม่ใช้งาน ให้ยกเลิกรายการเปิดสอนด้านล่างก่อนแก้ไข โดยระบบจะเก็บบันทึกการยกเลิก</p>}
+    {usedSubjectIds.includes(editing.id)&&<div className="mt-4 rounded-xl border bg-white p-4">
+     <h4 className="font-semibold">รายการเปิดสอนที่ยังผูกกับรายวิชานี้</h4>
+     <p className="mt-1 text-xs text-slate-500">ยกเลิกได้เฉพาะรายการที่ไม่มีการมอบหมายครูค้างอยู่ และต้องระบุเหตุผล</p>
+     <div className="mt-3 space-y-2">{offerings.filter(o=>o.subject_id===editing.id).map(o=><div key={o.id} className="flex flex-wrap items-center justify-between gap-3 rounded-lg border p-3 text-sm">
+      <span>รายการ {o.id.slice(0,8)} · {assignedOfferingIds.includes(o.id)?'ยังมีครูผู้สอน':'ไม่มีครูผู้สอน'}</span>
+      <button type="button" disabled={busy||assignedOfferingIds.includes(o.id)} onClick={()=>{setCancelId(o.id);setCancelReason('');}} className="rounded-lg border border-amber-300 px-3 py-2 text-amber-800 disabled:opacity-40">ยกเลิกรายการเปิดสอน</button>
+     </div>)}</div>
+     {cancelId&&offerings.some(o=>o.id===cancelId&&o.subject_id===editing.id)&&<div className="mt-4 border-t pt-3">
+      <label className="block text-sm">เหตุผลการยกเลิก<input className="mt-2 w-full rounded-lg border p-3" value={cancelReason} onChange={e=>setCancelReason(e.target.value)} placeholder="เช่น สร้างรายวิชาผิดระดับชั้น"/></label>
+      <div className="mt-3 flex flex-wrap gap-2"><button type="button" disabled={busy||cancelReason.trim().length<5} onClick={cancelOffering} className="rounded-lg bg-amber-700 px-4 py-2 text-sm font-medium text-white disabled:opacity-40">ยืนยันการยกเลิก</button><button type="button" onClick={()=>setCancelId('')} className="rounded-lg border px-4 py-2 text-sm">กลับ</button></div>
+     </div>}
+    </div>}
     {versions.find(v=>v.id===editing.curriculum_version_id)&&<p className="mt-2 text-xs text-slate-500">แก้ไขข้อมูลในฉบับหลักสูตรที่เลือกเท่านั้น</p>}
     <div className="mt-4 grid gap-3 md:grid-cols-3">
      <label className="text-sm">รหัสวิชา<input className="mt-2 w-full rounded-xl border p-3" value={editCode} onChange={e=>setEditCode(e.target.value)}/></label>
