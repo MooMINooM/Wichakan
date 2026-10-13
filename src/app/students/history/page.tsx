@@ -5,8 +5,9 @@ import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { getSupabaseBrowserClient } from '@/lib/supabase/browser';
+import {resolveYear,setYearSelection,YEAR_EVENT} from '@/lib/academic-year-selection';
 
-type Year={id:string;year_be:number};
+type Year={id:string;year_be:number;is_active:boolean};
 type Room={id:string;academic_year_id:string;level_code:string;room_code:string};
 type Student={id:string;school_id:string;student_no:string;first_name_th:string;last_name_th:string};
 type Enrollment={id:string;student_id:string;academic_year_id:string;classroom_id:string;status:string;started_on:string|null};
@@ -52,7 +53,7 @@ export default function StudentHistoryPage(){
   setStudentId('');setYearId('');setRoomId('');setError('');
   const {data:{user}}=await db.auth.getUser();if(!user)return;
   const [y,r,s,e,m]=await Promise.all([
-   db.from('academic_years').select('id,year_be').eq('school_id',schoolId).order('year_be',{ascending:false}),
+   db.from('academic_years').select('id,year_be,is_active').eq('school_id',schoolId).order('year_be',{ascending:false}),
    db.from('classrooms').select('id,academic_year_id,level_code,room_code').eq('school_id',schoolId),
    db.from('students').select('id,school_id,student_no,first_name_th,last_name_th').eq('school_id',schoolId).order('student_no'),
    db.from('enrollments').select('id,student_id,academic_year_id,classroom_id,status,started_on').eq('school_id',schoolId),
@@ -62,7 +63,7 @@ export default function StudentHistoryPage(){
   const problem=[y.error,r.error,s.error,e.error,m.error].find(Boolean);
   if(problem){setError(problem.message);return;}
   setYears(y.data??[]);setRooms(r.data??[]);setStudents(s.data??[]);setEnrollments(e.data??[]);setRoles((m.data??[]).map(x=>x.role));
-  setYearId(y.data?.[0]?.id??'');setStudentId(s.data?.[0]?.id??'');
+  setYearId(resolveYear(y.data??[],schoolId));setStudentId(s.data?.[0]?.id??'');
  })();return()=>{alive=false;};},[schoolId]);
 
  useEffect(()=>{if(!schoolId||!studentId){setEvents([]);return;}let active=true;(async()=>{
@@ -71,6 +72,12 @@ export default function StudentHistoryPage(){
   if(active){if(e)setError(e.message);else setEvents(data??[]);}
  })();return()=>{active=false;};},[schoolId,studentId,enrollments]);
 
+ useEffect(()=>{if(schoolId&&yearId)setYearSelection(schoolId,yearId);},[schoolId,yearId]);
+ useEffect(()=>{if(!schoolId)return;
+  const sync=(event:globalThis.Event)=>{const d=(event as CustomEvent<{schoolId:string;yearId:string}>).detail;
+   if(d?.schoolId===schoolId)setYearId(p=>p===d.yearId?p:d.yearId);};
+  window.addEventListener(YEAR_EVENT,sync);return()=>window.removeEventListener(YEAR_EVENT,sync);
+ },[schoolId]);
  const selectedHistory=useMemo(()=>enrollments.filter(e=>e.student_id===studentId).sort((a,b)=>(years.find(y=>y.id===b.academic_year_id)?.year_be??0)-(years.find(y=>y.id===a.academic_year_id)?.year_be??0)),[enrollments,studentId,years]);
  const existing=selectedHistory.find(e=>e.academic_year_id===yearId);
  const currentStatus=status;

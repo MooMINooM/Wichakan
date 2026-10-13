@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import PageControls,{PAGE_SIZE} from '@/components/page-controls';
+import {resolveYear,setYearSelection,YEAR_EVENT} from '@/lib/academic-year-selection';
 import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { getSupabaseBrowserClient } from '@/lib/supabase/browser';
@@ -29,6 +30,7 @@ export default function AcademicSetupPage() {
   const [end,setEnd] = useState('');
   const [level,setLevel] = useState('ป.1');
   const [room,setRoom] = useState('1');
+  const [section,setSection]=useState<'years'|'terms'|'rooms'>('years');
   const [roomQuery,setRoomQuery]=useState(''),[roomPage,setRoomPage]=useState(1),[yearPage,setYearPage]=useState(1);
   const [busy,setBusy] = useState(false);
   const [loading,setLoading] = useState(true);
@@ -51,7 +53,7 @@ export default function AcademicSetupPage() {
     if(problem){setError(problem.message);return;}
     setYears(a.data??[]);setTerms(b.data??[]);setRooms(c.data??[]);
     setRoles((d.data??[]).map(m=>m.role));
-    setSelectedYear(old=>(a.data??[]).some(y=>y.id===old)?old:a.data?.[0]?.id??'');
+    setSelectedYear(old=>resolveYear(a.data??[],id,old));
   },[router]);
 
   useEffect(()=>{
@@ -83,6 +85,12 @@ export default function AcademicSetupPage() {
     }catch(e){setError(e instanceof Error?e.message:'การบันทึกไม่สำเร็จ');}
     finally{setBusy(false);}
   }
+  useEffect(()=>{if(schoolId&&selectedYear)setYearSelection(schoolId,selectedYear);},[schoolId,selectedYear]);
+  useEffect(()=>{if(!schoolId)return;
+   const sync=(event:Event)=>{const detail=(event as CustomEvent<{schoolId:string;yearId:string}>).detail;
+    if(detail?.schoolId===schoolId)setSelectedYear(y=>y===detail.yearId?y:detail.yearId);};
+   window.addEventListener(YEAR_EVENT,sync);return()=>window.removeEventListener(YEAR_EVENT,sync);
+  },[schoolId]);
   const db=getSupabaseBrowserClient();
   const selected=years.find(y=>y.id===selectedYear);
   const yearTerms=terms.filter(t=>t.academic_year_id===selectedYear).sort((a,b)=>a.term_no-b.term_no);
@@ -99,8 +107,8 @@ export default function AcademicSetupPage() {
     {schools.length===1&&<p className="mb-5 font-semibold">{schools[0].name_th}</p>}
     {error&&<p role="alert" className="mb-4 rounded-xl bg-red-50 p-4 text-sm text-red-700">{error}</p>}
     {message&&<p role="status" className="mb-4 rounded-xl bg-green-50 p-4 text-sm text-green-800">{message}</p>}
-    {schoolId&&<div className="grid gap-5 lg:grid-cols-2">
-      <section className="rounded-2xl border bg-white p-6 shadow-sm">
+    {schoolId&&<><div className="mb-5 flex flex-wrap items-center gap-3 rounded-2xl border bg-white p-4"><label className="text-sm font-medium">ปีการศึกษาที่กำลังจัดการ <select value={selectedYear} onChange={e=>setSelectedYear(e.target.value)} className="ml-2 rounded-xl border p-2">{years.map(y=><option key={y.id} value={y.id}>{y.year_be}</option>)}</select></label></div><div className="mb-5 flex flex-wrap gap-2">{([['years','ปีการศึกษา'],['terms','ภาคเรียน'],['rooms','ห้องเรียน']] as const).map(([key,title])=><button type="button" key={key} onClick={()=>setSection(key)} className={`rounded-xl px-5 py-3 text-sm font-semibold ${section===key?'bg-blue-800 text-white':'border bg-white text-slate-600'}`}>{title}</button>)}</div><div className="grid gap-5">
+      {section==='years'&&<section className="rounded-2xl border bg-white p-6 shadow-sm">
         <h2 className="text-xl font-bold">ปีการศึกษา</h2>
         <p className="mt-1 text-xs text-slate-500">จัดเก็บแยกปีเพื่อรักษาประวัติผลการเรียน</p>
         <details className="mt-4 rounded-xl border border-blue-100 bg-blue-50/30 p-3"><summary className="cursor-pointer text-sm font-semibold text-blue-800">+ เพิ่มปีการศึกษา</summary><div className="mt-4 flex gap-2">
@@ -115,8 +123,8 @@ export default function AcademicSetupPage() {
           {years.length===0&&<p className="text-sm text-slate-500">ยังไม่มีปีการศึกษา</p>}
         </div>
         <PageControls total={years.length} page={Math.min(yearPage,Math.max(1,Math.ceil(years.length/PAGE_SIZE)))} onChange={setYearPage}/>
-      </section>
-      <section className="rounded-2xl border bg-white p-6 shadow-sm">
+      </section>}
+      {section==='terms'&&<section className="rounded-2xl border bg-white p-6 shadow-sm">
         <h2 className="text-xl font-bold">ภาคเรียน</h2>
         <p className="mt-1 text-sm text-slate-500">ปี พ.ศ. {selected?.year_be??'—'}</p>
         <details className="mt-4 rounded-xl border border-blue-100 bg-blue-50/30 p-3"><summary className="cursor-pointer text-sm font-semibold text-blue-800">+ เพิ่มภาคเรียน</summary><div className="mt-4 grid grid-cols-2 gap-3">
@@ -127,8 +135,8 @@ export default function AcademicSetupPage() {
         </div>
         <button disabled={!canManage||busy||!selectedYear||!!(start&&end&&end<start)} onClick={()=>execute(()=>db!.from('terms').insert({school_id:schoolId,academic_year_id:selectedYear,term_no:Number(termNo),starts_on:start||null,ends_on:end||null}),'เพิ่มภาคเรียนเรียบร้อย')} className="mt-4 rounded-xl bg-blue-800 px-4 py-3 text-sm text-white disabled:opacity-40">เพิ่มภาคเรียน</button></details>
         <div className="mt-4 space-y-2">{yearTerms.map(t=><div key={t.id} className="rounded-xl bg-slate-50 p-3 text-sm">ภาคเรียน {t.term_no} · {t.starts_on||'ไม่ระบุ'} ถึง {t.ends_on||'ไม่ระบุ'}</div>)}</div>
-      </section>
-      <section className="rounded-2xl border bg-white p-6 shadow-sm lg:col-span-2">
+      </section>}
+      {section==='rooms'&&<section className="rounded-2xl border bg-white p-6 shadow-sm lg:col-span-2">
         <h2 className="text-xl font-bold">ห้องเรียน</h2><p className="mt-1 text-sm text-slate-500">ปี พ.ศ. {selected?.year_be??'—'} · {yearRooms.length} ห้อง</p>
         <details className="mt-4 rounded-xl border border-blue-100 bg-blue-50/30 p-3"><summary className="cursor-pointer text-sm font-semibold text-blue-800">+ เพิ่มห้องเรียน</summary><div className="mt-4 flex flex-wrap gap-3">
           <select value={level} onChange={e=>setLevel(e.target.value)} aria-label="ระดับชั้น" className="rounded-xl border p-3">{levels.map(l=><option key={l} value={l}>{l}</option>)}</select>
@@ -139,8 +147,8 @@ export default function AcademicSetupPage() {
         <div className="mt-4 flex flex-wrap gap-2">{visibleRooms.map(r=><span key={r.id} className="rounded-xl border bg-slate-50 px-4 py-2 text-sm">{r.room_code.startsWith(r.level_code+"/")?r.room_code:`${r.level_code}/${r.room_code}`}</span>)}{yearRooms.length===0&&<p className="text-sm text-slate-500">ยังไม่มีห้องเรียน</p>}</div>
         <PageControls total={filteredRooms.length} page={Math.min(roomPage,Math.max(1,Math.ceil(filteredRooms.length/PAGE_SIZE)))} onChange={setRoomPage}/>
         <Link href="/students/history" className="mt-6 inline-block text-sm font-medium text-blue-700">ไปจัดนักเรียนเข้าห้องเรียน →</Link>
-      </section>
+      </section>}
       {!canManage&&<p className="text-sm text-slate-500">บัญชีนี้อ่านข้อมูลได้ แต่ไม่มีสิทธิ์จัดการปีการศึกษาและห้องเรียน</p>}
-    </div>}
+    </div></>}
   </main>;
 }

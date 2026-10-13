@@ -3,6 +3,7 @@ import Link from 'next/link';
 import {useEffect,useState} from 'react';
 import {useRouter} from 'next/navigation';
 import {getSupabaseBrowserClient} from '@/lib/supabase/browser';
+import {resolveYear,YEAR_EVENT} from '@/lib/academic-year-selection';
 type Summary={students:number|null;staff:number|null;rooms:number|null;courses:number|null};
 const quick=[
  {href:'/students',title:'ทะเบียนนักเรียน',text:'ค้นหา เพิ่ม และจัดการนักเรียน',icon:'◉',color:'bg-blue-50 text-blue-700'},
@@ -19,7 +20,7 @@ export default function AdminPage(){
  const db=getSupabaseBrowserClient(),router=useRouter();
  const [ready,setReady]=useState(false),[error,setError]=useState('');
  const [summary,setSummary]=useState<Summary>({students:null,staff:null,rooms:null,courses:null});
- const [refresh,setRefresh]=useState(0);
+ const [refresh,setRefresh]=useState(0),[yearLabel,setYearLabel]=useState<number|null>(null);
  useEffect(()=>{let live=true;(async()=>{
   if(!db){setError('ยังไม่ได้เชื่อมต่อ Supabase');return;}
   const {data:{user}}=await db.auth.getUser();if(!user){router.replace('/login');return;}
@@ -29,29 +30,49 @@ export default function AdminPage(){
   if(!data?.length){router.replace('/workspace');return;}
   const school=data[0].school_id;
   setReady(true);
-  const [students,staff,rooms,courses]=await Promise.all([
-   db.from('students').select('id',{count:'exact',head:true}).eq('school_id',school),
+  const [staff,academicYears]=await Promise.all([
    db.from('school_memberships').select('user_id').eq('school_id',school).eq('active',true),
-   db.from('classrooms').select('id',{count:'exact',head:true}).eq('school_id',school),
-   db.from('course_offerings').select('id',{count:'exact',head:true}).eq('school_id',school)
+   db.from('academic_years').select('id,year_be,is_active').eq('school_id',school).order('year_be',{ascending:false})
   ]);
   if(!live)return;
+  if(academicYears.error){setError(academicYears.error.message);return;}
+  const selectedId=resolveYear(academicYears.data??[],school);
+  setYearLabel(academicYears.data?.find(y=>y.id===selectedId)?.year_be??null);
+  if(!selectedId){
+   setSummary({students:0,staff:staff.error?null:new Set((staff.data??[]).map(m=>m.user_id)).size,rooms:0,courses:0});return;
+  }
+  const [enrollments,yearRooms]=await Promise.all([
+   db.from('enrollments').select('student_id').eq('school_id',school).eq('academic_year_id',selectedId).in('status',['active','completed']),
+   db.from('classrooms').select('id').eq('school_id',school).eq('academic_year_id',selectedId)
+  ]);
+  if(!live)return;
+  const roomIds=(yearRooms.data??[]).map(r=>r.id);
+  const courseResult=roomIds.length?
+   await db.from('course_offerings').select('id',{count:'exact',head:true}).eq('school_id',school).in('classroom_id',roomIds):
+   {count:0,error:null};
+  if(!live)return;
   setSummary({
-   students:students.error?null:students.count,
+   students:enrollments.error?null:new Set((enrollments.data??[]).map(e=>e.student_id)).size,
    staff:staff.error?null:new Set((staff.data??[]).map(m=>m.user_id)).size,
-   rooms:rooms.error?null:rooms.count,
-   courses:courses.error?null:courses.count
+   rooms:yearRooms.error?null:roomIds.length,
+   courses:courseResult.error?null:courseResult.count
   });
  })();return()=>{live=false;};},[db,router,refresh]);
+ useEffect(()=>{
+  const refreshOnYear=(event:Event)=>{const detail=(event as CustomEvent<{schoolId:string;yearId:string}>).detail;
+   if(detail?.yearId)setRefresh(v=>v+1);};
+  window.addEventListener(YEAR_EVENT,refreshOnYear);
+  return()=>window.removeEventListener(YEAR_EVENT,refreshOnYear);
+ },[]);
  const metrics=[
- {title:'นักเรียนทั้งหมด',value:summary.students,icon:'◉',color:'bg-blue-50 text-blue-700',href:'/students'},
+ {title:'นักเรียนในปีที่เลือก',value:summary.students,icon:'◉',color:'bg-blue-50 text-blue-700',href:'/students'},
  {title:'ครูและบุคลากร',value:summary.staff,icon:'♙',color:'bg-emerald-50 text-emerald-700',href:'/personnel'},
  {title:'ห้องเรียน',value:summary.rooms,icon:'⌂',color:'bg-violet-50 text-violet-700',href:'/academic'},
  {title:'รายวิชาที่เปิดสอน',value:summary.courses,icon:'▤',color:'bg-orange-50 text-orange-700',href:'/academic/teachers'}
  ];
  return <main className="mx-auto max-w-7xl px-4 py-6 sm:px-6 sm:py-8">
   <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-[#e8f3ff] via-[#eff7ff] to-[#d9edff] p-7 sm:p-9">
-   <div className="relative z-10"><p className="text-sm font-semibold text-slate-500">ยินดีต้อนรับกลับ</p><h1 className="mt-2 text-3xl font-extrabold tracking-tight text-[#123b72] sm:text-4xl">จัดการสถานศึกษา</h1><p className="mt-3 text-sm text-slate-600 sm:text-base">บริหารงานวิชาการได้อย่างง่ายดาย จากที่เดียว</p></div>
+   <div className="relative z-10"><p className="text-sm font-semibold text-slate-500">ยินดีต้อนรับกลับ</p><h1 className="mt-2 text-3xl font-extrabold tracking-tight text-[#123b72] sm:text-4xl">จัดการสถานศึกษา</h1><p className="mt-3 text-sm text-slate-600 sm:text-base">บริหารงานวิชาการได้อย่างง่ายดาย จากที่เดียว{yearLabel?' · ปีการศึกษา '+yearLabel:''}</p></div>
    <div aria-hidden="true" className="pointer-events-none absolute bottom-0 right-7 hidden text-[120px] leading-none text-blue-200/50 md:block">⌂</div>
   </div>
   {error&&<p role="alert" className="mt-5 rounded-xl bg-red-50 p-4 text-sm text-red-700">{error}</p>}

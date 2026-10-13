@@ -4,9 +4,10 @@ import Link from 'next/link';
 import {useEffect,useState} from 'react';
 import {useRouter} from 'next/navigation';
 import {getSupabaseBrowserClient} from '@/lib/supabase/browser';
+import {resolveYear,YEAR_EVENT} from '@/lib/academic-year-selection';
 
 type School={id:string;name_th:string};
-type Year={id:string;year_be:number};
+type Year={id:string;year_be:number;is_active:boolean};
 type Template={id:string;level_code:string;room_code:string;is_active:boolean};
 type Membership={school_id:string;role:string;schools:School|null};
 const label=(level:string,room:string)=>room.startsWith(level+'/')?room:level+'/'+room;
@@ -40,7 +41,7 @@ export default function ClassroomTemplatesPage(){
    const {data:{user}}=await db.auth.getUser();
    if(!user)return;
    const [y,t,m]=await Promise.all([
-     db.from('academic_years').select('id,year_be').eq('school_id',id).order('year_be',{ascending:false}),
+     db.from('academic_years').select('id,year_be,is_active').eq('school_id',id).order('year_be',{ascending:false}),
      db.from('classroom_templates').select('id,level_code,room_code,is_active').eq('school_id',id).order('level_code'),
      db.from('school_memberships').select('role').eq('school_id',id).eq('user_id',user.id).eq('active',true)
    ]);
@@ -48,10 +49,15 @@ export default function ClassroomTemplatesPage(){
    if(issue){setError(issue.message);return;}
    setYears(y.data??[]);setTemplates(t.data??[]);
    setCanManage((m.data??[]).some(x=>['school_admin','academic'].includes(x.role)));
-   setSourceYear(old=>(y.data??[]).some(v=>v.id===old)?old:y.data?.[1]?.id??y.data?.[0]?.id??'');
+   setSourceYear(old=>resolveYear(y.data??[],id,old));
    setTargetYear(old=>(y.data??[]).some(v=>v.id===old)?old:y.data?.[0]?.id??'');
  }
  useEffect(()=>{if(schoolId)void load(schoolId);},[schoolId]);
+ useEffect(()=>{if(!schoolId)return;
+  const sync=(ev:Event)=>{const d=(ev as CustomEvent<{schoolId:string;yearId:string}>).detail;
+   if(d?.schoolId===schoolId)setSourceYear(d.yearId);};
+  window.addEventListener(YEAR_EVENT,sync);return()=>window.removeEventListener(YEAR_EVENT,sync);
+ },[schoolId]);
  async function run(action:()=>PromiseLike<{data:unknown;error:{message:string}|null}>,success:(data:unknown)=>string){
    if(!db||!schoolId||!canManage||busy)return;
    setBusy(true);setError('');setNotice('');
