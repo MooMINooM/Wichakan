@@ -1,6 +1,7 @@
 'use client';
 import Link from 'next/link';
 import PageControls,{PAGE_SIZE} from '@/components/page-controls';
+import {resolveYear,setYearSelection,YEAR_EVENT} from '@/lib/academic-year-selection';
 import {useEffect,useState} from 'react';
 import {useRouter} from 'next/navigation';
 import {getSupabaseBrowserClient} from '@/lib/supabase/browser';
@@ -52,8 +53,14 @@ export default function TeachersPage(){
  setYears((y.data??[]) as Year[]);setRooms((r.data??[]) as Room[]);setMembers((m.data??[]) as Member[]);
  setHomerooms((h.data??[]) as Homeroom[]);setTerms((t.data??[]) as Term[]);setSubjects((s.data??[]) as Subject[]);
  setOfferings((o.data??[]) as Offering[]);setAssignments((a.data??[]) as Assignment[]);setTeachers((p.data??[]) as Teacher[]);
- setYearId(prev=>(y.data??[]).some(v=>v.id===prev)?prev:y.data?.[0]?.id??'');
+ setYearId(prev=>resolveYear(y.data??[],schoolId,prev));
  })();return()=>{active=false;};},[db,schoolId,revision]);
+ useEffect(()=>{if(schoolId&&yearId)setYearSelection(schoolId,yearId);},[schoolId,yearId]);
+ useEffect(()=>{if(!schoolId)return;
+  const sync=(event:Event)=>{const d=(event as CustomEvent<{schoolId:string;yearId:string}>).detail;
+   if(d?.schoolId===schoolId)setYearId(p=>p===d.yearId?p:d.yearId);};
+  window.addEventListener(YEAR_EVENT,sync);return()=>window.removeEventListener(YEAR_EVENT,sync);
+ },[schoolId]);
  const yearRooms=rooms.filter(r=>r.academic_year_id===yearId);
  const validRoom=yearRooms.some(r=>r.id===classId)?classId:yearRooms[0]?.id??'';
  const validTeacher=teachers.some(t=>t.user_id===teacherId)?teacherId:teachers[0]?.user_id??'';
