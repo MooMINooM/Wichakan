@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import PageControls,{PAGE_SIZE} from '@/components/page-controls';
 import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { getSupabaseBrowserClient } from '@/lib/supabase/browser';
@@ -28,6 +29,7 @@ export default function AcademicSetupPage() {
   const [end,setEnd] = useState('');
   const [level,setLevel] = useState('ป.1');
   const [room,setRoom] = useState('1');
+  const [roomQuery,setRoomQuery]=useState(''),[roomPage,setRoomPage]=useState(1),[yearPage,setYearPage]=useState(1);
   const [busy,setBusy] = useState(false);
   const [loading,setLoading] = useState(true);
   const [error,setError] = useState('');
@@ -85,6 +87,9 @@ export default function AcademicSetupPage() {
   const selected=years.find(y=>y.id===selectedYear);
   const yearTerms=terms.filter(t=>t.academic_year_id===selectedYear).sort((a,b)=>a.term_no-b.term_no);
   const yearRooms=rooms.filter(r=>r.academic_year_id===selectedYear);
+  const filteredRooms=yearRooms.filter(r=>(r.level_code+'/'+r.room_code).toLocaleLowerCase().includes(roomQuery.toLocaleLowerCase()));
+  const visibleRooms=filteredRooms.slice((roomPage-1)*PAGE_SIZE,roomPage*PAGE_SIZE);
+  const visibleYears=years.slice((yearPage-1)*PAGE_SIZE,yearPage*PAGE_SIZE);
   return <main className="mx-auto max-w-6xl px-5 py-8">
     <Link href="/" className="text-sm text-blue-700">← Wichakan</Link>
     <div className="mb-7 mt-3"><h1 className="text-3xl font-bold">ตั้งค่างานวิชาการ</h1><Link href="/academic/teachers" className="ml-3 mt-3 inline-block rounded-xl border border-blue-200 bg-white px-4 py-2 text-sm text-blue-800">มอบหมายครู →</Link><Link href="/academic/templates" className="mt-3 inline-block rounded-xl border border-blue-200 bg-white px-4 py-2 text-sm text-blue-800">แม่แบบห้องเรียน · เตรียมปีใหม่ →</Link><p className="mt-2 text-sm text-slate-500">Academic Setup · ปีการศึกษา ภาคเรียน และห้องเรียน</p></div>
@@ -103,12 +108,13 @@ export default function AcademicSetupPage() {
           <button disabled={!canManage||busy||!year||Number(year)<2500||Number(year)>2800} onClick={()=>execute(()=>db!.from('academic_years').insert({school_id:schoolId,year_be:Number(year)}),'เพิ่มปีการศึกษาเรียบร้อย')} className="rounded-xl bg-blue-800 px-4 text-white disabled:opacity-40">เพิ่มปี</button>
         </div>
         <div className="mt-5 space-y-2">
-          {years.map(y=><div key={y.id} className="flex items-center justify-between rounded-xl border p-3">
+          {visibleYears.map(y=><div key={y.id} className="flex items-center justify-between rounded-xl border p-3">
             <button onClick={()=>setSelectedYear(y.id)} className={selectedYear===y.id?'font-bold text-blue-800':'text-slate-600'}>พ.ศ. {y.year_be} {y.is_active?'· ปัจจุบัน':''}</button>
             {!y.is_active&&canManage&&<button disabled={busy} onClick={()=>execute(()=>db!.rpc('activate_academic_year',{p_school_id:schoolId,p_year_id:y.id}),'กำหนดปีการศึกษาปัจจุบันแล้ว')} className="text-sm text-blue-700 disabled:opacity-40">ตั้งเป็นปีปัจจุบัน</button>}
           </div>)}
           {years.length===0&&<p className="text-sm text-slate-500">ยังไม่มีปีการศึกษา</p>}
         </div>
+        <PageControls total={years.length} page={Math.min(yearPage,Math.max(1,Math.ceil(years.length/PAGE_SIZE)))} onChange={setYearPage}/>
       </section>
       <section className="rounded-2xl border bg-white p-6 shadow-sm">
         <h2 className="text-xl font-bold">ภาคเรียน</h2>
@@ -129,7 +135,9 @@ export default function AcademicSetupPage() {
           <input value={room} onChange={e=>setRoom(e.target.value)} maxLength={12} aria-label="หมายเลขห้อง" className="w-28 rounded-xl border p-3" placeholder="ห้อง"/>
           <button disabled={!canManage||busy||!selectedYear||!room.trim()} onClick={()=>execute(()=>db!.from('classrooms').insert({school_id:schoolId,academic_year_id:selectedYear,level_code:level,room_code:room.trim()}),'เพิ่มห้องเรียนเรียบร้อย')} className="rounded-xl bg-blue-800 px-5 text-white disabled:opacity-40">เพิ่มห้อง</button>
         </div>
-        <div className="mt-5 flex flex-wrap gap-2">{yearRooms.map(r=><span key={r.id} className="rounded-xl border bg-slate-50 px-4 py-2 text-sm">{r.room_code.startsWith(r.level_code+"/")?r.room_code:`${r.level_code}/${r.room_code}`}</span>)}{yearRooms.length===0&&<p className="text-sm text-slate-500">ยังไม่มีห้องเรียน</p>}</div>
+        <input aria-label="ค้นหาห้องเรียน" value={roomQuery} onChange={e=>{setRoomQuery(e.target.value);setRoomPage(1);}} placeholder="ค้นหาห้องเรียน เช่น ป.4/1" className="mt-5 w-full rounded-xl border p-3 text-sm"/>
+        <div className="mt-4 flex flex-wrap gap-2">{visibleRooms.map(r=><span key={r.id} className="rounded-xl border bg-slate-50 px-4 py-2 text-sm">{r.room_code.startsWith(r.level_code+"/")?r.room_code:`${r.level_code}/${r.room_code}`}</span>)}{yearRooms.length===0&&<p className="text-sm text-slate-500">ยังไม่มีห้องเรียน</p>}</div>
+        <PageControls total={filteredRooms.length} page={Math.min(roomPage,Math.max(1,Math.ceil(filteredRooms.length/PAGE_SIZE)))} onChange={setRoomPage}/>
         <Link href="/students/history" className="mt-6 inline-block text-sm font-medium text-blue-700">ไปจัดนักเรียนเข้าห้องเรียน →</Link>
       </section>
       {!canManage&&<p className="text-sm text-slate-500">บัญชีนี้อ่านข้อมูลได้ แต่ไม่มีสิทธิ์จัดการปีการศึกษาและห้องเรียน</p>}
