@@ -53,8 +53,7 @@ export default function TeacherPage(){
   if(!live)return;
   const issue=r.error??s.error??t.error;
   if(issue){setError(issue.message);return;}
-  const yearIds=[...new Set((r.data??[]).map(x=>x.academic_year_id))];
-  const y=yearIds.length?await db.from('academic_years').select('id,year_be,is_active').in('id',yearIds).in('school_id',schoolIds):{data:[] as Year[],error:null};
+  const y=await db.from('academic_years').select('id,year_be,is_active').eq('school_id',schoolIds[0]).order('year_be',{ascending:false});
   if(!live)return;
   if(y.error){setError(y.error.message);return;}
   setRooms(r.data??[]);setHomerooms(h.data??[]);setAssignments(a.data??[]);setOfferings(o.data??[]);setSubjects(s.data??[]);setTerms(t.data??[]);setYears(y.data??[]);setYearId(resolveYear(y.data??[],schoolIds[0]));setReady(true);
