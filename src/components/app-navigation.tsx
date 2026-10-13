@@ -1,10 +1,11 @@
 'use client';
 import Link from 'next/link';
 import {usePathname,useRouter} from 'next/navigation';
-import {useState} from 'react';
+import {useEffect,useState} from 'react';
+import {getYearSelection,resolveYear,setYearSelection,YEAR_EVENT} from '@/lib/academic-year-selection';
 import {getSupabaseBrowserClient} from '@/lib/supabase/browser';
 const adminItems=[
- ['/admin','ภาพรวม','⌂'],['/students','ทะเบียนนักเรียน','◉'],['/academic','ปีการศึกษาและห้องเรียน','▦'],
+ ['/admin','ภาพรวม','⌂'],['/students','ทะเบียนนักเรียน','◉'],['/academic','ตั้งค่าปีการศึกษา','▦'],
  ['/academic/teachers','มอบหมายครู','♙'],['/curriculum','หลักสูตรและรายวิชา','▤'],
  ['/personnel','บุคลากร','♧'],['/students/promote','เลื่อนชั้นนักเรียน','↗']
 ];
@@ -12,6 +13,25 @@ const teacherItems=[['/teacher','งานสอนของฉัน','▤']];
 export default function AppNavigation(){
  const pathname=usePathname(),router=useRouter();
  const [busy,setBusy]=useState(false),[open,setOpen]=useState(false);
+ const [schoolId,setSchoolId]=useState(''),[years,setYears]=useState<{id:string;year_be:number;is_active:boolean}[]>([]),[currentYear,setCurrentYear]=useState('');
+ useEffect(()=>{let live=true;(async()=>{
+  const db=getSupabaseBrowserClient();if(!db)return;
+  const {data:{user}}=await db.auth.getUser();if(!user||!live)return;
+  const {data:members}=await db.from('school_memberships').select('school_id').eq('user_id',user.id).eq('active',true).limit(1);
+  if(!live||!members?.length)return;
+  const school=members[0].school_id;setSchoolId(school);
+  const {data:list}=await db.from('academic_years').select('id,year_be,is_active').eq('school_id',school).order('year_be',{ascending:false});
+  if(!live)return;
+  const available=list??[];setYears(available);
+  setCurrentYear(resolveYear(available,school));
+ })();return()=>{live=false;};},[pathname]);
+ useEffect(()=>{if(!schoolId)return;
+  function sync(e:Event){const d=(e as CustomEvent<{schoolId:string;yearId:string}>).detail;
+   if(d?.schoolId===schoolId)setCurrentYear(d.yearId);}
+  function storage(e:StorageEvent){if(e.key==='wichakan:year:'+schoolId)setCurrentYear(getYearSelection(schoolId));}
+  window.addEventListener(YEAR_EVENT,sync);window.addEventListener('storage',storage);
+  return()=>{window.removeEventListener(YEAR_EVENT,sync);window.removeEventListener('storage',storage);};
+ },[schoolId]);
  const isTeacher=pathname.startsWith('/teacher');
  const isAdmin=['/admin','/personnel','/academic','/curriculum','/students'].some(x=>pathname.startsWith(x));
  const items=isTeacher?teacherItems:isAdmin?adminItems:[];
