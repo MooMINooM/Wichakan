@@ -1,5 +1,6 @@
 'use client';
 import Link from 'next/link';
+import PageControls,{PAGE_SIZE} from '@/components/page-controls';
 import {useEffect,useState} from 'react';
 import {useRouter} from 'next/navigation';
 import {getSupabaseBrowserClient} from '@/lib/supabase/browser';
@@ -14,6 +15,7 @@ export default function CurriculumPage(){
  const [curricula,setCurricula]=useState<Curriculum[]>([]),[versions,setVersions]=useState<Version[]>([]),[subjects,setSubjects]=useState<Subject[]>([]);
  const [curriculumId,setCurriculumId]=useState(''),[versionId,setVersionId]=useState('');
  const [name,setName]=useState(''),[versionName,setVersionName]=useState(''),[effectiveYear,setEffectiveYear]=useState('2569');
+ const [subjectQuery,setSubjectQuery]=useState(''),[subjectPage,setSubjectPage]=useState(1);
  const [gradeLevel,setGradeLevel]=useState('ป.1'),[filterGrade,setFilterGrade]=useState('ป.1');
  const gradeLevels=['ป.1','ป.2','ป.3','ป.4','ป.5','ป.6','ม.1','ม.2','ม.3','ม.4','ม.5','ม.6'];
  const [subjectCode,setSubjectCode]=useState(''),[subjectName,setSubjectName]=useState(''),[hours,setHours]=useState('40'),[category,setCategory]=useState('basic');
@@ -51,6 +53,8 @@ export default function CurriculumPage(){
  const filteredVersions=versions.filter(v=>v.curriculum_id===curriculumId);
  const selectedVersion=filteredVersions.some(v=>v.id===versionId)?versionId:filteredVersions[0]?.id??'';
  const selectedSubjects=subjects.filter(s=>s.curriculum_version_id===selectedVersion&&s.grade_level===filterGrade);
+ const filteredSubjects=selectedSubjects.filter(s=>(s.subject_code+' '+s.name_th).toLocaleLowerCase().includes(subjectQuery.toLocaleLowerCase()));
+ const visibleSubjects=filteredSubjects.slice((subjectPage-1)*PAGE_SIZE,subjectPage*PAGE_SIZE);
  function beginEdit(s:Subject){
   setEditing(s);setEditCode(s.subject_code);setEditName(s.name_th);setEditGrade(s.grade_level??'ป.1');
   setEditCategory(s.category);setEditHours(String(s.learning_hours));setError('');setNotice('');
@@ -102,6 +106,7 @@ export default function CurriculumPage(){
    <label className="mt-5 block text-sm">เลือกฉบับ<select className="mt-2 w-full rounded-xl border p-3" value={selectedVersion} onChange={e=>setVersionId(e.target.value)}><option value="">เลือกฉบับ</option>{filteredVersions.map(v=><option key={v.id} value={v.id}>{v.version_label} (เริ่ม {v.effective_year_be})</option>)}</select></label>
   </section>
   <section className="rounded-2xl border bg-white p-6 shadow-sm lg:col-span-2"><h2 className="text-lg font-bold">รายวิชา</h2>
+   <details className="mt-4 rounded-xl border border-blue-100 bg-blue-50/30 p-4"><summary className="cursor-pointer font-semibold text-blue-800">+ เพิ่มรายวิชา</summary>
    <div className="mt-4 grid gap-3 md:grid-cols-4">
     <label className="text-sm">ระดับชั้น<select value={gradeLevel} onChange={e=>setGradeLevel(e.target.value)} className="mt-2 w-full rounded-xl border p-3">{gradeLevels.map(g=><option key={g} value={g}>{g}</option>)}</select></label>
     <label className="text-sm">รหัสวิชา<input className="mt-2 w-full rounded-xl border p-3" value={subjectCode} onChange={e=>setSubjectCode(e.target.value)}/></label>
@@ -109,9 +114,11 @@ export default function CurriculumPage(){
     <label className="text-sm">ชั่วโมงเรียน<input type="number" min="0" max="2000" className="mt-2 w-full rounded-xl border p-3" value={hours} onChange={e=>setHours(e.target.value)}/></label>
     <label className="text-sm">ประเภท<select className="mt-2 w-full rounded-xl border p-3" value={category} onChange={e=>setCategory(e.target.value)}><option value="basic">พื้นฐาน</option><option value="additional">เพิ่มเติม</option><option value="activity">กิจกรรม</option></select></label>
    </div>
-   <button disabled={!canEdit||busy||!selectedVersion||!subjectCode.trim()||!subjectName.trim()||Number(hours)<0||Number(hours)>2000} className="mt-4 rounded-xl bg-blue-800 px-5 py-3 text-sm text-white disabled:opacity-40" onClick={()=>save(()=>db!.from('subjects').insert({school_id:schoolId,curriculum_version_id:selectedVersion,subject_code:subjectCode.trim(),name_th:subjectName.trim(),learning_hours:Number(hours),category,grade_level:gradeLevel}),'เพิ่มรายวิชาแล้ว')}>เพิ่มรายวิชา</button>
-   <label className="mt-6 block text-sm font-medium">แสดงรายวิชาของระดับชั้น<select value={filterGrade} onChange={e=>setFilterGrade(e.target.value)} className="mt-2 w-full rounded-xl border p-3">{gradeLevels.map(g=><option key={g} value={g}>{g}</option>)}</select></label>
-   <div className="mt-4 overflow-x-auto"><table className="w-full text-left text-sm"><thead><tr className="border-b"><th className="py-3">รหัสวิชา</th><th>รายวิชา</th><th>ประเภท</th><th className="text-right">ชั่วโมง</th><th className="text-right">จัดการ</th></tr></thead><tbody>{selectedSubjects.map(s=><tr className="border-b" key={s.id}><td className="py-3">{s.subject_code}</td><td>{s.name_th}</td><td>{s.category==='basic'?'พื้นฐาน':s.category==='additional'?'เพิ่มเติม':'กิจกรรม'}</td><td className="text-right">{s.learning_hours}</td><td className="text-right"><button type="button" disabled={!canEdit} onClick={()=>beginEdit(s)} className="rounded-lg border px-3 py-2 text-blue-800 hover:bg-blue-50 disabled:opacity-40">แก้ไข</button></td></tr>)}</tbody></table></div>
+   <button disabled={!canEdit||busy||!selectedVersion||!subjectCode.trim()||!subjectName.trim()||Number(hours)<0||Number(hours)>2000} className="mt-4 rounded-xl bg-blue-800 px-5 py-3 text-sm text-white disabled:opacity-40" onClick={()=>save(()=>db!.from('subjects').insert({school_id:schoolId,curriculum_version_id:selectedVersion,subject_code:subjectCode.trim(),name_th:subjectName.trim(),learning_hours:Number(hours),category,grade_level:gradeLevel}),'เพิ่มรายวิชาแล้ว')}>เพิ่มรายวิชา</button></details>
+   <label className="mt-6 block text-sm font-medium">แสดงรายวิชาของระดับชั้น<select value={filterGrade} onChange={e=>{setFilterGrade(e.target.value);setSubjectPage(1);}} className="mt-2 w-full rounded-xl border p-3">{gradeLevels.map(g=><option key={g} value={g}>{g}</option>)}</select></label>
+   <input aria-label="ค้นหารายวิชา" placeholder="ค้นหารหัสหรือชื่อรายวิชา..." className="mt-4 w-full rounded-xl border p-3 text-sm" value={subjectQuery} onChange={e=>{setSubjectQuery(e.target.value);setSubjectPage(1);}}/>
+   <div className="mt-4 overflow-x-auto"><table className="w-full text-left text-sm"><thead><tr className="border-b"><th className="py-3">รหัสวิชา</th><th>รายวิชา</th><th>ประเภท</th><th className="text-right">ชั่วโมง</th><th className="text-right">จัดการ</th></tr></thead><tbody>{visibleSubjects.map(s=><tr className="border-b" key={s.id}><td className="py-3">{s.subject_code}</td><td>{s.name_th}</td><td>{s.category==='basic'?'พื้นฐาน':s.category==='additional'?'เพิ่มเติม':'กิจกรรม'}</td><td className="text-right">{s.learning_hours}</td><td className="text-right"><button type="button" disabled={!canEdit} onClick={()=>beginEdit(s)} className="rounded-lg border px-3 py-2 text-blue-800 hover:bg-blue-50 disabled:opacity-40">แก้ไข</button></td></tr>)}</tbody></table></div>
+   <PageControls total={filteredSubjects.length} page={Math.min(subjectPage,Math.max(1,Math.ceil(filteredSubjects.length/PAGE_SIZE)))} onChange={setSubjectPage}/>
    {editing&&<div className="mt-6 rounded-2xl border-2 border-blue-200 bg-blue-50/40 p-5">
     <div className="flex items-center justify-between gap-3"><h3 className="text-lg font-bold">แก้ไขรายวิชา</h3><button type="button" onClick={()=>setEditing(null)} className="rounded-lg border px-3 py-2 text-sm">ยกเลิก</button></div>
     {usedSubjectIds.includes(editing.id)&&<p role="alert" className="mt-3 rounded-xl bg-amber-50 p-3 text-sm text-amber-900">รายวิชานี้มีรายการเปิดสอนอยู่ หากสร้างผิดและยังไม่ใช้งาน ให้ยกเลิกรายการเปิดสอนด้านล่างก่อนแก้ไข โดยระบบจะเก็บบันทึกการยกเลิก</p>}
