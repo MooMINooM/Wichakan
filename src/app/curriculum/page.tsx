@@ -148,12 +148,27 @@ export default function CurriculumPage(){
     </div>
     <button type="button" disabled={!canEdit||busy||usedSubjectIds.includes(editing.id)} onClick={saveEdit} className="mt-4 rounded-xl bg-blue-800 px-5 py-3 font-medium text-white disabled:opacity-40">{busy?'กำลังบันทึก...':'บันทึกการแก้ไข'}</button>
    </div>}
-   <div className="mt-4 rounded-xl bg-slate-50 p-4 text-sm text-slate-700">
-   <p>รวมแบบชั่วโมง/ปี: <strong>{selectedSubjects.filter(s=>s.hour_basis==='year').reduce((a,s)=>a+s.learning_hours,0)}</strong> ชั่วโมง/ปี</p>
-   <p className="mt-1">รวมแบบชั่วโมง/ภาคเรียน: <strong>{selectedSubjects.filter(s=>s.hour_basis==='term').reduce((a,s)=>a+s.learning_hours,0)}</strong> ชั่วโมง/ภาคเรียน</p>
-   {selectedSubjects.some(s=>!s.hour_basis)&&<p className="mt-2 font-semibold text-amber-700">มีรายวิชาเดิม {selectedSubjects.filter(s=>!s.hour_basis).length} รายวิชาที่ยังไม่ระบุช่วงเวลา กรุณาตรวจสอบ</p>}
-   <p className="mt-2 text-xs text-slate-500">*หน่วยกิตระดับมัธยม (ยกเว้นกิจกรรม) คำนวณ 40 ชั่วโมงต่อ 1 หน่วยกิต ไม่รวมชั่วโมงต่อปีกับต่อภาคเรียนเข้าด้วยกัน</p>
-   </div>
+   <section className="mt-5 rounded-2xl border border-slate-200 bg-slate-50 p-4 sm:p-5" aria-label="สรุปโครงสร้างเวลาเรียน">
+    <h3 className="text-base font-bold text-slate-900">สรุปโครงสร้างเวลาเรียน · {filterGrade}</h3>
+    <p className="mt-1 text-xs text-slate-500">แยกตามประเภทรายวิชาและหน่วยเวลา เฉพาะฉบับหลักสูตรที่เลือก</p>
+    <div className="mt-4 overflow-x-auto">
+     <table className="w-full min-w-[540px] text-left text-sm">
+      <thead><tr className="border-b border-slate-200 text-slate-600"><th className="py-3">ประเภท</th><th className="text-right">ชั่วโมง/ปี</th><th className="text-right">ชั่วโมง/ภาคเรียน</th><th className="text-right">ยังไม่ระบุหน่วย</th></tr></thead>
+      <tbody>
+       {([['basic','รายวิชาพื้นฐาน'],['additional','รายวิชาเพิ่มเติม'],['activity','กิจกรรมพัฒนาผู้เรียน']] as const).map(([type,title])=><tr key={type} className="border-b border-slate-200">
+        <th scope="row" className="py-3 font-semibold text-slate-800">{title}</th>
+        <td className="text-right tabular-nums">{selectedSubjects.filter(s=>s.category===type&&s.hour_basis==='year').reduce((n,s)=>n+s.learning_hours,0)}</td>
+        <td className="text-right tabular-nums">{selectedSubjects.filter(s=>s.category===type&&s.hour_basis==='term').reduce((n,s)=>n+s.learning_hours,0)}</td>
+        <td className="text-right tabular-nums">{selectedSubjects.filter(s=>s.category===type&&!s.hour_basis).length} วิชา</td>
+       </tr>)}
+      </tbody>
+      <tfoot><tr className="font-bold text-blue-950"><th scope="row" className="pt-3">รวมแต่ละหน่วย</th><td className="pt-3 text-right tabular-nums">{selectedSubjects.filter(s=>s.hour_basis==='year').reduce((n,s)=>n+s.learning_hours,0)}</td><td className="pt-3 text-right tabular-nums">{selectedSubjects.filter(s=>s.hour_basis==='term').reduce((n,s)=>n+s.learning_hours,0)}</td><td className="pt-3 text-right tabular-nums">{selectedSubjects.filter(s=>!s.hour_basis).length} วิชา</td></tr></tfoot>
+     </table>
+    </div>
+    {selectedSubjects.some(s=>!s.hour_basis)&&<p className="mt-3 rounded-lg bg-amber-50 p-3 text-sm text-amber-800">รายวิชาเดิมที่ยังไม่ระบุหน่วยเวลาไม่นำชั่วโมงมารวม กรุณาตรวจสอบและระบุหน่วยก่อน</p>}
+    <p className="mt-3 text-xs leading-5 text-slate-500">ชั่วโมง/ปีและชั่วโมง/ภาคเรียนเป็นคนละช่วงเวลา จึงไม่บวกเป็นยอดรวมเดียว หากต้องการรวมเป็นรายปี ต้องระบุการเปิดสอนของแต่ละภาคเรียนก่อน เพื่อป้องกันการนับซ้ำ</p>
+    <p className="mt-1 text-xs text-slate-500">*หน่วยกิตในตารางรายวิชาคำนวณจาก 40 ชั่วโมงต่อ 1 หน่วยกิตเฉพาะรายวิชามัธยมที่ไม่ใช่กิจกรรม</p>
+   </section>
   </section>
  </div>}
  </main>;
