@@ -14,6 +14,7 @@ export default function CurriculumPage(){
  const [canEdit,setCanEdit]=useState(false),[loading,setLoading]=useState(true);
  const [curricula,setCurricula]=useState<Curriculum[]>([]),[versions,setVersions]=useState<Version[]>([]),[subjects,setSubjects]=useState<Subject[]>([]);
  const [curriculumId,setCurriculumId]=useState(''),[versionId,setVersionId]=useState('');
+ const [step,setStep]=useState<1|2|3>(1);
  const [name,setName]=useState(''),[versionName,setVersionName]=useState(''),[effectiveYear,setEffectiveYear]=useState('2569');
  const [subjectQuery,setSubjectQuery]=useState(''),[subjectPage,setSubjectPage]=useState(1);
  const [gradeLevel,setGradeLevel]=useState('ป.1'),[filterGrade,setFilterGrade]=useState('ป.1');
@@ -50,10 +51,10 @@ export default function CurriculumPage(){
   if(e){setError(e.message);return;}
   setCurricula(c.data??[]);setVersions(v.data??[]);setSubjects(s.data??[]);setOfferings(o.data??[]);setUsedSubjectIds([...(new Set((o.data??[]).map(x=>x.subject_id)))]);setAssignedOfferingIds((a.data??[]).map(x=>x.course_offering_id));
   setCanEdit((m.data??[]).some(x=>['school_admin','academic'].includes(x.role)));
-  setCurriculumId(old=>(c.data??[]).some(x=>x.id===old)?old:c.data?.[0]?.id??'');
+  setCurriculumId(old=>(c.data??[]).some(x=>x.id===old)?old:'');
  })();return()=>{mounted=false;};},[db,schoolId,notice]);
  const filteredVersions=versions.filter(v=>v.curriculum_id===curriculumId);
- const selectedVersion=filteredVersions.some(v=>v.id===versionId)?versionId:filteredVersions[0]?.id??'';
+ const selectedVersion=filteredVersions.some(v=>v.id===versionId)?versionId:'';
  const selectedSubjects=subjects.filter(s=>s.curriculum_version_id===selectedVersion&&s.grade_level===filterGrade);
  const filteredSubjects=selectedSubjects.filter(s=>(s.subject_code+' '+s.name_th).toLocaleLowerCase().includes(subjectQuery.toLocaleLowerCase()));
  const visibleSubjects=filteredSubjects.slice((subjectPage-1)*PAGE_SIZE,subjectPage*PAGE_SIZE);
@@ -91,23 +92,36 @@ export default function CurriculumPage(){
  <Link href="/" className="text-sm text-blue-700">← Wichakan</Link>
  <h1 className="mt-3 text-3xl font-bold">หลักสูตรและรายวิชา</h1><p className="mt-2 text-sm text-slate-500">Curriculum Management · v0.5</p>
  {loading&&<p className="mt-4">กำลังโหลด...</p>}
- {schools.length>1&&<select className="mt-4 rounded-xl border p-3" value={schoolId} onChange={e=>setSchoolId(e.target.value)}>{schools.map(s=><option key={s.id} value={s.id}>{s.name_th}</option>)}</select>}
+ {schools.length>1&&<select className="mt-4 rounded-xl border p-3" value={schoolId} onChange={e=>{setSchoolId(e.target.value);setCurriculumId("");setVersionId("");setStep(1);setEditing(null);}}>{schools.map(s=><option key={s.id} value={s.id}>{s.name_th}</option>)}</select>}
  {schools.length===1&&<p className="mt-4 font-medium">{schools[0].name_th}</p>}
  {error&&<p role="alert" className="mt-4 rounded-xl bg-red-50 p-4 text-sm text-red-700">{error}</p>}
  {notice&&<p role="status" className="mt-4 rounded-xl bg-green-50 p-4 text-sm text-green-700">{notice}</p>}
- {schoolId&&<div className="mt-6 grid gap-5 lg:grid-cols-2">
-  <section className="rounded-2xl border bg-white p-6 shadow-sm"><h2 className="text-lg font-bold">หลักสูตรสถานศึกษา</h2>
+ {schoolId&&<>
+  <nav aria-label="ขั้นตอนจัดการหลักสูตร" className="mt-6 grid gap-2 sm:grid-cols-3">
+   {([{id:1,title:'หลักสูตร',note:'เลือกหลักสูตรก่อน'},{id:2,title:'ฉบับหลักสูตร',note:'เลือกฉบับที่ต้องการ'},{id:3,title:'รายวิชา',note:'จัดการรายวิชา'}] as const).map(s=><button type="button" key={s.id}
+    disabled={(s.id===2&&!curriculumId)||(s.id===3&&(!curriculumId||!selectedVersion))}
+    aria-current={step===s.id?'step':undefined}
+    onClick={()=>{setStep(s.id);setEditing(null);}}
+    className={`rounded-2xl border p-4 text-left transition disabled:cursor-not-allowed disabled:opacity-40 ${step===s.id?'border-blue-600 bg-blue-50 text-blue-900 shadow-sm':'border-slate-200 bg-white hover:border-blue-200'}`}>
+    <span className="block text-sm font-bold">{s.id}. {s.title} {s.id===1&&curriculumId?'✓':s.id===2&&selectedVersion?'✓':''}</span>
+    <span className="mt-1 block text-xs text-slate-500">{s.note}</span>
+   </button>)}
+  </nav>
+  <div className="mt-5 grid gap-5">
+  {step===1&&<section className="rounded-2xl border bg-white p-6 shadow-sm"><h2 className="text-lg font-bold">1. เลือกหลักสูตรสถานศึกษา</h2>
    <label className="mt-4 block text-sm">ชื่อหลักสูตร<input className="mt-2 w-full rounded-xl border p-3" value={name} onChange={e=>setName(e.target.value)} placeholder="หลักสูตรสถานศึกษา"/></label>
    <button className="mt-3 rounded-xl bg-blue-800 px-5 py-3 text-sm text-white disabled:opacity-40" disabled={!canEdit||busy||!name.trim()} onClick={()=>save(()=>db!.from('curricula').insert({school_id:schoolId,name_th:name.trim()}),'เพิ่มหลักสูตรแล้ว')}>เพิ่มหลักสูตร</button>
-   <label className="mt-5 block text-sm">เลือกหลักสูตร<select className="mt-2 w-full rounded-xl border p-3" value={curriculumId} onChange={e=>{setCurriculumId(e.target.value);setVersionId('');}}><option value="">เลือกหลักสูตร</option>{curricula.map(c=><option key={c.id} value={c.id}>{c.name_th}</option>)}</select></label>
-  </section>
-  <section className="rounded-2xl border bg-white p-6 shadow-sm"><h2 className="text-lg font-bold">ฉบับหลักสูตร</h2>
+   <label className="mt-5 block text-sm">เลือกหลักสูตร<select className="mt-2 w-full rounded-xl border p-3" value={curriculumId} onChange={e=>{setCurriculumId(e.target.value);setVersionId('');setEditing(null);setSubjectPage(1);}}><option value="">เลือกหลักสูตร</option>{curricula.map(c=><option key={c.id} value={c.id}>{c.name_th}</option>)}</select></label>
+   <div className="mt-5 flex justify-end"><button type="button" disabled={!curriculumId} onClick={()=>setStep(2)} className="rounded-xl bg-blue-700 px-5 py-3 text-sm font-semibold text-white disabled:opacity-40">ถัดไป: ฉบับหลักสูตร →</button></div>
+  </section>}
+  {step===2&&curriculumId&&<section className="rounded-2xl border bg-white p-6 shadow-sm"><h2 className="text-lg font-bold">2. เลือกฉบับหลักสูตร</h2>
    <label className="mt-4 block text-sm">ชื่อฉบับ<input className="mt-2 w-full rounded-xl border p-3" value={versionName} onChange={e=>setVersionName(e.target.value)} placeholder="ฉบับปรับปรุง 2569"/></label>
    <label className="mt-3 block text-sm">ปีเริ่มใช้ (พ.ศ.)<input type="number" min="2500" max="2800" value={effectiveYear} onChange={e=>setEffectiveYear(e.target.value)} className="mt-2 w-full rounded-xl border p-3"/></label>
    <button className="mt-3 rounded-xl bg-blue-800 px-5 py-3 text-sm text-white disabled:opacity-40" disabled={!canEdit||busy||!curriculumId||!versionName.trim()||Number(effectiveYear)<2500||Number(effectiveYear)>2800} onClick={()=>save(()=>db!.from('curriculum_versions').insert({school_id:schoolId,curriculum_id:curriculumId,version_label:versionName.trim(),effective_year_be:Number(effectiveYear)}),'เพิ่มฉบับหลักสูตรแล้ว')}>เพิ่มฉบับ</button>
-   <label className="mt-5 block text-sm">เลือกฉบับ<select className="mt-2 w-full rounded-xl border p-3" value={selectedVersion} onChange={e=>setVersionId(e.target.value)}><option value="">เลือกฉบับ</option>{filteredVersions.map(v=><option key={v.id} value={v.id}>{v.version_label} (เริ่ม {v.effective_year_be})</option>)}</select></label>
-  </section>
-  <section className="rounded-2xl border bg-white p-6 shadow-sm lg:col-span-2"><h2 className="text-lg font-bold">รายวิชา</h2>
+   <label className="mt-5 block text-sm">เลือกฉบับ<select className="mt-2 w-full rounded-xl border p-3" value={selectedVersion} onChange={e=>{setVersionId(e.target.value);setEditing(null);setSubjectPage(1);}}><option value="">เลือกฉบับ</option>{filteredVersions.map(v=><option key={v.id} value={v.id}>{v.version_label} (เริ่ม {v.effective_year_be})</option>)}</select></label>
+   <div className="mt-5 flex flex-wrap justify-between gap-2"><button type="button" onClick={()=>setStep(1)} className="rounded-xl border px-5 py-3 text-sm">← ย้อนกลับ</button><button type="button" disabled={!selectedVersion} onClick={()=>setStep(3)} className="rounded-xl bg-blue-700 px-5 py-3 text-sm font-semibold text-white disabled:opacity-40">ถัดไป: รายวิชา →</button></div>
+  </section>}
+  {step===3&&curriculumId&&selectedVersion&&<section className="min-w-0 rounded-2xl border bg-white p-6 shadow-sm"><div className="flex flex-wrap items-center justify-between gap-3"><div><h2 className="text-lg font-bold">3. รายวิชา</h2><p className="mt-1 text-xs text-slate-500">{curricula.find(x=>x.id===curriculumId)?.name_th} / {filteredVersions.find(x=>x.id===selectedVersion)?.version_label}</p></div><button type="button" onClick={()=>setStep(2)} className="rounded-xl border px-4 py-2 text-sm text-blue-700">← เปลี่ยนฉบับหลักสูตร</button></div>
    <details className="mt-4 rounded-xl border border-blue-100 bg-blue-50/30 p-4"><summary className="cursor-pointer font-semibold text-blue-800">+ เพิ่มรายวิชา</summary>
    <div className="mt-4 grid gap-3 md:grid-cols-4">
     <label className="text-sm">ระดับชั้น<select value={gradeLevel} onChange={e=>{setGradeLevel(e.target.value);setHourBasis(e.target.value.startsWith('ม.')?'term':'year');}} className="mt-2 w-full rounded-xl border p-3">{gradeLevels.map(g=><option key={g} value={g}>{g}</option>)}</select></label>
@@ -169,7 +183,7 @@ export default function CurriculumPage(){
     <p className="mt-3 text-xs leading-5 text-slate-500">ชั่วโมง/ปีและชั่วโมง/ภาคเรียนเป็นคนละช่วงเวลา จึงไม่บวกเป็นยอดรวมเดียว หากต้องการรวมเป็นรายปี ต้องระบุการเปิดสอนของแต่ละภาคเรียนก่อน เพื่อป้องกันการนับซ้ำ</p>
     <p className="mt-1 text-xs text-slate-500">*หน่วยกิตในตารางรายวิชาคำนวณจาก 40 ชั่วโมงต่อ 1 หน่วยกิตเฉพาะรายวิชามัธยมที่ไม่ใช่กิจกรรม</p>
    </section>
-  </section>
- </div>}
+  </section>}
+ </div></>}
  </main>;
 }
