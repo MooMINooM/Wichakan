@@ -67,7 +67,7 @@ export default function PersonnelPage(){
     <label className="mt-4 block text-sm">ชื่อที่แสดง<input className="mt-2 w-full rounded-xl border p-3" value={displayName} onChange={e=>setDisplayName(e.target.value)} placeholder="ชื่อ นามสกุล"/></label>
     <label className="mt-4 block text-sm">บทบาท<select className="mt-2 w-full rounded-xl border p-3" value={role} onChange={e=>setRole(e.target.value as Role)}>{roles.map(r=><option value={r} key={r}>{roleName[r]}</option>)}</select></label>
     <button disabled={busy||!/^[0-9a-fA-F-]{36}$/.test(uid)||displayName.trim().length<2} onClick={()=>perform(()=>db!.rpc('grant_school_staff_role',{p_school_id:schoolId,p_user_id:uid.trim(),p_display_name:displayName.trim(),p_role:role}),'เพิ่มหรือเปิดสิทธิ์บุคลากรแล้ว')} className="mt-5 w-full rounded-xl bg-blue-800 p-3 text-white disabled:opacity-40">บันทึกบุคลากร</button>
-    <p className="mt-4 text-xs text-slate-500">สามารถเพิ่มหลายบทบาทให้บัญชีเดียวได้ โดยใช้ UID เดิมและเลือกบทบาทใหม่ ระบบนี้ไม่สร้างรหัสผ่านหรือบัญชี Authentication</p></div>
+    <p className="mt-4 text-xs text-slate-500">สามารถเพิ่มหลายบทบาทให้บัญชีเดียวได้ โดยใช้ UID เดิมและเลือกบทบาทใหม่ ระบบนี้ไม่สร้างรหัสผ่านหรือบัญชี Authentication</p></div>}
    </section>
    <section className="rounded-2xl border bg-white p-6 shadow-sm">
     <h2 className="text-xl font-bold">บุคลากรในโรงเรียน</h2>
