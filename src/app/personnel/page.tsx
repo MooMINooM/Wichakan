@@ -42,9 +42,9 @@ export default function PersonnelPage(){
   if(!alive)return;
   if(p.error)setError(p.error.message);else setProfiles(p.data??[]);
  })();return()=>{alive=false;};},[db,schoolId,refresh]);
+ const name=(id:string)=>profiles.find(p=>p.user_id===id)?.display_name??'บัญชี '+id.slice(0,8);
  const filtered=members.filter(m=>(name(m.user_id)+' '+(roleName[m.role as Role]??m.role)).toLocaleLowerCase().includes(query.toLocaleLowerCase()));
  const displayed=filtered.slice((page-1)*PAGE_SIZE,page*PAGE_SIZE);
- const name=(id:string)=>profiles.find(p=>p.user_id===id)?.display_name??'บัญชี '+id.slice(0,8);
  async function perform(action:()=>PromiseLike<{error:{message:string}|null}>,success:string){
   if(busy)return;setBusy(true);setError('');setNotice('');
   try{
