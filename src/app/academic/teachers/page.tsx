@@ -1,5 +1,6 @@
 'use client';
 import Link from 'next/link';
+import PageControls,{PAGE_SIZE} from '@/components/page-controls';
 import {useEffect,useState} from 'react';
 import {useRouter} from 'next/navigation';
 import {getSupabaseBrowserClient} from '@/lib/supabase/browser';
@@ -19,6 +20,7 @@ export default function TeachersPage(){
  const [years,setYears]=useState<Year[]>([]),[rooms,setRooms]=useState<Room[]>([]),[members,setMembers]=useState<Member[]>([]),[teachers,setTeachers]=useState<Teacher[]>([]);
  const [homerooms,setHomerooms]=useState<Homeroom[]>([]),[terms,setTerms]=useState<Term[]>([]),[subjects,setSubjects]=useState<Subject[]>([]),[offerings,setOfferings]=useState<Offering[]>([]),[assignments,setAssignments]=useState<Assignment[]>([]);
  const [yearId,setYearId]=useState(''),[classId,setClassId]=useState(''),[teacherId,setTeacherId]=useState('');
+ const [assignmentQuery,setAssignmentQuery]=useState(''),[assignmentPage,setAssignmentPage]=useState(1);
  const [termId,setTermId]=useState(''),[subjectId,setSubjectId]=useState('');
  const [error,setError]=useState(''),[notice,setNotice]=useState(''),[busy,setBusy]=useState(false),[revision,setRevision]=useState(0);
  useEffect(()=>{let active=true;(async()=>{
@@ -63,6 +65,8 @@ export default function TeachersPage(){
  const currentOfferings=offerings.filter(o=>o.classroom_id===validRoom&&o.term_id===validTerm);
  const assignmentsForSelection=currentOfferings.flatMap(o=>assignments.filter(a=>a.course_offering_id===o.id).map(a=>({id:a.id,teacher:a.teacher_user_id,subject:o.subject_id})));
  const name=(id:string)=>teachers.find(t=>t.user_id===id)?.display_name??'ไม่พบชื่อครู';
+ const filteredAssignments=assignmentsForSelection.filter(a=>(name(a.teacher)+' '+(subjects.find(s=>s.id===a.subject)?.name_th??'')).toLocaleLowerCase().includes(assignmentQuery.toLocaleLowerCase()));
+ const visibleAssignments=filteredAssignments.slice((assignmentPage-1)*PAGE_SIZE,assignmentPage*PAGE_SIZE);
  async function act(task:()=>PromiseLike<{error:{message:string}|null}>,success:string){
   if(!db||!canWrite||busy)return;setBusy(true);setError('');setNotice('');
   try{const result=await task();if(result.error)setError(result.error.message);else{setNotice(success);setRevision(v=>v+1);}}
@@ -96,7 +100,7 @@ export default function TeachersPage(){
      <section className="rounded-2xl border bg-white p-6 shadow-sm">
       <h2 className="text-xl font-bold">มอบหมายครูผู้สอนรายวิชา</h2>
       <p className="mt-2 text-sm text-slate-500">เลือกปีและภาคเรียนด้านบน จากนั้นเลือกครู ห้องเรียน และรายวิชา กดบันทึกครั้งเดียว</p>
-      <div className="mt-5 space-y-4">
+      <details className="mt-5 rounded-xl border border-blue-100 bg-blue-50/30 p-4"><summary className="cursor-pointer font-semibold text-blue-800">+ มอบหมายครูผู้สอน</summary><div className="mt-4 space-y-4">
        <label className="block text-sm font-medium">ครูผู้สอน
         <select className="mt-2 w-full rounded-xl border p-3" value={validTeacher} onChange={e=>setTeacherId(e.target.value)}>
          {teachers.map(t=><option key={t.user_id} value={t.user_id}>{t.display_name}</option>)}
@@ -116,11 +120,14 @@ export default function TeachersPage(){
        </button>
        <p className="text-xs text-slate-500">หากวิชานี้ยังไม่เปิดสอน ระบบจะเปิดสอนและมอบหมายครูในรายการเดียว หากเคยมอบหมายครูคนเดิมแล้วจะไม่สร้างข้อมูลซ้ำ</p>
       </div>
+      </details>
       <h3 className="mt-7 font-bold">ครูผู้สอนที่มอบหมายแล้ว ({assignmentsForSelection.length})</h3>
-      <div className="mt-3 space-y-2">{assignmentsForSelection.map(a=><div key={a.id} className="flex items-center justify-between gap-2 rounded-xl border p-3 text-sm">
+      <input aria-label="ค้นหารายการมอบหมาย" placeholder="ค้นหาครูหรือรายวิชา..." className="mt-3 w-full rounded-xl border p-3 text-sm" value={assignmentQuery} onChange={e=>{setAssignmentQuery(e.target.value);setAssignmentPage(1);}}/>
+      <div className="mt-3 space-y-2">{visibleAssignments.map(a=><div key={a.id} className="flex items-center justify-between gap-2 rounded-xl border p-3 text-sm">
        <div><p className="font-semibold">{subjects.find(s=>s.id===a.subject)?.name_th??'รายวิชา'}</p><p className="mt-1 text-slate-500">{name(a.teacher)}</p></div>
        <button disabled={!canWrite||busy} onClick={()=>act(()=>db!.from('teaching_assignments').delete().eq('id',a.id).eq('school_id',schoolId),'ยกเลิกการมอบหมายแล้ว')} className="rounded-lg px-3 py-2 text-red-700 hover:bg-red-50 disabled:opacity-40">ยกเลิก</button>
       </div>)}</div>
+      <PageControls total={filteredAssignments.length} page={Math.min(assignmentPage,Math.max(1,Math.ceil(filteredAssignments.length/PAGE_SIZE)))} onChange={setAssignmentPage}/>
       {assignmentsForSelection.length===0&&<p className="mt-3 text-sm text-slate-500">ยังไม่มีครูผู้สอนสำหรับห้องและภาคเรียนที่เลือก</p>}
       {availableSubjects.length===0&&<p className="mt-3 text-sm text-amber-700">ไม่มีรายวิชาสำหรับระดับชั้น {selectedGrade} กรุณากำหนดระดับชั้นของรายวิชาในหน้าหลักสูตรก่อน</p>}
       {subjects.length===0&&<Link href="/curriculum" className="mt-4 inline-block text-sm text-blue-700">ยังไม่มีรายวิชา ไปตั้งค่าหลักสูตร →</Link>}
