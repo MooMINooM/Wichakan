@@ -1,5 +1,6 @@
 'use client';
 import Link from 'next/link';
+import PageControls,{PAGE_SIZE} from '@/components/page-controls';
 import {useEffect,useState} from 'react';
 import {useRouter} from 'next/navigation';
 import {getSupabaseBrowserClient} from '@/lib/supabase/browser';
@@ -12,6 +13,7 @@ export default function PersonnelPage(){
  const db=getSupabaseBrowserClient(),router=useRouter();
  const [schoolId,setSchoolId]=useState(''),[schoolName,setSchoolName]=useState('');
  const [members,setMembers]=useState<Member[]>([]),[profiles,setProfiles]=useState<Profile[]>([]);
+ const [query,setQuery]=useState(''),[page,setPage]=useState(1),[showAdd,setShowAdd]=useState(false);
  const [uid,setUid]=useState(''),[displayName,setDisplayName]=useState(''),[role,setRole]=useState<Role>('teacher');
  const [busy,setBusy]=useState(false),[error,setError]=useState(''),[notice,setNotice]=useState('');
  const [refresh,setRefresh]=useState(0);
@@ -40,6 +42,8 @@ export default function PersonnelPage(){
   if(!alive)return;
   if(p.error)setError(p.error.message);else setProfiles(p.data??[]);
  })();return()=>{alive=false;};},[db,schoolId,refresh]);
+ const filtered=members.filter(m=>(name(m.user_id)+' '+(roleName[m.role as Role]??m.role)).toLocaleLowerCase().includes(query.toLocaleLowerCase()));
+ const displayed=filtered.slice((page-1)*PAGE_SIZE,page*PAGE_SIZE);
  const name=(id:string)=>profiles.find(p=>p.user_id===id)?.display_name??'บัญชี '+id.slice(0,8);
  async function perform(action:()=>PromiseLike<{error:{message:string}|null}>,success:string){
   if(busy)return;setBusy(true);setError('');setNotice('');
@@ -56,20 +60,22 @@ export default function PersonnelPage(){
   {notice&&<p role="status" className="mt-4 rounded-xl bg-green-50 p-4 text-sm text-green-800">{notice}</p>}
   {schoolId&&<div className="mt-6 grid gap-5 lg:grid-cols-[340px_1fr]">
    <section className="rounded-2xl border bg-white p-6 shadow-sm">
-    <h2 className="text-xl font-bold">เพิ่มสิทธิ์บุคลากร</h2>
+    <button type="button" onClick={()=>setShowAdd(v=>!v)} className="w-full rounded-xl bg-blue-800 px-4 py-3 text-left font-semibold text-white">{showAdd?"− ปิดแบบฟอร์ม":"+ เพิ่มสิทธิ์บุคลากร"}</button>
+    {showAdd&&<div className="mt-4"><h2 className="text-xl font-bold">เพิ่มสิทธิ์บุคลากร</h2>
     <p className="mt-2 text-sm text-slate-500">บัญชีต้องถูกสร้างใน Supabase Authentication ก่อน จากนั้นใช้ User UID เพื่อผูกกับโรงเรียน</p>
     <label className="mt-5 block text-sm">User UID<input className="mt-2 w-full rounded-xl border p-3" value={uid} onChange={e=>setUid(e.target.value)} placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"/></label>
     <label className="mt-4 block text-sm">ชื่อที่แสดง<input className="mt-2 w-full rounded-xl border p-3" value={displayName} onChange={e=>setDisplayName(e.target.value)} placeholder="ชื่อ นามสกุล"/></label>
     <label className="mt-4 block text-sm">บทบาท<select className="mt-2 w-full rounded-xl border p-3" value={role} onChange={e=>setRole(e.target.value as Role)}>{roles.map(r=><option value={r} key={r}>{roleName[r]}</option>)}</select></label>
     <button disabled={busy||!/^[0-9a-fA-F-]{36}$/.test(uid)||displayName.trim().length<2} onClick={()=>perform(()=>db!.rpc('grant_school_staff_role',{p_school_id:schoolId,p_user_id:uid.trim(),p_display_name:displayName.trim(),p_role:role}),'เพิ่มหรือเปิดสิทธิ์บุคลากรแล้ว')} className="mt-5 w-full rounded-xl bg-blue-800 p-3 text-white disabled:opacity-40">บันทึกบุคลากร</button>
-    <p className="mt-4 text-xs text-slate-500">สามารถเพิ่มหลายบทบาทให้บัญชีเดียวได้ โดยใช้ UID เดิมและเลือกบทบาทใหม่ ระบบนี้ไม่สร้างรหัสผ่านหรือบัญชี Authentication</p>
+    <p className="mt-4 text-xs text-slate-500">สามารถเพิ่มหลายบทบาทให้บัญชีเดียวได้ โดยใช้ UID เดิมและเลือกบทบาทใหม่ ระบบนี้ไม่สร้างรหัสผ่านหรือบัญชี Authentication</p></div>
    </section>
    <section className="rounded-2xl border bg-white p-6 shadow-sm">
     <h2 className="text-xl font-bold">บุคลากรในโรงเรียน</h2>
-    <div className="mt-5 space-y-3">{members.map((m,i)=><div key={m.user_id+'-'+m.role+'-'+i} className="flex flex-wrap items-center justify-between gap-3 rounded-xl border p-3">
+    <input aria-label="ค้นหาบุคลากร" placeholder="ค้นหาชื่อหรือบทบาท..." className="mt-4 w-full rounded-xl border p-3" value={query} onChange={e=>{setQuery(e.target.value);setPage(1);}}/>
+    <div className="mt-5 space-y-3">{displayed.map((m,i)=><div key={m.user_id+'-'+m.role+'-'+i} className="flex flex-wrap items-center justify-between gap-3 rounded-xl border p-3">
       <div><p className="font-medium">{name(m.user_id)}</p><p className="mt-1 text-xs text-slate-500">{roleName[m.role as Role]??'ผู้ดูแลระบบ'} · {m.active?'เปิดใช้งาน':'ระงับสิทธิ์'}</p></div>
       {roles.includes(m.role as Role)&&<button disabled={busy} onClick={()=>perform(()=>db!.rpc('set_school_staff_role_active',{p_school_id:schoolId,p_user_id:m.user_id,p_role:m.role,p_active:!m.active}),m.active?'ระงับสิทธิ์แล้ว':'เปิดสิทธิ์แล้ว')} className="rounded-lg border px-3 py-2 text-xs disabled:opacity-40">{m.active?'ระงับสิทธิ์':'เปิดสิทธิ์'}</button>}
-    </div>)}</div>
+    </div>)}</div><PageControls total={filtered.length} page={Math.min(page,Math.max(1,Math.ceil(filtered.length/PAGE_SIZE)))} onChange={setPage}/>
    </section>
   </div>}
  </main>;
