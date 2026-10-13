@@ -3,8 +3,9 @@ import Link from 'next/link';
 import {useEffect,useState} from 'react';
 import {useRouter} from 'next/navigation';
 import {getSupabaseBrowserClient} from '@/lib/supabase/browser';
+import {resolveYear,setYearSelection,YEAR_EVENT} from '@/lib/academic-year-selection';
 type Room={id:string;academic_year_id:string;level_code:string;room_code:string};
-type Year={id:string;year_be:number};
+type Year={id:string;year_be:number;is_active:boolean};
 type Student={id:string;student_no:string;first_name_th:string;last_name_th:string};
 type Enrollment={student_id:string;classroom_id:string;status:string};
 const roomLabel=(r:Room)=>r.room_code.startsWith(r.level_code+'/')?r.room_code:r.level_code+'/'+r.room_code;
@@ -13,6 +14,7 @@ export default function PromotePage(){
  const [schoolId,setSchoolId]=useState(''),[allowed,setAllowed]=useState(false);
  const [years,setYears]=useState<Year[]>([]),[rooms,setRooms]=useState<Room[]>([]);
  const [students,setStudents]=useState<Student[]>([]),[enrollments,setEnrollments]=useState<Enrollment[]>([]);
+ const [sourceYearId,setSourceYearId]=useState('');
  const [source,setSource]=useState(''),[target,setTarget]=useState(''),[selected,setSelected]=useState<string[]>([]);
  const [error,setError]=useState(''),[notice,setNotice]=useState(''),[busy,setBusy]=useState(false);
  useEffect(()=>{let alive=true;(async()=>{
@@ -27,16 +29,22 @@ export default function PromotePage(){
  async function reload(id:string){
   if(!db)return;
   const [y,r,s,e]=await Promise.all([
-   db.from('academic_years').select('id,year_be').eq('school_id',id),
+   db.from('academic_years').select('id,year_be,is_active').eq('school_id',id),
    db.from('classrooms').select('id,academic_year_id,level_code,room_code').eq('school_id',id),
    db.from('students').select('id,student_no,first_name_th,last_name_th').eq('school_id',id),
    db.from('enrollments').select('student_id,classroom_id,status').eq('school_id',id)
   ]);
   const failure=[y.error,r.error,s.error,e.error].find(Boolean);
   if(failure){setError(failure.message);return;}
-  setYears(y.data??[]);setRooms(r.data??[]);setStudents(s.data??[]);setEnrollments(e.data??[]);
+  setYears(y.data??[]);setSourceYearId(prev=>resolveYear(y.data??[],id,prev));setRooms(r.data??[]);setStudents(s.data??[]);setEnrollments(e.data??[]);
  }
  useEffect(()=>{if(schoolId)void reload(schoolId);},[schoolId]);
+ useEffect(()=>{if(schoolId&&sourceYearId)setYearSelection(schoolId,sourceYearId);},[schoolId,sourceYearId]);
+ useEffect(()=>{if(!schoolId)return;
+  const sync=(ev:Event)=>{const d=(ev as CustomEvent<{schoolId:string;yearId:string}>).detail;
+   if(d?.schoolId===schoolId)setSourceYearId(prev=>prev===d.yearId?prev:d.yearId);};
+  window.addEventListener(YEAR_EVENT,sync);return()=>window.removeEventListener(YEAR_EVENT,sync);
+ },[schoolId]);
  const sourceRoom=rooms.find(r=>r.id===source);
  const fromYear=years.find(y=>y.id===sourceRoom?.academic_year_id)?.year_be??0;
  const destinations=rooms.filter(r=>(years.find(y=>y.id===r.academic_year_id)?.year_be??0)>fromYear);
@@ -58,8 +66,9 @@ export default function PromotePage(){
   {notice&&<p role="status" className="mt-5 rounded-xl bg-green-50 p-4 text-sm text-green-800">{notice}</p>}
   {allowed&&<div className="mt-6 rounded-2xl border bg-white p-6 shadow-sm">
    <div className="grid gap-4 sm:grid-cols-2">
+    <label className="text-sm font-medium">ปีการศึกษาต้นทาง<select className="mt-2 w-full rounded-xl border p-3" value={sourceYearId} onChange={e=>{setSourceYearId(e.target.value);setSource('');setTarget('');setSelected([]);}}>{years.map(y=><option key={y.id} value={y.id}>{y.year_be}</option>)}</select></label>
     <label className="text-sm font-medium">ห้องเรียนต้นทาง<select className="mt-2 w-full rounded-xl border p-3" value={source} onChange={e=>{setSource(e.target.value);setTarget('');setSelected([]);}}>
-     <option value="">เลือกห้องต้นทาง</option>{rooms.map(r=><option key={r.id} value={r.id}>{years.find(y=>y.id===r.academic_year_id)?.year_be} · {roomLabel(r)}</option>)}
+     <option value="">เลือกห้องต้นทาง</option>{rooms.filter(r=>r.academic_year_id===sourceYearId).map(r=><option key={r.id} value={r.id}>{years.find(y=>y.id===r.academic_year_id)?.year_be} · {roomLabel(r)}</option>)}
     </select></label>
     <label className="text-sm font-medium">ห้องเรียนปีถัดไป<select className="mt-2 w-full rounded-xl border p-3" value={target} onChange={e=>setTarget(e.target.value)}>
      <option value="">เลือกห้องปลายทาง</option>{destinations.map(r=><option key={r.id} value={r.id}>{years.find(y=>y.id===r.academic_year_id)?.year_be} · {roomLabel(r)}</option>)}
