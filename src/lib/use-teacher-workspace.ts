@@ -49,7 +49,7 @@ export function useTeacherWorkspace(){
   }catch(e){if(seq===sequence.current)setError(teacherError(e));}finally{if(seq===sequence.current)setLoading(false);}
  },[db,router]);
  useEffect(()=>{void reload();return()=>{sequence.current++;};},[reload]);
- function recordSaved(record:ScoreRecord){setData(old=>({...old,scores:[...old.scores.filter(r=>!(r.course_offering_id===record.course_offering_id&&r.student_id===record.student_id)),record]}));}
+ function recordSaved(records:ScoreRecord[]){setData(old=>{const keys=new Set(records.map(r=>r.course_offering_id+':'+r.student_id));return {...old,scores:[...old.scores.filter(r=>!keys.has(r.course_offering_id+':'+r.student_id)),...records]};});}
  return {data,loading,error,reload,recordSaved};
 }
 export function offeringRoster(data:TeacherWorkspace,o:TeacherOffering){const room=data.rooms.find(r=>r.id===o.classroom_id);const ids=new Set(data.enrollments.filter(e=>e.classroom_id===o.classroom_id&&e.academic_year_id===room?.academic_year_id&&['active','completed'].includes(e.status)).map(e=>e.student_id));return data.students.filter(s=>ids.has(s.id));}
