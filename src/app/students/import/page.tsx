@@ -89,7 +89,7 @@ export default function DmcImportPage(){
   </header>
   <section className="mt-5 rounded-2xl border bg-white p-5 shadow-sm">
    <div className="grid gap-3 sm:grid-cols-2">
-    <label className="text-sm font-semibold">โรงเรียน<select className="mt-2 w-full rounded-xl border p-3" value={schoolId} onChange={e=>{setSchoolId(e.target.value);setRows([]);setResult(null);}}>{schools.map(s=><option key={s.id} value={s.id}>{s.name_th}</option>)}</select></label>
+    <div className="rounded-xl bg-blue-50 p-3 text-sm"><span className="text-xs text-slate-500">โรงเรียนหลัก</span><p className="mt-1 font-semibold text-blue-900">{selectedSchool?.name_th??"ยังไม่พบโรงเรียน"}</p><p className="text-xs text-slate-500">รหัส DMC: {selectedSchool?.code??"—"}</p></div>
     <label className="text-sm font-semibold">ปีการศึกษาปลายทาง<select className="mt-2 w-full rounded-xl border p-3" value={yearId} onChange={e=>{setYearId(e.target.value);setRows([]);setResult(null);}}>{years.map(y=><option key={y.id} value={y.id}>{y.year_be}{y.is_active?' (ปัจจุบัน)':''}</option>)}</select></label>
    </div>
    <label className="mt-5 block text-sm font-semibold">ไฟล์ DMC (.xlsx, .xls)<input type="file" accept=".xlsx,.xls" className="mt-2 block w-full rounded-xl border border-dashed border-blue-200 p-4 text-sm" disabled={busy||!schoolId||!yearId} onChange={e=>{const f=e.target.files?.[0];if(f)void parseFile(f);e.target.value='';}}/></label>

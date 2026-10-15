@@ -121,7 +121,7 @@ export default function AcademicSetupPage() {
    </header>
    {loading&&<p className="mt-4 text-sm">กำลังโหลด...</p>}
    {!loading&&schools.length===0&&<p className="mt-4 rounded-xl bg-amber-50 p-4 text-sm">บัญชีนี้ยังไม่ได้รับสิทธิ์ในโรงเรียน</p>}
-   {schools.length>1&&<label className="mt-3 block text-sm">โรงเรียน <select className="ml-2 rounded-xl border p-2" value={schoolId} onChange={e=>{setSchoolId(e.target.value);setRoomPage(1);}}>{schools.map(s=><option key={s.id} value={s.id}>{s.name_th}</option>)}</select></label>}
+   {schools.length>0&&<p className="mt-3 text-sm font-medium text-blue-900">{schools.find(s=>s.id===schoolId)?.name_th}</p>}
    {error&&<p role="alert" className="mt-3 rounded-xl bg-red-50 p-3 text-sm text-red-800">{error}</p>}
    {message&&<p role="status" className="mt-3 rounded-xl bg-emerald-50 p-3 text-sm text-emerald-800">{message}</p>}
    {schoolId&&<>

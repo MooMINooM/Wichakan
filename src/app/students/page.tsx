@@ -29,6 +29,8 @@ export default function StudentsPage() {
   const [canWrite,setCanWrite] = useState(false);
   const [loading,setLoading] = useState(true);
   const [saving,setSaving] = useState(false);
+  const [removing,setRemoving]=useState<Student|null>(null),[confirmNo,setConfirmNo]=useState('');
+  const [changingStatus,setChangingStatus]=useState<Student|null>(null),[nextStatus,setNextStatus]=useState('active');
   const [error,setError] = useState('');
   const [info,setInfo] = useState('');
 
@@ -115,6 +117,23 @@ export default function StudentsPage() {
     setSaving(false);
   }
 
+  async function removeStudent(){
+    if(!canWrite||!schoolId||!removing||saving||confirmNo!==removing.student_no)return;
+    const db=getSupabaseBrowserClient();if(!db)return;
+    setSaving(true);setError('');setInfo('');
+    const {error:e}=await db.rpc('remove_unused_student',{p_student_id:removing.id,p_school_id:schoolId});
+    if(e)setError(e.message);
+    else{setStudents(prev=>prev.filter(s=>s.id!==removing.id));setInfo('ลบรายการที่ไม่มีประวัติสำเร็จ');setRemoving(null);setConfirmNo('');setEditingId(null);}
+    setSaving(false);
+  }
+  async function updateStudentStatus(){
+    if(!canWrite||!schoolId||!changingStatus||saving)return;
+    const db=getSupabaseBrowserClient();if(!db)return;
+    setSaving(true);setError('');setInfo('');
+    const {error:e}=await db.rpc('change_student_registry_status',{p_student_id:changingStatus.id,p_school_id:schoolId,p_status:nextStatus});
+    if(e)setError(e.message);else{setStudents(prev=>prev.map(s=>s.id===changingStatus.id?{...s,status:nextStatus}:s));setInfo('เปลี่ยนสถานภาพเรียบร้อยแล้ว');setChangingStatus(null);}
+    setSaving(false);
+  }
   async function logout(){const db=getSupabaseBrowserClient();await db?.auth.signOut();router.replace('/login');}
   return <main className="mx-auto max-w-6xl px-5 py-8">
     <header className="mb-8 flex flex-wrap items-center justify-between gap-4">
@@ -122,11 +141,24 @@ export default function StudentsPage() {
       <button onClick={logout} className="rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm">ออกจากระบบ</button>
     </header>
     {loading ? <p>กำลังตรวจสอบสิทธิ์...</p> : <>
-      {schools.length>1&&<label className="mb-5 block text-sm">โรงเรียน <select className="ml-2 rounded-xl border p-2" value={schoolId} onChange={e=>{setSchoolId(e.target.value);setEditingId(null);setForm(blank);setRoomId('all');setPage(1);}}>{schools.map(s=><option key={s.id} value={s.id}>{s.name_th}</option>)}</select></label>}
+      {schools.length>1&&<p role="alert" className="mb-5 text-sm text-amber-700">พบสิทธิ์หลายโรงเรียน กรุณาติดต่อผู้ดูแลระบบก่อนดำเนินการ</p>}
       {schools.length===1&&<p className="mb-5 font-medium">{schools[0].name_th}</p>}
       {schools.length===0&&<p className="mb-5 rounded-xl bg-amber-50 p-4 text-sm text-amber-900">บัญชีนี้ยังไม่ได้รับสิทธิ์จากโรงเรียน กรุณาติดต่อผู้ดูแลระบบ</p>}
       {error&&<p role="alert" className="mb-4 rounded-xl bg-red-50 p-3 text-sm text-red-800">{error}</p>}
       {info&&<p role="status" className="mb-4 rounded-xl bg-green-50 p-3 text-sm text-green-800">{info}</p>}
+      {removing&&<div role="dialog" aria-modal="true" aria-label="ยืนยันลบนักเรียน" className="mb-4 rounded-2xl border-2 border-red-200 bg-red-50 p-5">
+       <h2 className="font-bold text-red-900">ยืนยันลบนักเรียนที่เพิ่มผิด</h2>
+       <p className="mt-2 text-sm text-red-800">{removing.first_name_th} {removing.last_name_th} ({removing.student_no})</p>
+       <p className="mt-2 text-xs text-red-700">ระบบจะลบถาวรเฉพาะผู้ที่ไม่มีประวัติลงทะเบียน ประวัติการเปลี่ยนแปลง หรือข้อมูลผู้ปกครองผูกอยู่ หากมีประวัติจะปฏิเสธการลบ</p>
+       <label className="mt-3 block text-sm">พิมพ์รหัสนักเรียนเพื่อยืนยัน<input autoFocus value={confirmNo} onChange={e=>setConfirmNo(e.target.value)} className="mt-2 w-full max-w-xs rounded-xl border p-3" placeholder={removing.student_no}/></label>
+       <div className="mt-3 flex gap-3"><button type="button" onClick={()=>{setRemoving(null);setConfirmNo('');}} className="rounded-xl border px-4 py-2 text-sm">ยกเลิก</button><button type="button" disabled={saving||confirmNo!==removing.student_no} onClick={removeStudent} className="rounded-xl bg-red-700 px-4 py-2 text-sm font-semibold text-white disabled:opacity-40">ยืนยันลบถาวร</button></div>
+      </div>}
+      {changingStatus&&<div role="dialog" aria-modal="true" aria-label="เปลี่ยนสถานภาพนักเรียน" className="mb-4 rounded-2xl border border-amber-200 bg-amber-50 p-5">
+       <h2 className="font-bold">เปลี่ยนสถานภาพ: {changingStatus.first_name_th} {changingStatus.last_name_th}</h2>
+       <label className="mt-3 block text-sm">สถานภาพ<select value={nextStatus} onChange={e=>setNextStatus(e.target.value)} className="mt-2 w-full max-w-xs rounded-xl border p-3">{Object.entries(statusLabel).map(([key,label])=><option key={key} value={key}>{label}</option>)}</select></label>
+       <p className="mt-2 text-xs text-slate-500">เปลี่ยนสถานภาพทะเบียนโดยเก็บประวัติการลงทะเบียนห้องเรียนเดิมไว้</p>
+       <div className="mt-3 flex gap-3"><button type="button" onClick={()=>setChangingStatus(null)} className="rounded-xl border px-4 py-2 text-sm">ยกเลิก</button><button type="button" disabled={saving||nextStatus===changingStatus.status} onClick={updateStudentStatus} className="rounded-xl bg-blue-700 px-4 py-2 text-sm text-white disabled:opacity-40">บันทึกสถานภาพ</button></div>
+      </div>}
       {schoolId&&<>
       <section className="mb-4 rounded-2xl border border-blue-100 bg-white p-4 shadow-sm">
        <div className="grid gap-3 sm:grid-cols-[180px_minmax(0,1fr)_auto] sm:items-end">
@@ -140,7 +172,7 @@ export default function StudentsPage() {
         <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
           <div className="mb-5 flex flex-wrap items-center justify-between gap-3"><h2 className="text-lg font-bold">รายชื่อนักเรียน ({visible.length})</h2><input aria-label="ค้นหานักเรียน" placeholder="ค้นหารหัส หรือชื่อ-สกุล" value={search} onChange={e=>{setSearch(e.target.value);setPage(1);}} className="rounded-xl border border-slate-300 px-3 py-2 text-sm"/></div>
           <div className="max-h-[min(58vh,560px)] overflow-auto"><table className="w-full text-left text-sm"><thead><tr className="border-b text-slate-500"><th className="py-3">รหัส</th><th>ชื่อ-สกุล</th><th>ห้องเรียน</th><th>สถานภาพ</th><th>จัดการ</th></tr></thead>
-            <tbody>{paginated.map(s=><tr key={s.id} className="border-b border-slate-100"><td className="py-3">{s.student_no}</td><td>{s.first_name_th} {s.last_name_th}</td><td className="whitespace-nowrap">{studentRoom.has(s.id)?roomLabel(studentRoom.get(s.id)!):<span className="text-amber-700">ยังไม่จัดห้อง</span>}</td><td>{statusLabel[s.status]??s.status}</td><td>{canWrite&&<button className="text-blue-700" onClick={()=>{setEditingId(s.id);setForm({student_no:s.student_no,first_name_th:s.first_name_th,last_name_th:s.last_name_th});}}>แก้ไข</button>}</td></tr>)}</tbody></table></div>
+            <tbody>{paginated.map(s=><tr key={s.id} className="border-b border-slate-100"><td className="py-3">{s.student_no}</td><td>{s.first_name_th} {s.last_name_th}</td><td className="whitespace-nowrap">{studentRoom.has(s.id)?roomLabel(studentRoom.get(s.id)!):<span className="text-amber-700">ยังไม่จัดห้อง</span>}</td><td>{statusLabel[s.status]??s.status}</td><td>{canWrite&&<div className="flex flex-wrap gap-2"><button className="text-blue-700" onClick={()=>{setEditingId(s.id);setForm({student_no:s.student_no,first_name_th:s.first_name_th,last_name_th:s.last_name_th});}}>แก้ไข</button><button type="button" className="text-amber-700" onClick={()=>{setChangingStatus(s);setNextStatus(s.status);}}>สถานภาพ</button><button type="button" className="text-red-700" onClick={()=>{setRemoving(s);setConfirmNo('');}}>ลบ</button></div>}</td></tr>)}</tbody></table></div>
           {visible.length===0&&<p className="py-8 text-center text-sm text-slate-500">ไม่พบข้อมูลนักเรียน</p>}
           <PageControls total={visible.length} page={Math.min(page,Math.max(1,Math.ceil(visible.length/PAGE_SIZE)))} onChange={setPage}/>
           <Link href="/students/history" className="mt-3 inline-block text-sm font-medium text-blue-700">จัดการลงทะเบียนและย้ายห้อง →</Link>
