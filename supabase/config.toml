@@ -1,0 +1,3 @@
+[functions.manage-staff]
+# handler.ts verifies the JWT with Auth getUser and checks live school membership.
+verify_jwt = false
