@@ -107,6 +107,6 @@ export default function TeacherPage(){
    {rosterError&&<p role="alert" className="mt-3 text-sm text-red-700">{rosterError}</p>}
    {!rosterLoading&&!rosterError&&<div className="mt-4 divide-y">{roster.map(s=><div key={s.id} className="py-3 text-sm">{s.student_no} — {s.first_name_th} {s.last_name_th}</div>)}{roster.length===0&&<p className="py-4 text-sm text-slate-500">ไม่มีนักเรียนที่ลงทะเบียนในห้องนี้</p>}</div>}
   </section>}
-  <p className="mt-6 text-sm text-slate-500">การบันทึกคะแนนและ ปพ.5 อยู่ระหว่างพัฒนา</p>
+  <div className="mt-6"><Link href="/teacher/scores" className="inline-flex rounded-xl bg-blue-700 px-5 py-3 text-sm font-semibold text-white">บันทึกคะแนนรายวิชา →</Link><p className="mt-3 text-xs text-slate-500">ปพ.6 ยังอยู่ระหว่างพัฒนา</p></div>
  </main>;
 }
