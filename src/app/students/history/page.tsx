@@ -1,4 +1,5 @@
 'use client';
+import PageHeader from '@/components/page-header';
 
 import Link from 'next/link';
 
@@ -105,16 +106,15 @@ export default function StudentHistoryPage(){
   }
   setBusy(false);
  }
- return <main className="mx-auto max-w-6xl px-5 py-8">
+ return <main className="wichakan-page mx-auto max-w-6xl px-5 py-8">
   <Link href="/students" className="text-sm text-blue-700">← ทะเบียนนักเรียน</Link>
-  <h1 className="mt-3 text-3xl font-bold">ประวัติการศึกษา</h1><Link href="/students/promote" className="mt-3 inline-block rounded-xl border border-blue-200 bg-white px-4 py-2 text-sm text-blue-800">เลื่อนชั้นแบบกลุ่ม →</Link>
-  <p className="mt-2 text-sm text-slate-500">การลงทะเบียนรายปี · ห้องเรียน · การเปลี่ยนสถานภาพ</p>
+  <PageHeader title="ประวัติการศึกษา" actions={<Link href="/students/promote" className="ui-primary">เลื่อนชั้นนักเรียน →</Link>}/>
   {ready&&schools.length===0&&<p className="mt-6 rounded-xl bg-amber-50 p-4">ยังไม่มีสิทธิ์เข้าถึงโรงเรียน</p>}
   {schools.length>1&&<select aria-label="โรงเรียน" value={schoolId} onChange={e=>setSchoolId(e.target.value)} className="mt-5 rounded-xl border p-3">{schools.map(s=><option key={s.id} value={s.id}>{s.name_th}</option>)}</select>}
   {error&&<p role="alert" className="my-4 rounded-xl bg-red-50 p-4 text-red-800">{error}</p>}
   {notice&&<p role="status" className="my-4 rounded-xl bg-green-50 p-4 text-green-800">{notice}</p>}
   {schoolId&&<div className="mt-7 grid gap-6 lg:grid-cols-[1fr_340px]">
-   <section className="rounded-2xl bg-white p-6 shadow-sm">
+   <section className="ui-panel rounded-2xl bg-white p-6 shadow-sm">
     <label className="block text-sm font-medium">นักเรียน<select value={studentId} onChange={e=>setStudentId(e.target.value)} className="mt-2 w-full rounded-xl border p-3"><option value="">เลือกนักเรียน</option>{students.map(s=><option key={s.id} value={s.id}>{s.student_no} — {s.first_name_th} {s.last_name_th}</option>)}</select></label>
     <h2 className="mt-7 text-lg font-bold">ประวัติรายปี</h2>
     <div className="mt-4 space-y-3">{selectedHistory.map(x=><div key={x.id} className="flex items-center justify-between rounded-xl border p-4"><div><strong>ปี {years.find(y=>y.id===x.academic_year_id)?.year_be??'?'}</strong><p className="mt-1 text-sm text-slate-500">ห้อง {roomName(x.classroom_id)}</p></div><span className="text-sm text-blue-700">{statusName(x.status)}</span></div>)}</div>
@@ -122,15 +122,15 @@ export default function StudentHistoryPage(){
     <h2 className="mt-8 text-lg font-bold">ประวัติการเปลี่ยนแปลง</h2>
     <div className="mt-3 space-y-3">{events.map(ev=><div key={ev.id} className="border-b py-3 text-sm"><time className="text-slate-500">{new Date(ev.recorded_at).toLocaleString('th-TH')}</time><p className="mt-1">{ev.event_type==='admitted'?'ลงทะเบียน':ev.event_type==='room_changed'?'ย้ายห้อง':'เปลี่ยนสถานภาพ'}: {roomName(ev.previous_classroom_id)} → {roomName(ev.new_classroom_id)} ({statusName(ev.new_status)})</p>{ev.reason&&<p className="text-slate-500">เหตุผล: {ev.reason}</p>}</div>)}</div>
    </section>
-   <aside className="rounded-2xl bg-white p-6 shadow-sm">
+   <aside className="ui-panel rounded-2xl bg-white p-6 shadow-sm">
     <h2 className="text-lg font-bold">จัดการการเข้าเรียน</h2>
-    <p className="mt-2 text-xs text-slate-500">เลือกปีใหม่เพื่อลงทะเบียนเลื่อนชั้น โดยไม่แก้ประวัติปีเก่า</p>
+    <p className="mt-2 text-xs text-slate-500">ลงทะเบียนตามปีการศึกษา โดยเก็บประวัติเดิม</p>
     <form onSubmit={save} className="mt-5 space-y-4">
      <label className="block text-sm font-medium">ปีการศึกษา<select required value={yearId} onChange={e=>{setYearId(e.target.value);setRoomId('');setStatus('active');}} className="mt-2 w-full rounded-xl border p-3">{years.map(y=><option key={y.id} value={y.id}>{y.year_be}</option>)}</select></label>
      <label className="block text-sm font-medium">ห้องเรียน<select required value={chosenRoom} onChange={e=>setRoomId(e.target.value)} className="mt-2 w-full rounded-xl border p-3">{availableRooms.map(r=><option key={r.id} value={r.id}>{r.level_code}/{r.room_code}</option>)}</select></label>
      {existing&&<><label className="block text-sm font-medium">สถานภาพ<select value={currentStatus} onChange={e=>setStatus(e.target.value)} className="mt-2 w-full rounded-xl border p-3">{statuses.map(s=><option key={s.id} value={s.id}>{s.label}</option>)}</select></label>
       <label className="block text-sm font-medium">เหตุผลการแก้ไข<textarea required minLength={3} value={reason} onChange={e=>setReason(e.target.value)} className="mt-2 w-full rounded-xl border p-3" rows={3}/></label></>}
-     <button disabled={!writable||busy||!studentId||!chosenRoom} className="w-full rounded-xl bg-blue-800 p-3 font-semibold text-white disabled:opacity-40">{busy?'กำลังบันทึก...':existing?'บันทึกการเปลี่ยนแปลง':'ลงทะเบียนปีการศึกษา'}</button>
+     <button disabled={!writable||busy||!studentId||!chosenRoom} className="ui-primary w-full rounded-xl bg-blue-800 p-3 font-semibold text-white disabled:opacity-40">{busy?'กำลังบันทึก...':existing?'บันทึกการเปลี่ยนแปลง':'ลงทะเบียนปีการศึกษา'}</button>
      {!writable&&<p className="text-xs text-slate-500">เฉพาะฝ่ายทะเบียนและผู้ดูแลระบบเท่านั้นที่แก้ไขได้</p>}
     </form>
    </aside>

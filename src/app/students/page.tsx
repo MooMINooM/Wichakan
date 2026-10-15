@@ -1,4 +1,5 @@
 'use client';
+import PageHeader from '@/components/page-header';
 
 import Link from 'next/link';
 
@@ -153,12 +154,8 @@ export default function StudentsPage() {
     if(e)setError(e.message);else{setStudents(prev=>prev.map(s=>s.id===changingStatus.id?{...s,status:nextStatus}:s));setInfo('เปลี่ยนสถานภาพเรียบร้อยแล้ว');setChangingStatus(null);}
     setSaving(false);
   }
-  async function logout(){const db=getSupabaseBrowserClient();await db?.auth.signOut();router.replace('/login');}
-  return <main className="mx-auto max-w-6xl px-5 py-8">
-    <header className="mb-8 flex flex-wrap items-center justify-between gap-4">
-      <div><Link href="/" className="text-sm text-blue-700">← Wichakan</Link><h1 className="mt-2 text-3xl font-bold">ทะเบียนนักเรียน</h1><p className="mt-1 text-sm text-slate-500">Student Registry · v0.3</p><Link href="/students/import" className="mr-2 mt-3 inline-block rounded-xl bg-blue-700 px-4 py-2 text-sm font-semibold text-white">↑ นำเข้าจาก DMC</Link><Link href="/students/history" className="mt-3 inline-block rounded-xl border border-blue-200 bg-white px-4 py-2 text-sm text-blue-700">ประวัติการศึกษาและเลื่อนชั้น →</Link></div>
-      <button onClick={logout} className="rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm">ออกจากระบบ</button>
-    </header>
+  return <main className="wichakan-page mx-auto max-w-6xl px-5 py-8">
+    <PageHeader title="ทะเบียนนักเรียน" actions={<><Link href="/students/import" className="ui-primary">นำเข้าจาก DMC</Link><Link href="/students/history" className="ui-secondary">ประวัติการศึกษา</Link></>}/>
     {loading ? <p>กำลังตรวจสอบสิทธิ์...</p> : <>
       {schools.length>1&&<p role="alert" className="mb-5 text-sm text-amber-700">พบสิทธิ์หลายโรงเรียน กรุณาติดต่อผู้ดูแลระบบก่อนดำเนินการ</p>}
       {schools.length===1&&<p className="mb-5 font-medium">{schools[0].name_th}</p>}
@@ -177,19 +174,19 @@ export default function StudentsPage() {
        <h2 className="font-bold">เปลี่ยนสถานภาพ: {changingStatus.first_name_th} {changingStatus.last_name_th}</h2>
        <label className="mt-3 block text-sm">สถานภาพ<select value={nextStatus} onChange={e=>setNextStatus(e.target.value)} className="mt-2 w-full max-w-xs rounded-xl border p-3">{Object.entries(statusLabel).map(([key,label])=><option key={key} value={key}>{label}</option>)}</select></label>
        <p className="mt-2 text-xs text-slate-500">เปลี่ยนสถานภาพทะเบียนโดยเก็บประวัติการลงทะเบียนห้องเรียนเดิมไว้</p>
-       <div className="mt-3 flex gap-3"><button type="button" onClick={()=>setChangingStatus(null)} className="rounded-xl border px-4 py-2 text-sm">ยกเลิก</button><button type="button" disabled={saving||nextStatus===changingStatus.status} onClick={updateStudentStatus} className="rounded-xl bg-blue-700 px-4 py-2 text-sm text-white disabled:opacity-40">บันทึกสถานภาพ</button></div>
+       <div className="mt-3 flex gap-3"><button type="button" onClick={()=>setChangingStatus(null)} className="rounded-xl border px-4 py-2 text-sm">ยกเลิก</button><button type="button" disabled={saving||nextStatus===changingStatus.status} onClick={updateStudentStatus} className="ui-primary rounded-xl bg-blue-700 px-4 py-2 text-sm text-white disabled:opacity-40">บันทึกสถานภาพ</button></div>
       </div>}
       {schoolId&&<>
-      <section className="mb-4 rounded-2xl border border-blue-100 bg-white p-4 shadow-sm">
+      <section className="ui-panel mb-4 rounded-2xl border border-blue-100 bg-white p-4 shadow-sm">
        <div className="grid gap-3 sm:grid-cols-[180px_minmax(0,1fr)_auto] sm:items-end">
         <label className="block text-xs font-semibold text-slate-600">ปีการศึกษา<select aria-label="ปีการศึกษาของรายชื่อนักเรียน" className="mt-1 w-full rounded-xl border p-3 text-sm" value={yearId} onChange={e=>{setYearId(e.target.value);setRoomId('all');setPage(1);}}><option value="">เลือกปี</option>{years.map(y=><option key={y.id} value={y.id}>{y.year_be}</option>)}</select></label>
         <label className="block text-xs font-semibold text-slate-600">ห้องเรียน<select aria-label="กรองตามห้องเรียน" className="mt-1 w-full rounded-xl border p-3 text-sm" value={roomId} onChange={e=>{setRoomId(e.target.value);setPage(1);}}><option value="all">ทุกห้องเรียน</option><option value="unassigned">ยังไม่ลงทะเบียนปีนี้</option>{yearRooms.map(r=><option key={r.id} value={r.id}>{roomLabel(r.id)}</option>)}</select></label>
         <div className="rounded-xl bg-amber-50 px-4 py-3 text-xs text-amber-800">นักเรียนสถานะกำลังศึกษา<br/><strong>{unassignedCount} คน</strong> ยังไม่มีห้องในปีที่เลือก</div>
        </div>
-       <p className="mt-2 text-xs text-slate-500">ทะเบียนนักเรียนเก็บรายชื่อนักเรียนทั้งหมด ส่วนห้องเรียนเป็นข้อมูลลงทะเบียนแยกตามปี จึงยังรักษาประวัติปีเดิมไว้ได้</p>
+
       </section>
       <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
-        <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+        <section className="ui-panel rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
           <div className="mb-5 flex flex-wrap items-center justify-between gap-3"><h2 className="text-lg font-bold">รายชื่อนักเรียน ({visible.length})</h2><input aria-label="ค้นหานักเรียน" placeholder="ค้นหารหัส หรือชื่อ-สกุล" value={search} onChange={e=>{setSearch(e.target.value);setPage(1);}} className="rounded-xl border border-slate-300 px-3 py-2 text-sm"/></div>
           <div className="max-h-[min(58vh,560px)] overflow-auto"><table className="w-full text-left text-sm"><thead><tr className="border-b text-slate-500"><th className="py-3">รหัส</th><th>ชื่อ-สกุล</th><th>ห้องเรียน</th><th>สถานภาพ</th><th>จัดการ</th></tr></thead>
             <tbody>{paginated.map(s=><tr key={s.id} className="border-b border-slate-100"><td className="py-3">{s.student_no}</td><td>{s.first_name_th} {s.last_name_th}</td><td className="whitespace-nowrap">{studentRoom.has(s.id)?roomLabel(studentRoom.get(s.id)!):<span className="text-amber-700">ยังไม่จัดห้อง</span>}</td><td>{statusLabel[s.status]??s.status}</td><td>{canWrite&&<div className="flex flex-wrap gap-2"><button className="text-blue-700" onClick={()=>{setEditingId(s.id);setForm({student_no:s.student_no,first_name_th:s.first_name_th,last_name_th:s.last_name_th});}}>แก้ไข</button><button type="button" className="text-amber-700" onClick={()=>{setChangingStatus(s);setNextStatus(s.status);}}>สถานภาพ</button><button type="button" className="text-red-700" onClick={()=>{setRemoving(s);setConfirmNo('');setAdminPassword('');}}>ลบ</button></div>}</td></tr>)}</tbody></table></div>
@@ -197,11 +194,11 @@ export default function StudentsPage() {
           <PageControls total={visible.length} page={Math.min(page,Math.max(1,Math.ceil(visible.length/PAGE_SIZE)))} onChange={setPage}/>
           <Link href="/students/history" className="mt-3 inline-block text-sm font-medium text-blue-700">จัดการลงทะเบียนและย้ายห้อง →</Link>
         </section>
-        <aside className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+        <aside className="ui-panel rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
           <h2 className="mb-4 text-lg font-bold">{editingId?'แก้ไขข้อมูลนักเรียน':'เพิ่มนักเรียน'}</h2>
           {!canWrite?<p className="text-sm text-slate-500">บัญชีนี้ดูข้อมูลได้ แต่ไม่มีสิทธิ์เพิ่มหรือแก้ไข</p>:<form onSubmit={save} className="space-y-4">
             {([{field:'student_no',label:'รหัสนักเรียน'},{field:'first_name_th',label:'ชื่อ'},{field:'last_name_th',label:'นามสกุล'}] as const).map(({field,label})=><label key={field} className="block text-sm font-medium">{label}<input required maxLength={120} value={form[field]} onChange={e=>setForm(f=>({...f,[field]:e.target.value}))} className="mt-2 w-full rounded-xl border border-slate-300 p-3"/></label>)}
-            <button disabled={saving} className="w-full rounded-xl bg-blue-800 p-3 font-medium text-white disabled:opacity-50">{saving?'กำลังบันทึก...':editingId?'บันทึกการแก้ไข':'เพิ่มนักเรียน'}</button>
+            <button disabled={saving} className="ui-primary w-full rounded-xl bg-blue-800 p-3 font-medium text-white disabled:opacity-50">{saving?'กำลังบันทึก...':editingId?'บันทึกการแก้ไข':'เพิ่มนักเรียน'}</button>
             {editingId&&<button type="button" className="w-full text-sm text-slate-500" onClick={()=>{setEditingId(null);setForm(blank);}}>ยกเลิกการแก้ไข</button>}
           </form>}
         </aside>

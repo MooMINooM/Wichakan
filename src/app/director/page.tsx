@@ -1,4 +1,5 @@
 'use client';
+import PageHeader from '@/components/page-header';
 import Link from 'next/link';
 import {useEffect,useState} from 'react';
 import {useRouter} from 'next/navigation';
@@ -14,14 +15,12 @@ export default function DirectorPage(){
    if(!live)return;
    if(e)setError(e.message);else if(!data?.length)router.replace('/workspace');else setAllowed(true);
  })();return()=>{live=false;};},[db,router]);
- return <main className="mx-auto max-w-5xl px-5 py-10">
-   <Link href="/workspace" className="text-sm text-blue-700">← เปลี่ยนพื้นที่ทำงาน</Link>
-   <header className="mt-4 rounded-2xl bg-[#48527c] p-7 text-white"><h1 className="text-3xl font-bold">Director Dashboard</h1>
-   <p className="mt-2 text-sm text-indigo-100">พื้นที่ติดตามงานของผู้บริหารสถานศึกษา</p></header>
+ return <main className="wichakan-page mx-auto max-w-5xl px-5 py-10">
+   <PageHeader title="ภาพรวมผู้บริหาร"/>
    {error&&<p role="alert" className="mt-5 text-red-700">{error}</p>}
-   {allowed&&<div className="mt-6 rounded-2xl border bg-white p-6">
+   {allowed&&<div className="ui-panel mt-6 rounded-2xl border bg-white p-6">
      <h2 className="text-lg font-bold">ภาพรวมงานวิชาการ</h2>
-     <p className="mt-3 text-sm text-slate-600">พื้นที่สำหรับติดตามผลและอนุมัติงานอยู่ระหว่างพัฒนา ยังไม่มีการอนุมัติหรือแก้ข้อมูลผ่านหน้านี้</p>
+     <p className="mt-3 text-sm text-slate-600">ระบบติดตามผลและอนุมัติงานอยู่ระหว่างพัฒนา</p>
    </div>}
  </main>;
 }

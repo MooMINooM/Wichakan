@@ -36,6 +36,7 @@ export default function AppNavigation(){
  const isTeacher=pathname.startsWith('/teacher');
  const isAdmin=['/admin','/personnel','/academic','/curriculum','/students'].some(x=>pathname.startsWith(x));
  const items=isTeacher?teacherItems:isAdmin?adminItems:[];
+ const activeUrl=items.filter(([url])=>pathname===url||pathname.startsWith(url+'/')).sort((a,b)=>b[0].length-a[0].length)[0]?.[0];
  async function signOut(){
   const db=getSupabaseBrowserClient();if(!db)return;
   setBusy(true);const {error}=await db.auth.signOut();setBusy(false);
@@ -44,8 +45,8 @@ export default function AppNavigation(){
  if(pathname==='/'||pathname==='/login')return null;
  const nav=<div className="space-y-1">
   {items.map(([url,label,symbol])=><Link key={url} href={url} onClick={()=>setOpen(false)}
-   aria-current={pathname===url?'page':undefined}
-   className={`flex min-h-11 items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium transition ${pathname===url?'bg-blue-600 text-white shadow-sm':'text-slate-600 hover:bg-blue-50 hover:text-blue-800'}`}>
+   aria-current={activeUrl===url?'page':undefined}
+   className={`flex min-h-11 items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium transition ${activeUrl===url?'bg-blue-600 text-white shadow-sm':'text-slate-600 hover:bg-blue-50 hover:text-blue-800'}`}>
    <span aria-hidden="true" className="w-5 text-center text-lg leading-none">{symbol}</span>{label}</Link>)}
  </div>;
  return <div className="app-shell">
@@ -53,11 +54,11 @@ export default function AppNavigation(){
    <div className="flex min-w-0 items-center gap-3">
     {items.length>0&&<button onClick={()=>setOpen(x=>!x)} aria-expanded={open} aria-label="เปิดหรือปิดเมนู" className="rounded-lg border border-slate-200 px-3 py-2 text-lg lg:hidden">☰</button>}
     <Link href="/workspace" className="flex items-center gap-3">
-     <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-800 text-xl font-bold text-white">{['/academic','/admin','/personnel'].includes(pathname)?<AcademicIcon name="school"/>:'W'}</div>
+     <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-800 text-xl font-bold text-white"><AcademicIcon name="school"/></div>
      <div><div className="text-lg font-extrabold leading-tight tracking-tight text-blue-950">Wichakan</div><div className="hidden text-xs text-slate-500 sm:block">ระบบบริหารจัดการสถานศึกษา</div></div>
     </Link>
    </div>
-   {pathname==='/personnel'?<label className="hidden items-center gap-2 rounded-xl border border-blue-100 bg-white px-3 py-2 text-sm font-semibold text-blue-900 md:flex"><AcademicIcon name="calendar"/><select aria-label="ปีการศึกษาสรุปบุคลากร" className="bg-transparent outline-none" value={currentYear} disabled={!years.length} onChange={e=>{setCurrentYear(e.target.value);setYearSelection(schoolId,e.target.value);}}>{!years.length&&<option value="">ยังไม่มีปีการศึกษา</option>}{years.map(y=><option key={y.id} value={y.id}>ปีการศึกษา {y.year_be}</option>)}</select></label>:<div className="hidden min-w-0 max-w-lg flex-1 items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-500 md:flex"><span aria-hidden="true">⌕</span><span>เข้าถึงข้อมูลและเมนูได้จากแถบนำทางด้านซ้าย</span></div>}
+   {pathname==='/personnel'?<label className="hidden items-center gap-2 rounded-xl border border-blue-100 bg-white px-3 py-2 text-sm font-semibold text-blue-900 md:flex"><AcademicIcon name="calendar"/><select aria-label="ปีการศึกษาสรุปบุคลากร" className="bg-transparent outline-none" value={currentYear} disabled={!years.length} onChange={e=>{setCurrentYear(e.target.value);setYearSelection(schoolId,e.target.value);}}>{!years.length&&<option value="">ยังไม่มีปีการศึกษา</option>}{years.map(y=><option key={y.id} value={y.id}>ปีการศึกษา {y.year_be}</option>)}</select></label>:null}
 
    <div className="flex items-center gap-2">
     <Link href="/workspace" className="rounded-xl border border-blue-100 bg-blue-50 px-3 py-2 text-xs font-semibold text-blue-800 sm:text-sm">⇄ <span className="hidden sm:inline">สลับบทบาท</span><span className="sm:hidden">บทบาท</span></Link>
@@ -67,7 +68,7 @@ export default function AppNavigation(){
   {items.length>0&&<>
    {open&&<button className="fixed inset-0 z-30 bg-slate-950/30 lg:hidden" aria-label="ปิดเมนู" onClick={()=>setOpen(false)}/>}
    <aside className={`app-sidebar ${open?'app-sidebar-open':''}`} aria-label="เมนูหลัก">
-    <div className="mb-5 px-4 text-xs font-bold tracking-widest text-slate-400">{isTeacher?'TEACHER WORKSPACE':'ADMIN WORKSPACE'}</div>
+    <div className="mb-5 px-4 text-xs font-bold tracking-widest text-slate-400">{isTeacher?'งานสอน':'จัดการสถานศึกษา'}</div>
     {nav}
     <div className="mt-8 border-t border-slate-100 pt-5"><Link href="/workspace" onClick={()=>setOpen(false)} className="block rounded-xl px-4 py-3 text-sm text-slate-500 hover:bg-slate-100">← เลือกพื้นที่ทำงาน</Link></div>
    </aside>

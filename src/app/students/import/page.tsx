@@ -1,4 +1,5 @@
 'use client';
+import PageHeader from '@/components/page-header';
 import Link from 'next/link';
 import {useEffect,useMemo,useState} from 'react';
 import {useRouter} from 'next/navigation';
@@ -81,13 +82,10 @@ export default function DmcImportPage(){
   }catch(e){setError(e instanceof Error?e.message:'นำเข้าไม่สำเร็จ');}
   finally{setBusy(false);}
  }
- return <main className="mx-auto max-w-5xl px-4 py-6 sm:px-6">
+ return <main className="wichakan-page mx-auto max-w-5xl px-4 py-6 sm:px-6">
   <Link href="/students" className="text-sm font-semibold text-blue-700">← ทะเบียนนักเรียน</Link>
-  <header className="mt-4 rounded-2xl border border-blue-100 bg-gradient-to-r from-blue-50 to-sky-50 p-6">
-   <h1 className="text-2xl font-extrabold text-blue-950">นำเข้านักเรียนจาก DMC</h1>
-   <p className="mt-2 text-sm text-slate-600">อ่าน Excel ในเบราว์เซอร์ ตรวจสอบนักเรียนและห้องเรียนก่อนบันทึก แล้วนำเข้าตามปีการศึกษา</p>
-  </header>
-  <section className="mt-5 rounded-2xl border bg-white p-5 shadow-sm">
+  <PageHeader title="นำเข้านักเรียนจาก DMC"/>
+  <section className="ui-panel mt-5 rounded-2xl border bg-white p-5 shadow-sm">
    <div className="grid gap-3 sm:grid-cols-2">
     <div className="rounded-xl bg-blue-50 p-3 text-sm"><span className="text-xs text-slate-500">โรงเรียนหลัก</span><p className="mt-1 font-semibold text-blue-900">{selectedSchool?.name_th??"ยังไม่พบโรงเรียน"}</p><p className="text-xs text-slate-500">รหัส DMC: {selectedSchool?.code??"—"}</p></div>
     <label className="text-sm font-semibold">ปีการศึกษาปลายทาง<select className="mt-2 w-full rounded-xl border p-3" value={yearId} onChange={e=>{setYearId(e.target.value);setRows([]);setResult(null);}}>{years.map(y=><option key={y.id} value={y.id}>{y.year_be}{y.is_active?' (ปัจจุบัน)':''}</option>)}</select></label>
@@ -97,12 +95,12 @@ export default function DmcImportPage(){
   </section>
   {error&&<p role="alert" className="mt-4 rounded-xl bg-red-50 p-4 text-sm text-red-800">{error}</p>}
   {problems.length>0&&<div role="alert" className="mt-4 rounded-xl bg-amber-50 p-4 text-sm text-amber-800"><h2 className="font-bold">ต้องแก้ไขก่อนนำเข้า ({problems.length})</h2><ul className="mt-2 max-h-40 list-inside list-disc overflow-auto">{problems.slice(0,30).map((p,i)=><li key={i}>{p}</li>)}</ul></div>}
-  {rows.length>0&&<section className="mt-4 rounded-2xl border bg-white p-5 shadow-sm">
+  {rows.length>0&&<section className="ui-panel mt-4 rounded-2xl border bg-white p-5 shadow-sm">
    <h2 className="text-lg font-bold">ตรวจสอบก่อนนำเข้า</h2>
    <p className="mt-1 text-xs text-slate-500">ไฟล์ {fileName} · {rows.length} คน · {roomCounts.length} ห้องเรียน</p>
    <div className="mt-3 max-h-64 overflow-auto rounded-xl border"><table className="w-full text-left text-sm"><thead className="sticky top-0 bg-slate-100"><tr><th className="px-4 py-3">ชั้น/ห้อง</th><th>จำนวนนักเรียน</th></tr></thead><tbody>{roomCounts.map(([room,count])=><tr key={room} className="border-t"><td className="px-4 py-2.5">{room}</td><td>{count} คน</td></tr>)}</tbody></table></div>
    <p className="mt-3 text-xs text-slate-500">ระบบจะสร้างห้องที่ยังไม่มีและลงทะเบียนนักเรียนตามไฟล์ หากรหัสเดิมมีชื่อไม่ตรงกันหรือมีการลงทะเบียนห้องอื่นแล้ว จะข้ามรายการนั้นและรายงานข้อขัดแย้ง ไม่เขียนทับประวัติเดิม</p>
-   <button disabled={busy||problems.length>0||!selectedYear} onClick={commit} className="mt-4 rounded-xl bg-blue-700 px-5 py-3 font-bold text-white disabled:opacity-40">{busy?'กำลังประมวลผล...':'ยืนยันนำเข้า '+rows.length+' คน'}</button>
+   <button disabled={busy||problems.length>0||!selectedYear} onClick={commit} className="ui-primary mt-4 rounded-xl bg-blue-700 px-5 py-3 font-bold text-white disabled:opacity-40">{busy?'กำลังประมวลผล...':'ยืนยันนำเข้า '+rows.length+' คน'}</button>
   </section>}
   {result&&<section role="status" className="mt-4 rounded-2xl border border-emerald-200 bg-emerald-50 p-5"><h2 className="font-bold text-emerald-900">นำเข้าเสร็จแล้ว</h2><p className="mt-2 text-sm">นักเรียนใหม่ {result.new_students} คน · ลงทะเบียนใหม่ {result.new_enrollments} คน · สร้างห้องใหม่ {result.new_rooms} ห้อง · รายการขัดแย้ง {result.conflicts}</p>{result.details?.length>0&&<div className="mt-3 max-h-40 overflow-auto text-xs text-amber-900">{result.details.map((d,i)=><p key={i}>แถว {d.row} · รหัส {d.student_no} · {d.reason==='existing_enrollment_conflict'?'มีการลงทะเบียนเดิมต่างจากไฟล์':'ข้อมูลชื่อหรือสถานภาพเดิมไม่ตรงกับไฟล์'}</p>)}</div>}<Link href="/students" className="mt-4 inline-block text-sm font-semibold text-blue-700">กลับไปดูทะเบียนนักเรียน →</Link></section>}
  </main>;

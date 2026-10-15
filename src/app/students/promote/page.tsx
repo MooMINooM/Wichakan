@@ -1,4 +1,5 @@
 'use client';
+import PageHeader from '@/components/page-header';
 import Link from 'next/link';
 import {useEffect,useState} from 'react';
 import {useRouter} from 'next/navigation';
@@ -58,13 +59,12 @@ export default function PromotePage(){
   if(e)setError(e.message);else{setNotice(`เลื่อนชั้นสำเร็จ ${data} คน`);setSelected([]);await reload(schoolId);}
   setBusy(false);
  }
- return <main className="mx-auto max-w-5xl px-5 py-8">
+ return <main className="wichakan-page mx-auto max-w-5xl px-5 py-8">
   <Link href="/students/history" className="text-sm text-blue-700">← ประวัติการศึกษา</Link>
-  <h1 className="mt-3 text-3xl font-bold">เลื่อนชั้นแบบกลุ่ม</h1>
-  <p className="mt-2 text-sm text-slate-500">Batch Promotion · บันทึกนักเรียนเข้าสู่ปีถัดไป โดยรักษาประวัติปีเดิม</p>
+  <PageHeader title="เลื่อนชั้นนักเรียน"/>
   {error&&<p role="alert" className="mt-5 rounded-xl bg-red-50 p-4 text-sm text-red-800">{error}</p>}
   {notice&&<p role="status" className="mt-5 rounded-xl bg-green-50 p-4 text-sm text-green-800">{notice}</p>}
-  {allowed&&<div className="mt-6 rounded-2xl border bg-white p-6 shadow-sm">
+  {allowed&&<div className="ui-panel mt-6 rounded-2xl border bg-white p-6 shadow-sm">
    <div className="grid gap-4 sm:grid-cols-2">
     <label className="text-sm font-medium">ปีการศึกษาต้นทาง<select className="mt-2 w-full rounded-xl border p-3" value={sourceYearId} onChange={e=>{setSourceYearId(e.target.value);setSource('');setTarget('');setSelected([]);}}>{years.map(y=><option key={y.id} value={y.id}>{y.year_be}</option>)}</select></label>
     <label className="text-sm font-medium">ห้องเรียนต้นทาง<select className="mt-2 w-full rounded-xl border p-3" value={source} onChange={e=>{setSource(e.target.value);setTarget('');setSelected([]);}}>
@@ -80,7 +80,7 @@ export default function PromotePage(){
     <input type="checkbox" checked={selected.includes(s.id)} onChange={e=>setSelected(old=>e.target.checked?[...old,s.id]:old.filter(x=>x!==s.id))}/>
     <span>{s.student_no} — {s.first_name_th} {s.last_name_th}</span></label>)}
     {!eligible.length&&<p className="py-5 text-sm text-slate-500">เลือกห้องต้นทางที่มีนักเรียนก่อน</p>}</div>
-   <button disabled={busy||!selected.length||!target} onClick={promote} className="mt-6 rounded-xl bg-blue-800 px-6 py-3 font-medium text-white disabled:opacity-40">{busy?'กำลังบันทึก...':`ยืนยันเลื่อนชั้น ${selected.length} คน`}</button>
+   <button disabled={busy||!selected.length||!target} onClick={promote} className="ui-primary mt-6 rounded-xl bg-blue-800 px-6 py-3 font-medium text-white disabled:opacity-40">{busy?'กำลังบันทึก...':`ยืนยันเลื่อนชั้น ${selected.length} คน`}</button>
    <p className="mt-4 text-xs text-slate-500">หากคนใดมีทะเบียนในปีปลายทางแล้ว ระบบจะยกเลิกทั้งชุด ไม่สร้างข้อมูลซ้ำ</p>
   </div>}
  </main>;
