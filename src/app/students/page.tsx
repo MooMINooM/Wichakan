@@ -27,6 +27,7 @@ export default function StudentsPage() {
   const [form,setForm] = useState(blank);
   const [editingId,setEditingId] = useState<string|null>(null);
   const [canWrite,setCanWrite] = useState(false);
+  const [isAdmin,setIsAdmin]=useState(false),[adminPassword,setAdminPassword]=useState('');
   const [loading,setLoading] = useState(true);
   const [saving,setSaving] = useState(false);
   const [removing,setRemoving]=useState<Student|null>(null),[confirmNo,setConfirmNo]=useState('');
@@ -78,7 +79,7 @@ export default function StudentsPage() {
       setStudents((data??[]) as Student[]);
       if(user){
         const {data:roles}=await db.from('school_memberships').select('role').eq('school_id',schoolId).eq('user_id',user.id).eq('active',true);
-        if(!cancelled)setCanWrite((roles??[]).some(r=>['school_admin','registrar'].includes(r.role)));
+        if(!cancelled){setCanWrite((roles??[]).some(r=>['school_admin','registrar'].includes(r.role)));setIsAdmin((roles??[]).some(r=>r.role==='school_admin'));}
       }
     })();
     return()=>{cancelled=true;};
@@ -126,6 +127,24 @@ export default function StudentsPage() {
     else{setStudents(prev=>prev.filter(s=>s.id!==removing.id));setInfo('ลบรายการที่ไม่มีประวัติสำเร็จ');setRemoving(null);setConfirmNo('');setEditingId(null);}
     setSaving(false);
   }
+  async function adminPurgeStudent(){
+    if(!isAdmin||!schoolId||!removing||saving||confirmNo!==removing.student_no||!adminPassword)return;
+    const db=getSupabaseBrowserClient();if(!db)return;
+    setSaving(true);setError('');setInfo('');
+    try{
+      const {data:{user}}=await db.auth.getUser();
+      if(!user?.email)throw new Error('ไม่พบอีเมลบัญชีผู้ดูแลระบบ');
+      const {error:authError}=await db.auth.signInWithPassword({email:user.email,password:adminPassword});
+      if(authError)throw new Error('รหัสผ่านบัญชี Admin ไม่ถูกต้อง');
+      const {error:deleteError}=await db.rpc('admin_delete_student_with_history',{p_school_id:schoolId,p_student_id:removing.id});
+      if(deleteError)throw new Error(deleteError.message);
+      setStudents(prev=>prev.filter(s=>s.id!==removing.id));
+      setEnrollments(prev=>prev.filter(e=>e.student_id!==removing.id));
+      setRemoving(null);setConfirmNo('');setEditingId(null);
+      setInfo('ผู้ดูแลระบบลบนักเรียนและประวัติที่เกี่ยวข้องเรียบร้อยแล้ว');
+    }catch(e){setError(e instanceof Error?e.message:'ไม่สามารถลบข้อมูลได้');}
+    finally{setAdminPassword('');setSaving(false);}
+  }
   async function updateStudentStatus(){
     if(!canWrite||!schoolId||!changingStatus||saving)return;
     const db=getSupabaseBrowserClient();if(!db)return;
@@ -149,9 +168,10 @@ export default function StudentsPage() {
       {removing&&<div role="dialog" aria-modal="true" aria-label="ยืนยันลบนักเรียน" className="mb-4 rounded-2xl border-2 border-red-200 bg-red-50 p-5">
        <h2 className="font-bold text-red-900">ยืนยันลบนักเรียนที่เพิ่มผิด</h2>
        <p className="mt-2 text-sm text-red-800">{removing.first_name_th} {removing.last_name_th} ({removing.student_no})</p>
-       <p className="mt-2 text-xs text-red-700">ระบบจะลบถาวรเฉพาะผู้ที่ไม่มีประวัติลงทะเบียน ประวัติการเปลี่ยนแปลง หรือข้อมูลผู้ปกครองผูกอยู่ หากมีประวัติจะปฏิเสธการลบ</p>
+       <p className="mt-2 text-xs text-red-700">ฝ่ายทะเบียนลบได้เฉพาะนักเรียนที่ไม่มีประวัติ ผู้ดูแลระบบสามารถยืนยันด้วยรหัสผ่านบัญชี Admin เพื่อสั่งลบพร้อมประวัติการลงทะเบียนและข้อมูลเชื่อมโยง โดยมีบันทึกการลบแยกต่างหาก</p>
        <label className="mt-3 block text-sm">พิมพ์รหัสนักเรียนเพื่อยืนยัน<input autoFocus value={confirmNo} onChange={e=>setConfirmNo(e.target.value)} className="mt-2 w-full max-w-xs rounded-xl border p-3" placeholder={removing.student_no}/></label>
-       <div className="mt-3 flex gap-3"><button type="button" onClick={()=>{setRemoving(null);setConfirmNo('');}} className="rounded-xl border px-4 py-2 text-sm">ยกเลิก</button><button type="button" disabled={saving||confirmNo!==removing.student_no} onClick={removeStudent} className="rounded-xl bg-red-700 px-4 py-2 text-sm font-semibold text-white disabled:opacity-40">ยืนยันลบถาวร</button></div>
+       {isAdmin&&<label className="mt-3 block text-sm">รหัสผ่านบัญชี Admin<input type="password" autoComplete="current-password" value={adminPassword} onChange={e=>setAdminPassword(e.target.value)} className="mt-2 w-full max-w-xs rounded-xl border p-3" placeholder="ใส่รหัสผ่านเพื่อยืนยันสิทธิ์"/></label>}
+       <div className="mt-3 flex gap-3"><button type="button" onClick={()=>{setRemoving(null);setConfirmNo('');setAdminPassword('');}} className="rounded-xl border px-4 py-2 text-sm">ยกเลิก</button><button type="button" disabled={saving||confirmNo!==removing.student_no||(isAdmin&&!adminPassword)} onClick={isAdmin?adminPurgeStudent:removeStudent} className="rounded-xl bg-red-700 px-4 py-2 text-sm font-semibold text-white disabled:opacity-40">{isAdmin?'ยืนยันลบโดย Admin':'ยืนยันลบถาวร'}</button></div>
       </div>}
       {changingStatus&&<div role="dialog" aria-modal="true" aria-label="เปลี่ยนสถานภาพนักเรียน" className="mb-4 rounded-2xl border border-amber-200 bg-amber-50 p-5">
        <h2 className="font-bold">เปลี่ยนสถานภาพ: {changingStatus.first_name_th} {changingStatus.last_name_th}</h2>
@@ -172,7 +192,7 @@ export default function StudentsPage() {
         <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
           <div className="mb-5 flex flex-wrap items-center justify-between gap-3"><h2 className="text-lg font-bold">รายชื่อนักเรียน ({visible.length})</h2><input aria-label="ค้นหานักเรียน" placeholder="ค้นหารหัส หรือชื่อ-สกุล" value={search} onChange={e=>{setSearch(e.target.value);setPage(1);}} className="rounded-xl border border-slate-300 px-3 py-2 text-sm"/></div>
           <div className="max-h-[min(58vh,560px)] overflow-auto"><table className="w-full text-left text-sm"><thead><tr className="border-b text-slate-500"><th className="py-3">รหัส</th><th>ชื่อ-สกุล</th><th>ห้องเรียน</th><th>สถานภาพ</th><th>จัดการ</th></tr></thead>
-            <tbody>{paginated.map(s=><tr key={s.id} className="border-b border-slate-100"><td className="py-3">{s.student_no}</td><td>{s.first_name_th} {s.last_name_th}</td><td className="whitespace-nowrap">{studentRoom.has(s.id)?roomLabel(studentRoom.get(s.id)!):<span className="text-amber-700">ยังไม่จัดห้อง</span>}</td><td>{statusLabel[s.status]??s.status}</td><td>{canWrite&&<div className="flex flex-wrap gap-2"><button className="text-blue-700" onClick={()=>{setEditingId(s.id);setForm({student_no:s.student_no,first_name_th:s.first_name_th,last_name_th:s.last_name_th});}}>แก้ไข</button><button type="button" className="text-amber-700" onClick={()=>{setChangingStatus(s);setNextStatus(s.status);}}>สถานภาพ</button><button type="button" className="text-red-700" onClick={()=>{setRemoving(s);setConfirmNo('');}}>ลบ</button></div>}</td></tr>)}</tbody></table></div>
+            <tbody>{paginated.map(s=><tr key={s.id} className="border-b border-slate-100"><td className="py-3">{s.student_no}</td><td>{s.first_name_th} {s.last_name_th}</td><td className="whitespace-nowrap">{studentRoom.has(s.id)?roomLabel(studentRoom.get(s.id)!):<span className="text-amber-700">ยังไม่จัดห้อง</span>}</td><td>{statusLabel[s.status]??s.status}</td><td>{canWrite&&<div className="flex flex-wrap gap-2"><button className="text-blue-700" onClick={()=>{setEditingId(s.id);setForm({student_no:s.student_no,first_name_th:s.first_name_th,last_name_th:s.last_name_th});}}>แก้ไข</button><button type="button" className="text-amber-700" onClick={()=>{setChangingStatus(s);setNextStatus(s.status);}}>สถานภาพ</button><button type="button" className="text-red-700" onClick={()=>{setRemoving(s);setConfirmNo('');setAdminPassword('');}}>ลบ</button></div>}</td></tr>)}</tbody></table></div>
           {visible.length===0&&<p className="py-8 text-center text-sm text-slate-500">ไม่พบข้อมูลนักเรียน</p>}
           <PageControls total={visible.length} page={Math.min(page,Math.max(1,Math.ceil(visible.length/PAGE_SIZE)))} onChange={setPage}/>
           <Link href="/students/history" className="mt-3 inline-block text-sm font-medium text-blue-700">จัดการลงทะเบียนและย้ายห้อง →</Link>
