@@ -24,7 +24,8 @@ export function summarizeLevels(rooms:SchoolRoom[],enrollments:SchoolEnrollment[
   const courseRooms=group.filter(r=>courses.some(o=>o.classroom_id===r.id)).length;
   const hasCoursesInEveryRoom=!!termId&&courseRooms===group.length;
   const ready=hasStudentsInEveryRoom&&hasCoursesInEveryRoom&&assignedOfferings===courses.length;
-  const progress=Math.round((studentRooms/group.length+courseRooms/group.length+(courses.length?assignedOfferings/courses.length:0))/3*100);
+  const rawProgress=Math.round((studentRooms/group.length+courseRooms/group.length+(courses.length?assignedOfferings/courses.length:0))/3*100);
+  const progress=ready?100:Math.min(99,rawProgress);
   return {level,rooms:group.length,students,courses:subjectIds.length,assigned,offeringCount:courses.length,assignedOfferings,missingStudentRooms:group.length-studentRooms,missingCourseRooms:group.length-courseRooms,progress,status:ready?'ready':students||courses.length?'progress':'empty'};
  });
 }

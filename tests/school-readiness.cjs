@@ -23,4 +23,7 @@ assert.equal(row.status,'progress','A room with no offered courses must prevent 
 [row]=summarizeLevels(rooms,[],[],[],'year','');assert.equal(row.status,'empty');assert.equal(row.progress,0);
 assert.deepEqual(summarizeLevels(rooms,enrollments,offerings,[],'missing-year','term'),[]);
 assert.equal(summarizeLevels(rooms,enrollments,offerings,[],'year','').length,1);
+const many=Array.from({length:200},(_,i)=>({id:'many'+i,classroom_id:'a',subject_id:'subject'+i,term_id:'term'}));
+const [almost]=summarizeLevels(rooms.filter(r=>r.id==='a'),enrollments,many,many.slice(0,-1).map(o=>({course_offering_id:o.id})),'year','term');
+assert.equal(almost.status,'progress');assert.equal(almost.progress,99,'Rounding must not display 100% for incomplete preparation');
 console.log('PASS: year/term isolation, enrollment status, parallel rooms, subject deduplication, complete teacher coverage, missing setup and empty year.');
