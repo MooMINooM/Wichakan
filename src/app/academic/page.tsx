@@ -143,6 +143,7 @@ export default function AcademicSetupPage() {
    {error&&<p role="alert" className="mt-3 rounded-xl bg-red-50 p-3 text-sm text-red-800">{error}</p>}
    {message&&<p role="status" className="mt-3 rounded-xl bg-emerald-50 p-3 text-sm text-emerald-800">{message}</p>}
    {schoolId&&<>
+    {canManage&&<div className="mt-3 flex justify-end"><Link href="/academic/score-settings" className="rounded-xl border border-blue-200 bg-white px-4 py-2.5 text-sm font-semibold text-blue-700 hover:bg-blue-50">ตั้งค่าโครงสร้างคะแนนรายวิชา →</Link></div>}
     <div className="academic-filters" aria-busy={dataLoading}>
      <label><AcademicIcon name="calendar"/><span>ปีการศึกษา</span><select value={selectedYear} disabled={dataLoading||!years.length} onChange={e=>{setSelectedYear(e.target.value);setSelectedTerm('');setSelectedRoom('');setRoomPage(1);}}>{!years.length&&<option value="">ยังไม่มีปีการศึกษา</option>}{years.map(y=><option key={y.id} value={y.id}>{y.year_be}{y.is_active?' (ปัจจุบัน)':''}</option>)}</select></label>
      <label><AcademicIcon name="book"/><span>ภาคเรียน</span><select value={activeTerm?.id??''} disabled={dataLoading||!yearTerms.length} onChange={e=>setSelectedTerm(e.target.value)}>{!yearTerms.length&&<option value="">ยังไม่มีภาคเรียน</option>}{yearTerms.map(t=><option key={t.id} value={t.id}>ภาคเรียนที่ {t.term_no}</option>)}</select></label>
