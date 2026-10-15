@@ -1,0 +1,17 @@
+const fs=require('node:fs'),ts=require('typescript'),assert=require('node:assert/strict'),vm=require('node:vm');
+function source(file,require){const out={exports:{}};vm.runInNewContext(ts.transpileModule(fs.readFileSync(file,'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2020}}).outputText,{exports:out.exports,require,Map,Set});return out.exports;}
+const readiness=source('src/lib/school-readiness.ts');const {teacherAssignmentRows}=source('src/lib/teacher-assignment-rows.ts',()=>readiness);
+const rooms=[{id:'a',level_code:'ป.1',room_code:'1'},{id:'b',level_code:'ป.1',room_code:'2'}];
+const versions=[{id:'old',curriculum_id:'c',effective_year_be:2568},{id:'v',curriculum_id:'c',effective_year_be:2569},{id:'future',curriculum_id:'c',effective_year_be:2570}];
+const subject=(id,code,v='v',grade='ป.1')=>({id,subject_code:code,name_th:code,curriculum_version_id:v,grade_level:grade});
+const subjects=[subject('math','M'),subject('english','E'),subject('old-math','M','old'),subject('future-math','F','future'),subject('other','M2','v','ม.2')];
+const offerings=[{id:'o',classroom_id:'a',subject_id:'math',term_id:'t'},{id:'other-term',classroom_id:'b',subject_id:'math',term_id:'t2'}];
+const assignments=[{id:'a1',course_offering_id:'o',teacher_user_id:'u1'},{id:'a2',course_offering_id:'o',teacher_user_id:'u2'},{id:'a3',course_offering_id:'other-term',teacher_user_id:'u1'}];
+const rows=(r=rooms,s=subjects,v=versions,o=offerings,a=assignments,year=2569,t='t')=>teacherAssignmentRows(r,s,v,o,a,year,t);
+let result=rows();assert.equal(result.length,4);assert.equal(result.filter(r=>r.assignments.length).length,1);assert.equal(result.filter(r=>!r.assignments.length).length,3,'Unoffered curriculum subjects must be visible in every room');assert.equal(result[0].teacherIds.length,2,'Co-teachers share one subject row');
+assert.equal(rows(rooms,subjects,versions,[],[]).length,4);assert.equal(rows([],subjects,versions).length,0);assert.equal(rows(rooms,subjects,versions,offerings,assignments,2569,'').length,0,'No term must not look ready');
+assert.equal(rows([rooms[0]])[0].assignments.length,2);assert.equal(rows(rooms,subjects,versions,offerings,assignments,2569,'t2').filter(r=>r.assignments.length).length,1,'Term isolation');
+result=rows(rooms,subjects,versions,[],[],2568);assert(result.every(r=>r.subject.id==='old-math'));result=rows(rooms,subjects,versions,[],[],2570);assert(result.every(r=>r.subject.id==='future-math'));
+result=rows(rooms,subjects,versions,[...offerings,{id:'legacy',classroom_id:'b',subject_id:'old-math',term_id:'t'}],[...assignments,{id:'legacy-assigned',course_offering_id:'legacy',teacher_user_id:'u1'}]);assert.equal(result.length,5);assert.equal(result.filter(r=>r.legacy).length,1);assert.equal(result.find(r=>r.legacy).assignments.length,1,'Existing assignments outside the catalog remain manageable');
+const duplicateVersion=[...versions,{id:'v2',curriculum_id:'c',effective_year_be:2569}];result=rows([rooms[0]],[...subjects,subject('math2','M','v2')],duplicateVersion,[...offerings,{id:'o2',classroom_id:'a',subject_id:'math2',term_id:'t'}],[...assignments,{id:'a4',course_offering_id:'o2',teacher_user_id:'u1'}]);assert.equal(result.length,2);assert.equal(result[0].teacherIds.length,2,'Duplicate catalog codes and co-teaching must not inflate counts');
+console.log('PASS: unoffered curriculum subjects, room coverage, term/year/grade isolation, co-teachers, equal-version duplicate codes and retained legacy offerings.');
