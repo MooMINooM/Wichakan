@@ -5,12 +5,12 @@ import {useRouter} from 'next/navigation';
 import {AcademicIcon,SchoolScene} from '@/components/academic-visuals';
 import {getSupabaseBrowserClient} from '@/lib/supabase/browser';
 import {resolveYear,setYearSelection,YEAR_EVENT} from '@/lib/academic-year-selection';
-import {summarizeLevels,type SchoolRoom,type SchoolEnrollment,type SchoolOffering,type SchoolAssignment} from '@/lib/school-readiness';
+import {summarizeLevels,type SchoolRoom,type SchoolEnrollment,type SchoolOffering,type SchoolAssignment,type SchoolSubject,type SchoolCurriculumVersion} from '@/lib/school-readiness';
 
 type Year={id:string;year_be:number;is_active:boolean};
 type Term={id:string;academic_year_id:string;term_no:number};
-type Snapshot={yearId:string;rooms:SchoolRoom[];enrollments:SchoolEnrollment[];offerings:SchoolOffering[];assignments:SchoolAssignment[]};
-const emptySnapshot:Snapshot={yearId:'',rooms:[],enrollments:[],offerings:[],assignments:[]};
+type Snapshot={yearId:string;rooms:SchoolRoom[];enrollments:SchoolEnrollment[];offerings:SchoolOffering[];assignments:SchoolAssignment[];subjects:SchoolSubject[];versions:SchoolCurriculumVersion[]};
+const emptySnapshot:Snapshot={yearId:'',rooms:[],enrollments:[],offerings:[],assignments:[],subjects:[],versions:[]};
 const statusLabels={ready:'พร้อมลงคะแนน',progress:'กำลังดำเนินการ',empty:'ยังไม่เริ่มดำเนินการ'};
 
 // Read every page so school totals are not truncated by the Data API row limit.
@@ -54,13 +54,15 @@ export default function AdminPage(){
   if(!yearId){setSnapshot(emptySnapshot);setLoading(false);return;}
   setLoading(true);setError('');
   (async()=>{try{
-   const [rooms,enrollments,offerings,assignments]=await Promise.all([
+   const [rooms,enrollments,offerings,assignments,subjects,versions]=await Promise.all([
     readAll<SchoolRoom>((a,b)=>db.from('classrooms').select('id,academic_year_id,level_code,room_code').eq('school_id',schoolId).eq('academic_year_id',yearId).order('id').range(a,b)),
     readAll<SchoolEnrollment>((a,b)=>db.from('enrollments').select('student_id,classroom_id,academic_year_id,status').eq('school_id',schoolId).eq('academic_year_id',yearId).in('status',['active','completed']).order('id').range(a,b)),
     readAll<SchoolOffering>((a,b)=>db.from('course_offerings').select('id,classroom_id,term_id,subject_id').eq('school_id',schoolId).order('id').range(a,b)),
-    readAll<SchoolAssignment>((a,b)=>db.from('teaching_assignments').select('course_offering_id').eq('school_id',schoolId).order('id').range(a,b))
+    readAll<SchoolAssignment>((a,b)=>db.from('teaching_assignments').select('course_offering_id').eq('school_id',schoolId).order('id').range(a,b)),
+    readAll<SchoolSubject>((a,b)=>db.from('subjects').select('id,curriculum_version_id,subject_code,grade_level').eq('school_id',schoolId).order('id').range(a,b)),
+    readAll<SchoolCurriculumVersion>((a,b)=>db.from('curriculum_versions').select('id,curriculum_id,effective_year_be').eq('school_id',schoolId).order('id').range(a,b))
    ]);
-   if(!live)return;setSnapshot({yearId,rooms,enrollments,offerings,assignments});setUpdatedAt(new Date().toLocaleString('th-TH',{day:'numeric',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'}));
+   if(!live)return;setSnapshot({yearId,rooms,enrollments,offerings,assignments,subjects,versions});setUpdatedAt(new Date().toLocaleString('th-TH',{day:'numeric',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'}));
   }catch(e){if(live)setError(e instanceof Error?e.message:'โหลดข้อมูลไม่สำเร็จ');}finally{if(live)setLoading(false);}})();
   return()=>{live=false;};
  },[db,schoolId,yearId,revision]);
@@ -68,12 +70,12 @@ export default function AdminPage(){
  const yearTerms=terms.filter(t=>t.academic_year_id===yearId);
  const term=yearTerms.find(t=>t.id===termId)??yearTerms[0];
  const current=snapshot.yearId===yearId;
- const rows=current?summarizeLevels(snapshot.rooms,snapshot.enrollments,snapshot.offerings,snapshot.assignments,yearId,term?.id??''):[];
+ const rows=current?summarizeLevels(snapshot.rooms,snapshot.enrollments,snapshot.offerings,snapshot.assignments,yearId,term?.id??'',snapshot.subjects,snapshot.versions,year?.year_be??0):[];
  const shown=rows.filter(r=>(view==='all'||(view==='needs'?r.status!=='ready':r.level.startsWith(view)))&&(!selectedLevel||r.level===selectedLevel));
  const readyCount=rows.filter(r=>r.status==='ready').length;
  const readiness=rows.length?Math.round(readyCount/rows.length*100):0;
  const students=new Set(snapshot.enrollments.filter(e=>current&&snapshot.rooms.some(r=>r.id===e.classroom_id)&&['active','completed'].includes(e.status)).map(e=>e.student_id)).size;
- const alerts=[...rows].sort((a,b)=>(a.status==='ready'?1:0)-(b.status==='ready'?1:0)||a.progress-b.progress).map(r=>({level:r.level,title:r.missingStudentRooms?'ยังไม่มีรายชื่อนักเรียน '+r.missingStudentRooms+' ห้อง':r.missingCourseRooms?'ยังไม่มีรายวิชาที่เปิดสอน '+r.missingCourseRooms+' ห้อง':r.assignedOfferings<r.offeringCount?'ยังมอบหมายครูไม่ครบ '+(r.offeringCount-r.assignedOfferings)+' รายการ':'เตรียมข้อมูลพร้อม รอข้อมูลคะแนน',detail:r.assignedOfferings<r.offeringCount?'มอบหมายแล้ว '+r.assignedOfferings+' จาก '+r.offeringCount+' รายการ':r.rooms+' ห้อง · '+r.students+' คน · '+r.courses+' รายวิชา',status:r.status}));
+ const alerts=[...rows].sort((a,b)=>(a.status==='ready'?1:0)-(b.status==='ready'?1:0)||a.progress-b.progress).map(r=>({level:r.level,title:!r.courses?'ยังไม่มีรายวิชาในหลักสูตร':r.unassigned?'ขาดครูสอนอีก '+r.unassigned+' วิชา':r.missingStudentRooms?'ยังไม่มีรายชื่อนักเรียน '+r.missingStudentRooms+' ห้อง':'เตรียมข้อมูลพร้อม รอข้อมูลคะแนน',detail:r.courses?'มีครูครบทุกห้อง '+r.assigned+' จาก '+r.courses+' วิชา':r.rooms+' ห้อง · '+r.students+' คน',status:r.status}));
  const visibleAlerts=showAll?alerts:alerts.slice(0,4);
  const canShow=current&&!error;
  function chooseYear(id:string){setYearId(id);setTermId('');setSelectedLevel('');setYearSelection(schoolId,id);}
@@ -88,18 +90,18 @@ export default function AdminPage(){
   </div>
   {loading&&<p role="status" className="school-loading">กำลังโหลดข้อมูลสถานศึกษา...</p>}
   <section className="school-metrics" aria-label="ภาพรวมสถานศึกษา" aria-busy={loading}>
-   {([{label:'ระดับชั้นทั้งหมด',value:rows.length,unit:'ระดับ',detail:rows.length?rows[0].level+' – '+rows[rows.length-1].level:'ยังไม่มีห้องเรียน',icon:'school',color:'blue'},{label:'นักเรียนทั้งหมด',value:students,unit:'คน',detail:year?'ปีการศึกษา '+year.year_be:'ยังไม่กำหนดปี',icon:'users',color:'green'},{label:'รายวิชาที่เปิดสอน',value:rows.reduce((n,r)=>n+r.courses,0),unit:'รายวิชา',detail:term?'ภาคเรียนที่ '+term.term_no:'ยังไม่กำหนดภาคเรียน',icon:'book',color:'purple'},{label:'พร้อมลงคะแนน',value:readiness,unit:'%',detail:readyCount+' จาก '+rows.length+' ระดับเตรียมข้อมูลครบ',icon:'check',color:'green'}] as const).map(m=><div key={m.label} className={'academic-stat '+m.color}><i><AcademicIcon name={m.icon}/></i><div><p>{m.label}</p><strong>{loading||!canShow?'—':m.value.toLocaleString('th-TH')}<small>{m.unit==='%'?'%':' '+m.unit}</small></strong><span>{m.detail}</span></div></div>)}
+   {([{label:'ระดับชั้นทั้งหมด',value:rows.length,unit:'ระดับ',detail:rows.length?rows[0].level+' – '+rows[rows.length-1].level:'ยังไม่มีห้องเรียน',icon:'school',color:'blue'},{label:'นักเรียนทั้งหมด',value:students,unit:'คน',detail:year?'ปีการศึกษา '+year.year_be:'ยังไม่กำหนดปี',icon:'users',color:'green'},{label:'รายวิชาที่ลงทะเบียน',value:rows.reduce((n,r)=>n+r.courses,0),unit:'รายวิชา',detail:year?'ตามหลักสูตรปี '+year.year_be:'ยังไม่กำหนดปี',icon:'book',color:'purple'},{label:'พร้อมลงคะแนน',value:readiness,unit:'%',detail:readyCount+' จาก '+rows.length+' ระดับเตรียมข้อมูลครบ',icon:'check',color:'green'}] as const).map(m=><div key={m.label} className={'academic-stat '+m.color}><i><AcademicIcon name={m.icon}/></i><div><p>{m.label}</p><strong>{loading||!canShow?'—':m.value.toLocaleString('th-TH')}<small>{m.unit==='%'?'%':' '+m.unit}</small></strong><span>{m.detail}</span></div></div>)}
   </section>
   <div className="school-grid">
    <section className="academic-panel school-table-panel" aria-labelledby="school-level-heading">
     <div className="academic-panel-heading"><h2 id="school-level-heading"><AcademicIcon name="chart"/>ภาพรวมความพร้อมรายระดับชั้น</h2><span>{updatedAt&&canShow?'ข้อมูล ณ '+updatedAt:''}</span></div>
     {selectedLevel&&<div className="school-selection">กำลังดู {selectedLevel}<button onClick={()=>setSelectedLevel('')}>แสดงทุกระดับชั้น ×</button></div>}
     <div className="school-table-scroll"><table className="school-table"><thead><tr><th>ระดับชั้น</th><th>จำนวนนักเรียน</th><th>จำนวนรายวิชา</th><th>มอบหมายครู</th><th>ลงคะแนน</th><th>ความพร้อม</th><th>สถานะ</th></tr></thead><tbody>
-     {canShow&&!loading&&shown.map(r=><tr key={r.level}><th scope="row"><button title={'ดูรายละเอียด '+r.level} onClick={()=>setSelectedLevel(r.level)}>{r.level}</button></th><td>{r.students} คน</td><td>{r.courses} รายวิชา</td><td><span className={'school-cell-status '+(r.courses&&r.assigned===r.courses?'done':'waiting')}><b aria-hidden="true">{r.courses&&r.assigned===r.courses?'✓':'!'}</b>{r.courses?'ครบ '+r.assigned+'/'+r.courses:'ยังไม่กำหนด'}</span></td><td className="school-no-scores">ยังไม่มีข้อมูล</td><td><div className="school-progress-cell"><progress max="100" value={r.progress} aria-label={'ความพร้อม '+r.level} className={r.status==='ready'?'complete':''}/><span>{r.progress}%</span></div></td><td><span className={'school-status '+r.status}>{statusLabels[r.status]}</span></td></tr>)}
+     {canShow&&!loading&&shown.map(r=><tr key={r.level}><th scope="row"><button title={'ดูรายละเอียด '+r.level} onClick={()=>setSelectedLevel(r.level)}>{r.level}</button></th><td>{r.students} คน</td><td>{r.courses} รายวิชา</td><td><span className={'school-cell-status '+(r.courses&&!r.unassigned?'done':'waiting')}><b aria-hidden="true">{r.courses&&!r.unassigned?'✓':'!'}</b>{!r.courses?'ยังไม่มีหลักสูตร':r.unassigned?'ขาดครู '+r.unassigned+' วิชา':'ครบทุกวิชา'}</span></td><td className="school-no-scores">ยังไม่มีข้อมูล</td><td><div className="school-progress-cell"><progress max="100" value={r.progress} aria-label={'ความพร้อม '+r.level} className={r.status==='ready'?'complete':''}/><span>{r.progress}%</span></div></td><td><span className={'school-status '+r.status}>{statusLabels[r.status]}</span></td></tr>)}
     </tbody></table></div>
     {(!canShow||loading)&&<p className="school-empty">{loading?'กำลังโหลดข้อมูล...':'ยังไม่สามารถแสดงข้อมูลได้'}</p>}
     {canShow&&!loading&&!shown.length&&<div className="school-empty"><p>{rows.length?'ไม่มีระดับชั้นในมุมมองนี้':'ยังไม่มีห้องเรียนในปีการศึกษาที่เลือก'}</p><Link href="/academic">ไปตั้งค่างานวิชาการ →</Link></div>}
-    <p className="school-table-note">ความพร้อมคำนวณจากรายชื่อนักเรียน รายวิชา และการมอบหมายครูครบทุกห้อง ยังไม่รวมผลการลงคะแนน</p>
+    <p className="school-table-note">จำนวนวิชาอิงรายวิชาที่ลงทะเบียนในรุ่นหลักสูตรล่าสุดที่มีผลในปีที่เลือก วิชาที่ขาดครูนับรวมวิชาที่ยังไม่เปิดสอน และต้องมีครูครบทุกห้องในภาคเรียนที่เลือก ยังไม่รวมผลการลงคะแนน</p>
     <div className="school-footer-links"><Link href="/academic">ตั้งค่างานวิชาการ ↗</Link><Link href="/academic/teachers">มอบหมายครู ↗</Link><Link href="/students/history">จัดนักเรียนเข้าห้อง ↗</Link></div>
    </section>
    <aside className="school-aside">
