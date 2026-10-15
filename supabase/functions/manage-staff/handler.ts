@@ -21,7 +21,7 @@ export function createStaffHandler(deps:Dependencies){
    let body:Record<string,unknown>;
    try{const raw=await req.text();if(raw.length>8192)return reply(413,{error:'ข้อมูลมีขนาดใหญ่เกินไป'});body=JSON.parse(raw);if(!body||Array.isArray(body)||typeof body!=='object')throw new Error();}catch{return reply(400,{error:'รูปแบบข้อมูลไม่ถูกต้อง'});}
    const {action,school_id:schoolId,user_id:targetId}=body;
-   if(typeof schoolId!=='string'||!uuid.test(schoolId)||typeof targetId!=='string'||!uuid.test(targetId)||!['get-account','update-profile','reset-password'].includes(String(action)))return reply(400,{error:'ข้อมูลบัญชีหรือคำสั่งไม่ถูกต้อง'});
+   if(typeof schoolId!=='string'||!uuid.test(schoolId)||typeof targetId!=='string'||!uuid.test(targetId)||!['get-account','update-profile','update-learning-area','reset-password'].includes(String(action)))return reply(400,{error:'ข้อมูลบัญชีหรือคำสั่งไม่ถูกต้อง'});
    // The actor must be an active administrator of the requested school. Never
    // trust user_metadata, client roles, or a caller-supplied actor ID.
    const actor=await userDb.from('school_memberships').select('user_id').eq('school_id',schoolId).eq('user_id',auth.user.id).eq('role','school_admin').eq('active',true).maybeSingle();
@@ -35,6 +35,16 @@ export function createStaffHandler(deps:Dependencies){
    // Auth identity and profiles are global; one school must not take over a
    // shared account belonging to another school.
    if(memberships.some(m=>m.school_id!==schoolId))return reply(409,{error:'บัญชีนี้ใช้ร่วมกับโรงเรียนอื่น กรุณาให้เจ้าของบัญชีแก้ไขข้อมูลด้วยตนเอง'});
+   const hasArea=Object.prototype.hasOwnProperty.call(body,'learning_area');
+   const area=typeof body.learning_area==='string'?body.learning_area.trim():null;
+   if(hasArea&&((body.learning_area!==null&&typeof body.learning_area!=='string')||(area?.length??0)>150))return reply(400,{error:'กลุ่มสาระการเรียนรู้ต้องไม่เกิน 150 ตัวอักษร'});
+   if(action==='update-learning-area'){
+    if(!hasArea)return reply(400,{error:'กรุณาระบุกลุ่มสาระการเรียนรู้'});
+    const result=await admin.from('profiles').update({learning_area:area||null}).eq('user_id',targetId).select('user_id').maybeSingle();
+    if(result.error)return reply(500,{error:'บันทึกกลุ่มสาระการเรียนรู้ไม่สำเร็จ'});
+    if(!result.data)return reply(404,{error:'ไม่พบข้อมูลบุคลากร'});
+    return reply(200,{success:true,learning_area:area||null});
+   }
    if(action==='reset-password'){
     const password=body.password;
     if(typeof password!=='string'||password.length<8||new TextEncoder().encode(password).length>72||!password.trim())return reply(400,{error:'รหัสผ่านต้องมีอย่างน้อย 8 ตัวอักษร และไม่เกิน 72 ไบต์'});
@@ -54,14 +64,14 @@ export function createStaffHandler(deps:Dependencies){
      const result=await admin.auth.admin.updateUserById(targetId,{email});
      if(result.error)return reply(400,{error:'แก้ไขอีเมลไม่สำเร็จ อีเมลอาจถูกใช้งานแล้วหรือไม่ถูกต้อง'});
     }
-    const profile=await admin.from('profiles').upsert({user_id:targetId,display_name:displayName},{onConflict:'user_id'});
+    const profile=await admin.from('profiles').upsert({user_id:targetId,display_name:displayName,...(hasArea?{learning_area:area||null}:{})},{onConflict:'user_id'});
     if(profile.error)return reply(500,{error:emailChanged?'อีเมลเปลี่ยนแล้ว แต่บันทึกชื่อไม่สำเร็จ กรุณากดบันทึกอีกครั้ง':'บันทึกชื่อไม่สำเร็จ กรุณาลองใหม่',partial:emailChanged});
     return reply(200,{success:true,email,display_name:displayName});
    }
-   const [account,profile]=await Promise.all([admin.auth.admin.getUserById(targetId),admin.from('profiles').select('display_name').eq('user_id',targetId).maybeSingle()]);
+   const [account,profile]=await Promise.all([admin.auth.admin.getUserById(targetId),admin.from('profiles').select('display_name,learning_area').eq('user_id',targetId).maybeSingle()]);
    if(account.error||!account.data.user)return reply(404,{error:'ไม่พบบัญชีเข้าสู่ระบบของบุคลากร'});
    if(profile.error)return reply(500,{error:'โหลดข้อมูลบุคลากรไม่สำเร็จ'});
-   return reply(200,{email:account.data.user.email??'',display_name:profile.data?.display_name??''});
+   return reply(200,{email:account.data.user.email??'',display_name:profile.data?.display_name??'',learning_area:profile.data?.learning_area??null});
   }catch{
    return reply(500,{error:'ระบบจัดการบัญชีไม่พร้อมใช้งาน กรุณาลองใหม่'});
   }

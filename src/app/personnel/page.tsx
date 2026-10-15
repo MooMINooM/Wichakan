@@ -1,153 +1,134 @@
 'use client';
-import Link from 'next/link';
-import PageControls,{PAGE_SIZE} from '@/components/page-controls';
 import {useEffect,useRef,useState} from 'react';
-import AcademicDialog from '@/components/academic-dialog';
 import {useRouter} from 'next/navigation';
+import AcademicDialog from '@/components/academic-dialog';
+import {AcademicIcon,SchoolScene} from '@/components/academic-visuals';
 import {getSupabaseBrowserClient} from '@/lib/supabase/browser';
+import {resolveYear,setYearSelection,YEAR_EVENT} from '@/lib/academic-year-selection';
+
 type Role='teacher'|'academic'|'registrar'|'director';
 type Member={user_id:string;role:string;active:boolean};
-type Profile={user_id:string;display_name:string};
+type Profile={user_id:string;display_name:string;learning_area:string|null};
+type Year={id:string;year_be:number;is_active:boolean};
 const roles:Role[]=['teacher','academic','registrar','director'];
-const roleName:Record<Role,string>={teacher:'ครูผู้สอน',academic:'ฝ่ายวิชาการ',registrar:'ฝ่ายทะเบียน',director:'ผู้อำนวยการ'};
+const roleName:Record<string,string>={teacher:'ครูผู้สอน',academic:'ฝ่ายวิชาการ',registrar:'ฝ่ายทะเบียน',director:'ผู้อำนวยการ',school_admin:'ผู้ดูแลระบบ'};
+const areas=['ภาษาไทย','คณิตศาสตร์','วิทยาศาสตร์และเทคโนโลยี','สังคมศึกษา ศาสนา และวัฒนธรรม','สุขศึกษาและพลศึกษา','ศิลปะ','การงานอาชีพ','ภาษาต่างประเทศ','ปฐมวัย','กิจกรรมพัฒนาผู้เรียน'];
+const uuid=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+async function readAll<T>(query:(a:number,b:number)=>PromiseLike<{data:T[]|null;error:{message:string}|null}>){const all:T[]=[];for(let a=0;;a+=500){const result=await query(a,a+499);if(result.error)throw new Error(result.error.message);all.push(...(result.data??[]));if((result.data?.length??0)<500)return all;}}
+
 export default function PersonnelPage(){
  const db=getSupabaseBrowserClient(),router=useRouter();
  const [schoolId,setSchoolId]=useState(''),[schoolName,setSchoolName]=useState('');
  const [members,setMembers]=useState<Member[]>([]),[profiles,setProfiles]=useState<Profile[]>([]);
- const [query,setQuery]=useState(''),[page,setPage]=useState(1),[showAdd,setShowAdd]=useState(false);
- const [uid,setUid]=useState(''),[displayName,setDisplayName]=useState(''),[role,setRole]=useState<Role>('teacher');
- const [busy,setBusy]=useState(false),[error,setError]=useState(''),[notice,setNotice]=useState('');
- const [refresh,setRefresh]=useState(0);
- const [accountForm,setAccountForm]=useState<{mode:'edit'|'password';userId:string}|null>(null);
- const [editName,setEditName]=useState(''),[editEmail,setEditEmail]=useState('');
- const [password,setPassword]=useState(''),[confirmPassword,setConfirmPassword]=useState(''),[showPassword,setShowPassword]=useState(false);
+ const [years,setYears]=useState<Year[]>([]),[yearId,setYearId]=useState('');
+ const [teaching,setTeaching]=useState<{teacher_user_id:string;course_offering_id:string}[]>([]),[offerings,setOfferings]=useState<{id:string;classroom_id:string}[]>([]),[rooms,setRooms]=useState<{id:string;academic_year_id:string}[]>([]);
+ const [query,setQuery]=useState(''),[roleFilter,setRoleFilter]=useState(''),[statusFilter,setStatusFilter]=useState('');
+ const [page,setPage]=useState(1),[size,setSize]=useState(10),[loading,setLoading]=useState(true),[summaryError,setSummaryError]=useState('');
+ const [busy,setBusy]=useState(false),[error,setError]=useState(''),[notice,setNotice]=useState(''),[refresh,setRefresh]=useState(0);
+ const [editId,setEditId]=useState(''),[uid,setUid]=useState(''),[displayName,setDisplayName]=useState(''),[email,setEmail]=useState(''),[area,setArea]=useState(''),[role,setRole]=useState<Role>('teacher'),[active,setActive]=useState(true);
  const [formError,setFormError]=useState(''),[accountLoading,setAccountLoading]=useState(false),[accountLoaded,setAccountLoaded]=useState(false);
- const accountRequestId=useRef(0);
- async function accountAction(action:string,userId:string,values:Record<string,string>={}){
+ const [dialog,setDialog]=useState<{mode:'actions'|'password';userId:string}|null>(null);
+ const [password,setPassword]=useState(''),[confirmPassword,setConfirmPassword]=useState(''),[showPassword,setShowPassword]=useState(false),[dialogError,setDialogError]=useState('');
+ const requestId=useRef(0),uidInput=useRef<HTMLInputElement>(null);
+ const name=(id:string)=>profiles.find(p=>p.user_id===id)?.display_name??'บัญชี '+id.slice(0,8);
+ const profile=(id:string)=>profiles.find(p=>p.user_id===id);
+ async function accountAction(action:string,userId:string,values:Record<string,string|null>={}){
   if(!db)throw new Error('ยังไม่ได้เชื่อมต่อระบบ');
   const result=await db.functions.invoke('manage-staff',{body:{action,school_id:schoolId,user_id:userId,...values}});
-  if(result.error){
-   let message='จัดการบัญชีไม่สำเร็จ กรุณาลองใหม่';
-   const context=(result.error as {context?:Response}).context;
-   if(context&&typeof context.json==='function'){try{const data=await context.json();if(typeof data.error==='string')message=data.error;}catch{}}
-   throw new Error(message);
-  }
+  if(result.error){let message='จัดการบัญชีไม่สำเร็จ กรุณาลองใหม่';const context=(result.error as {context?:Response}).context;if(context&&typeof context.json==='function')try{const data=await context.json();if(typeof data.error==='string')message=data.error;}catch{}throw new Error(message);}
   if(!result.data||result.data.error)throw new Error(result.data?.error??'ไม่ได้รับผลลัพธ์จากระบบจัดการบัญชี');
-  return result.data as {email:string;display_name:string;success?:boolean};
+  return result.data as {email:string;display_name:string;learning_area:string|null;success?:boolean};
  }
- function closeAccountForm(){if(busy)return;accountRequestId.current++;setAccountForm(null);setPassword('');setConfirmPassword('');setShowPassword(false);setFormError('');}
- async function openAccountForm(mode:'edit'|'password',userId:string){
-  const requestId=++accountRequestId.current;
-  setAccountForm({mode,userId});setFormError('');setNotice('');setPassword('');setConfirmPassword('');setShowPassword(false);setEditName(name(userId));setEditEmail('');setAccountLoaded(false);
-  setAccountLoading(mode==='edit');
-  if(mode==='edit')try{
-   const account=await accountAction('get-account',userId);
-   if(requestId!==accountRequestId.current)return;
-   setEditName(account.display_name);setEditEmail(account.email);setAccountLoaded(true);
-  }catch(e){if(requestId===accountRequestId.current)setFormError(e instanceof Error?e.message:'โหลดข้อมูลบัญชีไม่สำเร็จ');}
-  finally{if(requestId===accountRequestId.current)setAccountLoading(false);}
- }
- async function saveAccount(e:React.FormEvent<HTMLFormElement>){
-  e.preventDefault();if(!accountForm||busy||accountLoading)return;
-  if(accountForm.mode==='edit'&&!accountLoaded)return;
-  if(accountForm.mode==='password'&&(password!==confirmPassword||password.length<8||new TextEncoder().encode(password).length>72)){setFormError('รหัสผ่านต้องตรงกัน มีอย่างน้อย 8 ตัวอักษร และไม่เกิน 72 ไบต์');return;}
-  setBusy(true);setFormError('');
+ useEffect(()=>{let alive=true;(async()=>{try{
+  if(!db)throw new Error('ยังไม่ได้เชื่อมต่อระบบ');
+  const {data:{user},error:authError}=await db.auth.getUser();if(!alive)return;if(authError)throw authError;if(!user){router.replace('/login');return;}
+  const result=await db.from('school_memberships').select('school_id,role,schools(name_th)').eq('user_id',user.id).eq('active',true);
+  if(result.error)throw result.error;if(!alive)return;const admin=result.data?.find(m=>m.role==='school_admin');if(!admin){router.replace('/workspace');return;}
+  setSchoolId(admin.school_id);setSchoolName((admin.schools as unknown as {name_th:string}|null)?.name_th??'');
+ }catch(e){if(alive){setError(e instanceof Error?e.message:(e as {message?:string})?.message??'โหลดข้อมูลไม่สำเร็จ');setLoading(false);}}})();return()=>{alive=false;};},[db,router]);
+ useEffect(()=>{let alive=true;(async()=>{
+  if(!db||!schoolId)return;setLoading(true);setError('');setSummaryError('');
   try{
-   await accountAction(accountForm.mode==='edit'?'update-profile':'reset-password',accountForm.userId,accountForm.mode==='edit'?{display_name:editName.trim(),email:editEmail.trim()}:{password});
-   setNotice(accountForm.mode==='edit'?'แก้ไขข้อมูลบุคลากรแล้ว':'ตั้งรหัสผ่านใหม่แล้ว ครูสามารถเข้าสู่ระบบด้วยรหัสผ่านใหม่ได้');
-   setAccountForm(null);setPassword('');setConfirmPassword('');setShowPassword(false);setRefresh(x=>x+1);
-  }catch(e){setFormError(e instanceof Error?e.message:'บันทึกข้อมูลไม่สำเร็จ');}finally{setBusy(false);}
- }
-
- useEffect(()=>{let alive=true;(async()=>{
-  if(!db){setError('ยังไม่ได้เชื่อมต่อ Supabase');return;}
-  const {data:{user}}=await db.auth.getUser();if(!alive)return;
-  if(!user){router.replace('/login');return;}
-  const {data,error:e}=await db.from('school_memberships').select('school_id,role,schools(name_th)').eq('user_id',user.id).eq('active',true);
-  if(!alive)return;
-  if(e){setError(e.message);return;}
-  const admin=(data??[]).find(m=>m.role==='school_admin');
-  if(!admin){router.replace('/workspace');return;}
-  setSchoolId(admin.school_id);
-  const s=admin.schools as unknown as {name_th:string}|null;
-  setSchoolName(s?.name_th??'');
- })();return()=>{alive=false;};},[db,router]);
- useEffect(()=>{let alive=true;(async()=>{
-  if(!db||!schoolId)return;
-  const {data,error:e}=await db.from('school_memberships').select('user_id,role,active').eq('school_id',schoolId);
-  if(!alive)return;
-  if(e){setError(e.message);return;}
-  setMembers(data??[]);
-  const ids=[...new Set((data??[]).map(m=>m.user_id))];
-  if(!ids.length){setProfiles([]);return;}
-  const p=await db.from('profiles').select('user_id,display_name').in('user_id',ids);
-  if(!alive)return;
-  if(p.error)setError(p.error.message);else setProfiles(p.data??[]);
+   const m=await readAll<Member>((a,b)=>db.from('school_memberships').select('user_id,role,active').eq('school_id',schoolId).order('id').range(a,b));
+   const ids=[...new Set(m.map(x=>x.user_id))];const p:Profile[]=[];
+   for(let i=0;i<ids.length;i+=100){const result=await db.from('profiles').select('user_id,display_name,learning_area').in('user_id',ids.slice(i,i+100));if(result.error)throw result.error;p.push(...(result.data??[]));}
+   if(!alive)return;setMembers(m);setProfiles(p);
+   try{
+    const [y,t,o,r]=await Promise.all([
+     readAll<Year>((a,b)=>db.from('academic_years').select('id,year_be,is_active').eq('school_id',schoolId).order('year_be',{ascending:false}).range(a,b)),
+     readAll<{teacher_user_id:string;course_offering_id:string}>((a,b)=>db.from('teaching_assignments').select('teacher_user_id,course_offering_id').eq('school_id',schoolId).order('id').range(a,b)),
+     readAll<{id:string;classroom_id:string}>((a,b)=>db.from('course_offerings').select('id,classroom_id').eq('school_id',schoolId).order('id').range(a,b)),
+     readAll<{id:string;academic_year_id:string}>((a,b)=>db.from('classrooms').select('id,academic_year_id').eq('school_id',schoolId).order('id').range(a,b))
+    ]);if(!alive)return;setYears(y);setYearId(old=>resolveYear(y,schoolId,old));setTeaching(t);setOfferings(o);setRooms(r);
+   }catch{if(alive)setSummaryError('ยังโหลดข้อมูลมอบหมายงานสอนไม่สำเร็จ');}
+  }catch(e){if(alive)setError(e instanceof Error?e.message:(e as {message?:string})?.message??'โหลดบุคลากรไม่สำเร็จ');}finally{if(alive)setLoading(false);}
  })();return()=>{alive=false;};},[db,schoolId,refresh]);
- const name=(id:string)=>profiles.find(p=>p.user_id===id)?.display_name??'บัญชี '+id.slice(0,8);
+ useEffect(()=>{if(!schoolId)return;const sync=(e:Event)=>{const d=(e as CustomEvent<{schoolId:string;yearId:string}>).detail;if(d?.schoolId===schoolId)setYearId(d.yearId);};window.addEventListener(YEAR_EVENT,sync);return()=>window.removeEventListener(YEAR_EVENT,sync);},[schoolId]);
  const people=[...new Set(members.map(m=>m.user_id))].map(userId=>({userId,memberships:members.filter(m=>m.user_id===userId)}));
- const filtered=people.filter(p=>(name(p.userId)+' '+p.memberships.map(m=>roleName[m.role as Role]??'ผู้ดูแลระบบ').join(' ')).toLocaleLowerCase().includes(query.toLocaleLowerCase()));
- const displayed=filtered.slice((page-1)*PAGE_SIZE,page*PAGE_SIZE);
- async function perform(action:()=>PromiseLike<{error:{message:string}|null}>,success:string){
-  if(busy)return;setBusy(true);setError('');setNotice('');
-  try{
-   const result=await action();
-   if(result.error)setError(result.error.message);else{setNotice(success);setRefresh(x=>x+1);}
-  }catch(e){setError(e instanceof Error?e.message:'บันทึกข้อมูลไม่สำเร็จ');}finally{setBusy(false);}
+ const filtered=people.filter(p=>(!roleFilter||p.memberships.some(m=>m.role===roleFilter))&&(!statusFilter||p.memberships.some(m=>m.active)===(statusFilter==='active'))&&(name(p.userId)+' '+p.userId+' '+(profile(p.userId)?.learning_area??'')).toLocaleLowerCase().includes(query.trim().toLocaleLowerCase()));
+ const totalPages=Math.max(1,Math.ceil(filtered.length/size)),currentPage=Math.min(page,totalPages),displayed=filtered.slice((currentPage-1)*size,currentPage*size);
+ const teachers=people.filter(p=>p.memberships.some(m=>m.role==='teacher'&&m.active));
+ const yearRooms=new Set(rooms.filter(r=>r.academic_year_id===yearId).map(r=>r.id));
+ const yearOfferings=new Set(offerings.filter(o=>yearRooms.has(o.classroom_id)).map(o=>o.id));
+ const teachingIds=new Set(teaching.filter(t=>yearOfferings.has(t.course_offering_id)).map(t=>t.teacher_user_id));
+ const assigned=teachers.filter(p=>teachingIds.has(p.userId)).length;
+ function resetForm(){if(busy)return;requestId.current++;setEditId('');setUid('');setDisplayName('');setEmail('');setArea('');setRole('teacher');setActive(true);setFormError('');setAccountLoading(false);setAccountLoaded(false);}
+ function addPerson(){resetForm();setNotice('');document.getElementById('personnel-form')?.scrollIntoView({behavior:'smooth',block:'nearest'});uidInput.current?.focus();}
+ async function editPerson(id:string){
+  if(busy)return;const ticket=++requestId.current;const current=members.find(m=>m.user_id===id&&roles.includes(m.role as Role));
+  setEditId(id);setUid(id);setDisplayName(name(id));setArea(profile(id)?.learning_area??'');setRole((current?.role as Role)??'teacher');setActive(current?.active??true);setEmail('');setFormError('');setNotice('');setAccountLoaded(false);setAccountLoading(true);
+  document.getElementById('personnel-form')?.scrollIntoView({behavior:'smooth',block:'nearest'});
+  try{const account=await accountAction('get-account',id);if(ticket!==requestId.current)return;setDisplayName(account.display_name);setEmail(account.email);setArea(account.learning_area??'');setAccountLoaded(true);}catch(e){if(ticket===requestId.current)setFormError(e instanceof Error?e.message:'โหลดข้อมูลบัญชีไม่สำเร็จ');}finally{if(ticket===requestId.current)setAccountLoading(false);}
  }
- return <main className="mx-auto max-w-5xl px-5 py-8">
-  <Link href="/workspace" className="text-sm text-blue-700">← พื้นที่ทำงาน</Link>
-  <h1 className="mt-3 text-3xl font-bold">จัดการบุคลากร</h1>
-  <p className="mt-2 text-sm text-slate-500">Personnel Management · {schoolName}</p>
-  {error&&<p role="alert" className="mt-4 rounded-xl bg-red-50 p-4 text-sm text-red-700">{error}</p>}
-  {notice&&<p role="status" className="mt-4 rounded-xl bg-green-50 p-4 text-sm text-green-800">{notice}</p>}
-  {schoolId&&<div className="mt-6 grid gap-5 lg:grid-cols-[340px_1fr]">
-   <section className="rounded-2xl border bg-white p-6 shadow-sm">
-    <button type="button" onClick={()=>setShowAdd(v=>!v)} className="w-full rounded-xl bg-blue-800 px-4 py-3 text-left font-semibold text-white">{showAdd?"− ปิดแบบฟอร์ม":"+ เพิ่มสิทธิ์บุคลากร"}</button>
-    {showAdd&&<div className="mt-4"><h2 className="text-xl font-bold">เพิ่มสิทธิ์บุคลากร</h2>
-    <p className="mt-2 text-sm text-slate-500">บัญชีต้องถูกสร้างใน Supabase Authentication ก่อน จากนั้นใช้ User UID เพื่อผูกกับโรงเรียน</p>
-    <label className="mt-5 block text-sm">User UID<input className="mt-2 w-full rounded-xl border p-3" value={uid} onChange={e=>setUid(e.target.value)} placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"/></label>
-    <label className="mt-4 block text-sm">ชื่อที่แสดง<input className="mt-2 w-full rounded-xl border p-3" value={displayName} onChange={e=>setDisplayName(e.target.value)} placeholder="ชื่อ นามสกุล"/></label>
-    <label className="mt-4 block text-sm">บทบาท<select className="mt-2 w-full rounded-xl border p-3" value={role} onChange={e=>setRole(e.target.value as Role)}>{roles.map(r=><option value={r} key={r}>{roleName[r]}</option>)}</select></label>
-    <button disabled={busy||!/^[0-9a-fA-F-]{36}$/.test(uid)||displayName.trim().length<2} onClick={()=>perform(()=>db!.rpc('grant_school_staff_role',{p_school_id:schoolId,p_user_id:uid.trim(),p_display_name:displayName.trim(),p_role:role}),'เพิ่มหรือเปิดสิทธิ์บุคลากรแล้ว')} className="mt-5 w-full rounded-xl bg-blue-800 p-3 text-white disabled:opacity-40">บันทึกบุคลากร</button>
-    <p className="mt-4 text-xs text-slate-500">สามารถเพิ่มหลายบทบาทให้บัญชีเดียวได้ โดยใช้ UID เดิมและเลือกบทบาทใหม่ ระบบนี้ไม่สร้างรหัสผ่านหรือบัญชี Authentication</p></div>}
+ async function rpc(action:()=>PromiseLike<{error:{message:string}|null}>){const result=await action();if(result.error)throw new Error(result.error.message);}
+ async function savePerson(e:React.FormEvent<HTMLFormElement>){
+  e.preventDefault();if(!db||busy||accountLoading||!schoolId||(editId&&!accountLoaded))return;setBusy(true);setFormError('');setNotice('');let profileSaved=false,roleSaved=false;
+  try{
+   if(editId){
+    await accountAction('update-profile',editId,{display_name:displayName.trim(),email:email.trim(),learning_area:area||null});profileSaved=true;
+    const old=members.find(m=>m.user_id===editId&&m.role===role);if(old&&old.active!==active)await rpc(()=>db.rpc('set_school_staff_role_active',{p_school_id:schoolId,p_user_id:editId,p_role:role,p_active:active}));
+   }else{
+    await rpc(()=>db.rpc('grant_school_staff_role',{p_school_id:schoolId,p_user_id:uid.trim(),p_display_name:displayName.trim(),p_role:role}));roleSaved=true;
+    await accountAction('update-learning-area',uid.trim(),{learning_area:area||null});
+    if(!active)await rpc(()=>db.rpc('set_school_staff_role_active',{p_school_id:schoolId,p_user_id:uid.trim(),p_role:role,p_active:false}));
+   }
+   setNotice(editId?'บันทึกข้อมูลบุคลากรแล้ว':'เพิ่มสิทธิ์บุคลากรแล้ว');setEditId('');setUid('');setDisplayName('');setEmail('');setArea('');setRole('teacher');setActive(true);setAccountLoaded(false);setRefresh(x=>x+1);
+  }catch(e){setFormError((profileSaved?'ข้อมูลบุคลากรบันทึกแล้ว แต่เปลี่ยนสถานะไม่สำเร็จ: ':roleSaved?'เพิ่มสิทธิ์แล้ว แต่บันทึกข้อมูลที่เหลือไม่สำเร็จ: ':'')+(e instanceof Error?e.message:'บันทึกไม่สำเร็จ'));if(profileSaved||roleSaved)setRefresh(x=>x+1);}finally{setBusy(false);}
+ }
+ function closeDialog(){if(busy)return;setDialog(null);setPassword('');setConfirmPassword('');setShowPassword(false);setDialogError('');}
+ function openPassword(id:string){setDialog({mode:'password',userId:id});setPassword('');setConfirmPassword('');setShowPassword(false);setDialogError('');}
+ async function resetPassword(e:React.FormEvent<HTMLFormElement>){e.preventDefault();if(!dialog||busy)return;if(password!==confirmPassword||password.length<8||new TextEncoder().encode(password).length>72){setDialogError('รหัสผ่านต้องตรงกัน อย่างน้อย 8 ตัวอักษร และไม่เกิน 72 ไบต์');return;}setBusy(true);setDialogError('');try{await accountAction('reset-password',dialog.userId,{password});setDialog(null);setPassword('');setConfirmPassword('');setShowPassword(false);setNotice('ตั้งรหัสผ่านใหม่แล้ว');}catch(e){setDialogError(e instanceof Error?e.message:'เปลี่ยนรหัสผ่านไม่สำเร็จ');}finally{setBusy(false);}}
+ async function toggleRole(m:Member){if(!db||busy)return;setBusy(true);setDialogError('');try{await rpc(()=>db.rpc('set_school_staff_role_active',{p_school_id:schoolId,p_user_id:m.user_id,p_role:m.role,p_active:!m.active}));setNotice(m.active?'ระงับสิทธิ์แล้ว':'เปิดสิทธิ์แล้ว');setDialog(null);setRefresh(x=>x+1);}catch(e){setDialogError(e instanceof Error?e.message:'เปลี่ยนสถานะไม่สำเร็จ');}finally{setBusy(false);}}
+ const editableRoles=editId?members.filter(m=>m.user_id===editId&&roles.includes(m.role as Role)).map(m=>m.role as Role):roles;
+ const fieldClass='personnel-input';
+ return <main className="academic-dashboard personnel-dashboard mx-auto px-4 pb-6 pt-4 sm:px-6">
+  <header className="academic-hero"><div className="relative z-10"><h1>จัดการบุคลากร</h1><p>จัดการข้อมูลครูและบุคลากรของโรงเรียนอย่างเป็นระบบ ใช้งานง่าย และไม่ซับซ้อน</p><span>{schoolName}</span></div><SchoolScene/></header>
+  {error&&<p role="alert" className="mt-3 rounded-xl bg-red-50 p-3 text-sm text-red-800">{error}<button className="ml-3 underline" onClick={()=>setRefresh(x=>x+1)}>ลองอีกครั้ง</button></p>}
+  {notice&&<p role="status" className="mt-3 rounded-xl bg-emerald-50 p-3 text-sm text-emerald-800">{notice}</p>}
+  <div className="personnel-toolbar"><label className="personnel-search"><AcademicIcon name="search"/><input aria-label="ค้นหาบุคลากร" placeholder="ค้นหาชื่อ–สกุล หรือรหัสบัญชี..." value={query} onChange={e=>{setQuery(e.target.value);setPage(1);}}/></label><select aria-label="กรองบทบาท" value={roleFilter} onChange={e=>{setRoleFilter(e.target.value);setPage(1);}}><option value="">ทุกบทบาท</option>{['school_admin',...roles].map(r=><option key={r} value={r}>{roleName[r]}</option>)}</select><select aria-label="กรองสถานะ" value={statusFilter} onChange={e=>{setStatusFilter(e.target.value);setPage(1);}}><option value="">ทุกสถานะ</option><option value="active">เปิดใช้งาน</option><option value="inactive">ระงับสิทธิ์</option></select><button className="academic-primary" type="button" onClick={addPerson} disabled={busy||!schoolId}>+ เพิ่มบุคลากร</button></div>
+  <div className="personnel-layout">
+   <section className="academic-panel personnel-roster" aria-labelledby="personnel-list-title"><div className="academic-panel-heading"><h2 id="personnel-list-title"><AcademicIcon name="users"/>รายชื่อบุคลากร</h2><span>ทั้งหมด {people.length} คน</span></div><p className="personnel-subtitle">จัดการข้อมูลครูและบุคลากรทั้งหมดในโรงเรียน</p>
+    <div className="personnel-table-scroll"><table className="personnel-table"><thead><tr><th>รหัสบัญชี</th><th>ชื่อ–สกุล</th><th>ตำแหน่ง / บทบาท</th><th>กลุ่มสาระการเรียนรู้</th><th>สถานะ</th><th>จัดการ</th></tr></thead><tbody>{!loading&&displayed.map(p=>{const protectedAccount=p.memberships.some(m=>m.role==='school_admin');const enabled=p.memberships.some(m=>m.active);return <tr key={p.userId} className={editId===p.userId?'selected':''}><td><span title={p.userId} className="personnel-id">{p.userId.slice(0,8)}</span></td><td><div className="personnel-name"><span className="personnel-avatar"><AcademicIcon name="users"/></span><span>{name(p.userId)}</span></div></td><td><div className="personnel-role-list">{p.memberships.map(m=><span key={m.role} className={'personnel-role '+m.role}>{roleName[m.role]??m.role}</span>)}</div></td><td>{profile(p.userId)?.learning_area||<span className="text-slate-400">ไม่ระบุ</span>}</td><td><span className={'personnel-status '+(enabled?'active':'inactive')}>{enabled?'เปิดใช้งาน':'ระงับสิทธิ์'}</span></td><td><div className="personnel-row-actions"><button type="button" disabled={busy||protectedAccount} aria-label={'แก้ไขข้อมูล '+name(p.userId)} title="แก้ไขข้อมูล" onClick={()=>void editPerson(p.userId)}><AcademicIcon name="edit"/></button><button type="button" disabled={busy||protectedAccount} aria-label={'เมนูจัดการ '+name(p.userId)} title="เมนูจัดการ" onClick={()=>{setDialog({mode:'actions',userId:p.userId});setDialogError('');}}>⋮</button></div></td></tr>;})}</tbody></table></div>
+    {loading&&<p role="status" className="personnel-empty">กำลังโหลดข้อมูลบุคลากร...</p>}{!loading&&!filtered.length&&<p className="personnel-empty">ไม่พบบุคลากรตามเงื่อนไขที่เลือก</p>}
+    <footer className="personnel-pagination"><span>แสดง {filtered.length?(currentPage-1)*size+1:0}–{Math.min(currentPage*size,filtered.length)} จาก {filtered.length} รายการ</span><label>แสดง <select aria-label="จำนวนรายการต่อหน้า" value={size} onChange={e=>{setSize(Number(e.target.value));setPage(1);}}>{[10,20,50].map(n=><option key={n}>{n}</option>)}</select> รายการ</label><nav aria-label="หน้ารายชื่อบุคลากร"><button disabled={currentPage<=1} onClick={()=>setPage(currentPage-1)} aria-label="หน้าก่อนหน้า">‹</button>{Array.from({length:Math.min(totalPages,5)},(_,i)=>Math.max(1,Math.min(currentPage-2,totalPages-4))+i).map(n=><button key={n} aria-current={n===currentPage?'page':undefined} onClick={()=>setPage(n)}>{n}</button>)}<button disabled={currentPage>=totalPages} onClick={()=>setPage(currentPage+1)} aria-label="หน้าถัดไป">›</button></nav></footer>
    </section>
-   <section className="rounded-2xl border bg-white p-6 shadow-sm">
-    <h2 className="text-xl font-bold">บุคลากรในโรงเรียน</h2>
-    <input aria-label="ค้นหาบุคลากร" placeholder="ค้นหาชื่อหรือบทบาท..." className="mt-4 w-full rounded-xl border p-3" value={query} onChange={e=>{setQuery(e.target.value);setPage(1);}}/>
-    <div className="mt-5 space-y-3">{displayed.map(person=>{
-     const protectedAccount=person.memberships.some(m=>m.role==='school_admin');
-     return <div key={person.userId} className="rounded-xl border border-slate-200 p-4">
-      <p className="font-semibold text-blue-950">{name(person.userId)}</p>
-      <div className="mt-2 flex flex-wrap gap-2">{person.memberships.map(m=><div key={m.role} className="flex items-center gap-2 rounded-lg bg-slate-50 px-2.5 py-2 text-xs text-slate-600"><span>{roleName[m.role as Role]??'ผู้ดูแลระบบ'} · {m.active?'เปิดใช้งาน':'ระงับสิทธิ์'}</span>{roles.includes(m.role as Role)&&<button disabled={busy} onClick={()=>perform(()=>db!.rpc('set_school_staff_role_active',{p_school_id:schoolId,p_user_id:person.userId,p_role:m.role,p_active:!m.active}),m.active?'ระงับสิทธิ์แล้ว':'เปิดสิทธิ์แล้ว')} className="font-semibold text-blue-700 underline disabled:opacity-40">{m.active?'ระงับสิทธิ์':'เปิดสิทธิ์'}</button>}</div>)}</div>
-      {!protectedAccount&&<div className="mt-3 flex flex-wrap gap-2 border-t border-slate-100 pt-3">
-       <button type="button" disabled={busy} onClick={()=>void openAccountForm('edit',person.userId)} className="rounded-lg bg-blue-50 px-3 py-2 text-xs font-semibold text-blue-700 hover:bg-blue-100 disabled:opacity-40">แก้ไขข้อมูล</button>
-       <button type="button" disabled={busy} onClick={()=>void openAccountForm('password',person.userId)} className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-800 hover:bg-amber-100 disabled:opacity-40">รีเซ็ตรหัสผ่าน</button>
-      </div>}
-     </div>;
-    })}{!filtered.length&&<p className="py-5 text-center text-sm text-slate-500">ไม่พบบุคลากร</p>}</div><PageControls total={filtered.length} page={Math.min(page,Math.max(1,Math.ceil(filtered.length/PAGE_SIZE)))} onChange={setPage}/>
-
-   </section>
-  </div>}
-  {accountForm&&<AcademicDialog title={accountForm.mode==='edit'?'แก้ไขข้อมูลบุคลากร':'รีเซ็ตรหัสผ่านครู'} onClose={closeAccountForm}>
-   <p className="mb-4 text-sm font-semibold text-blue-900">{name(accountForm.userId)}</p>
-   {accountLoading&&<p role="status" className="mb-4 text-sm text-slate-500">กำลังโหลดข้อมูลบัญชี...</p>}
-   {formError&&<p role="alert" className="mb-4 rounded-xl bg-red-50 p-3 text-sm text-red-800">{formError}</p>}
-   {accountForm.mode==='edit'&&!accountLoaded&&!accountLoading&&<button onClick={()=>void openAccountForm('edit',accountForm.userId)} className="mb-4 text-sm font-semibold text-blue-700 underline">โหลดข้อมูลอีกครั้ง</button>}
-   <form onSubmit={saveAccount} className="space-y-4">
-    {accountForm.mode==='edit'?<>
-     <label className="block text-sm font-medium">ชื่อที่แสดง<input required disabled={busy||!accountLoaded} minLength={2} maxLength={150} value={editName} onChange={e=>setEditName(e.target.value)} className="mt-2 w-full rounded-xl border p-3 disabled:bg-slate-50" autoComplete="name"/></label>
-     <label className="block text-sm font-medium">อีเมลเข้าสู่ระบบ<input type="email" required disabled={busy||!accountLoaded} maxLength={254} value={editEmail} onChange={e=>setEditEmail(e.target.value)} className="mt-2 w-full rounded-xl border p-3 disabled:bg-slate-50" autoComplete="off"/></label>
-     <p className="text-xs text-slate-500">เมื่อเปลี่ยนอีเมล ครูต้องใช้อีเมลใหม่ในการเข้าสู่ระบบ</p>
-    </>:<>
-     <p className="text-sm text-slate-600">กำหนดรหัสผ่านใหม่ให้บัญชีนี้ ครูจะเข้าสู่ระบบด้วยรหัสผ่านใหม่นี้</p>
-     <label className="block text-sm font-medium">รหัสผ่านใหม่<input required type={showPassword?'text':'password'} autoComplete="new-password" minLength={8} maxLength={72} disabled={busy} value={password} onChange={e=>setPassword(e.target.value)} className="mt-2 w-full rounded-xl border p-3"/></label>
-     <label className="block text-sm font-medium">ยืนยันรหัสผ่านใหม่<input required type={showPassword?'text':'password'} autoComplete="new-password" minLength={8} maxLength={72} disabled={busy} value={confirmPassword} onChange={e=>setConfirmPassword(e.target.value)} className="mt-2 w-full rounded-xl border p-3"/></label>
-     <label className="flex items-center gap-2 text-xs text-slate-600"><input type="checkbox" checked={showPassword} onChange={e=>setShowPassword(e.target.checked)}/>แสดงรหัสผ่าน</label>
-     <p className="text-xs text-slate-500">อย่างน้อย 8 ตัวอักษร และไม่เกิน 72 ไบต์</p>
-    </>}
-    <div className="flex justify-end gap-2 border-t border-slate-100 pt-4"><button type="button" disabled={busy} onClick={closeAccountForm} className="rounded-xl border px-4 py-2 text-sm disabled:opacity-40">ยกเลิก</button><button type="submit" disabled={busy||accountLoading||(accountForm.mode==='edit'&&!accountLoaded)} className="rounded-xl bg-blue-700 px-4 py-2 text-sm font-semibold text-white disabled:opacity-40">{busy?'กำลังบันทึก...':accountForm.mode==='edit'?'บันทึกข้อมูล':'ตั้งรหัสผ่านใหม่'}</button></div>
-   </form>
-  </AcademicDialog>}
+   <aside className="personnel-aside">
+    <section className="academic-panel personnel-summary"><h2><AcademicIcon name="chart"/>สรุปข้อมูลบุคลากร</h2><p className="personnel-subtitle">ภาพรวมบุคลากรในโรงเรียน · ปี {years.find(y=>y.id===yearId)?.year_be??'—'}</p><label className="mb-3 flex items-center gap-2 text-xs text-blue-900 md:hidden">ปีการศึกษา<select aria-label="ปีการศึกษาสรุปบุคลากร" value={yearId} disabled={!years.length} onChange={e=>{setYearId(e.target.value);setYearSelection(schoolId,e.target.value);}}>{!years.length&&<option value="">ยังไม่มีปีการศึกษา</option>}{years.map(y=><option key={y.id} value={y.id}>{y.year_be}</option>)}</select></label><div className="personnel-metrics">{([{label:'บุคลากรทั้งหมด',value:people.length,icon:'users',color:'blue'},{label:'ครูผู้สอนที่เปิดสิทธิ์',value:teachers.length,icon:'school',color:'blue'},{label:'ครูที่มีงานสอนแล้ว',value:assigned,icon:'book',color:'green'},{label:'ครูที่ยังไม่มีงานสอน',value:teachers.length-assigned,icon:'calendar',color:'orange'}] as const).map((item,i)=><div key={item.label} className={'academic-stat '+item.color}><i><AcademicIcon name={item.icon}/></i><div><p>{item.label}</p><strong>{loading||error||(i>1&&summaryError)?'—':item.value} <small>คน</small></strong>{i>1&&<span>{loading||error||summaryError?'รอข้อมูล':(teachers.length?Math.round(item.value/teachers.length*1000)/10:0)+'% ของครูที่เปิดสิทธิ์'}</span>}</div></div>)}</div>{summaryError&&<p className="mt-3 text-xs text-amber-700">{summaryError}<button className="ml-2 underline" onClick={()=>setRefresh(x=>x+1)}>ลองใหม่</button></p>}</section>
+    <section id="personnel-form" className="academic-panel personnel-form"><h2><AcademicIcon name="users"/>เพิ่ม / แก้ไขข้อมูลบุคลากร</h2><p className="personnel-subtitle">{editId?'แก้ไขข้อมูลของ '+name(editId):'กรอกข้อมูลบุคลากรของโรงเรียน'}</p>
+     {accountLoading&&<p role="status" className="mt-3 text-sm text-slate-500">กำลังโหลดข้อมูลบัญชี...</p>}{formError&&<p role="alert" className="mt-3 rounded-lg bg-red-50 p-3 text-sm text-red-800">{formError}</p>}{editId&&!accountLoaded&&!accountLoading&&<button className="mt-3 text-sm text-blue-700 underline" onClick={()=>void editPerson(editId)}>โหลดข้อมูลอีกครั้ง</button>}
+     <form onSubmit={savePerson}>
+      <label><span>รหัสบัญชี <b>*</b></span><input aria-label="รหัสบัญชี" ref={uidInput} className={fieldClass} required readOnly={!!editId} disabled={busy} value={uid} onChange={e=>setUid(e.target.value)} placeholder="User UID ของบัญชี" pattern="[0-9a-fA-F-]{36}" title="User UID ของบัญชีที่สร้างไว้แล้ว"/></label>
+      {!editId&&<p className="personnel-help">ใช้ User UID ของบัญชีที่มีอยู่แล้วเพื่อเพิ่มสิทธิ์ในโรงเรียน</p>}
+      <label><span>ชื่อ–สกุล <b>*</b></span><input aria-label="ชื่อ–สกุล" className={fieldClass} required minLength={2} maxLength={150} disabled={busy||accountLoading||(!!editId&&!accountLoaded)} value={displayName} onChange={e=>setDisplayName(e.target.value)} placeholder="ชื่อ นามสกุล" autoComplete="name"/></label>
+      <label><span>{editId?'บทบาทที่จัดการ':'ตำแหน่ง / บทบาท'} <b>*</b></span><select aria-label="บทบาทที่จัดการ" className={fieldClass} disabled={busy||accountLoading} value={role} onChange={e=>{const next=e.target.value as Role;setRole(next);if(editId)setActive(members.find(m=>m.user_id===editId&&m.role===next)?.active??true);}}>{editableRoles.map(r=><option key={r} value={r}>{roleName[r]}</option>)}</select></label>
+      <label><span>กลุ่มสาระการเรียนรู้</span><select aria-label="กลุ่มสาระการเรียนรู้" className={fieldClass} disabled={busy||accountLoading} value={area} onChange={e=>setArea(e.target.value)}><option value="">ไม่ระบุ</option>{[...new Set([...areas,...(area&&!areas.includes(area)?[area]:[])])].map(a=><option key={a}>{a}</option>)}</select></label>
+      {editId&&<label><span>อีเมลเข้าสู่ระบบ <b>*</b></span><input aria-label="อีเมลเข้าสู่ระบบ" className={fieldClass} type="email" required maxLength={254} autoComplete="off" disabled={busy||!accountLoaded} value={email} onChange={e=>setEmail(e.target.value)}/></label>}
+      <label><span>สถานะ <b>*</b></span><select aria-label="สถานะบัญชี" className={fieldClass} disabled={busy||accountLoading} value={active?'active':'inactive'} onChange={e=>setActive(e.target.value==='active')}><option value="active">เปิดใช้งาน</option><option value="inactive">ระงับสิทธิ์</option></select></label>
+      <div className="personnel-form-buttons"><button type="button" disabled={busy} onClick={resetForm}>ยกเลิก</button><button type="submit" disabled={busy||loading||accountLoading||!schoolId||!uuid.test(uid.trim())||(!!editId&&!accountLoaded)}>{busy?'กำลังบันทึก...':'บันทึกข้อมูล'}</button></div>
+     </form>
+    </section>
+   </aside>
+  </div>
+  {dialog&&<AcademicDialog title={dialog.mode==='actions'?'จัดการบัญชีบุคลากร':'รีเซ็ตรหัสผ่านครู'} onClose={closeDialog}><p className="mb-4 text-sm font-semibold text-blue-900">{name(dialog.userId)}</p>{dialogError&&<p role="alert" className="mb-4 rounded-xl bg-red-50 p-3 text-sm text-red-800">{dialogError}</p>}{dialog.mode==='actions'?<div className="space-y-3"><button type="button" className="w-full rounded-xl bg-blue-50 p-3 text-left text-sm font-semibold text-blue-700" onClick={()=>{const id=dialog.userId;closeDialog();void editPerson(id);}}>แก้ไขข้อมูล</button><button type="button" className="w-full rounded-xl bg-amber-50 p-3 text-left text-sm font-semibold text-amber-800" onClick={()=>openPassword(dialog.userId)}>รีเซ็ตรหัสผ่าน</button>{members.filter(m=>m.user_id===dialog.userId&&roles.includes(m.role as Role)).map(m=><button type="button" key={m.role} disabled={busy} className="w-full rounded-xl border p-3 text-left text-sm disabled:opacity-40" onClick={()=>void toggleRole(m)}>{m.active?'ระงับสิทธิ์':'เปิดสิทธิ์'} · {roleName[m.role]}</button>)}</div>:<form onSubmit={resetPassword} className="space-y-4"><p className="text-sm text-slate-600">กำหนดรหัสผ่านใหม่ให้บัญชีนี้</p><label className="block text-sm">รหัสผ่านใหม่<input className="personnel-input mt-2" type={showPassword?'text':'password'} required autoComplete="new-password" minLength={8} maxLength={72} disabled={busy} value={password} onChange={e=>setPassword(e.target.value)}/></label><label className="block text-sm">ยืนยันรหัสผ่านใหม่<input className="personnel-input mt-2" type={showPassword?'text':'password'} required autoComplete="new-password" minLength={8} maxLength={72} disabled={busy} value={confirmPassword} onChange={e=>setConfirmPassword(e.target.value)}/></label><label className="flex items-center gap-2 text-xs"><input type="checkbox" checked={showPassword} onChange={e=>setShowPassword(e.target.checked)}/>แสดงรหัสผ่าน</label><p className="text-xs text-slate-500">อย่างน้อย 8 ตัวอักษร และไม่เกิน 72 ไบต์</p><div className="flex justify-end gap-2"><button type="button" disabled={busy} onClick={closeDialog} className="rounded-xl border px-4 py-2 text-sm">ยกเลิก</button><button type="submit" disabled={busy} className="rounded-xl bg-blue-700 px-4 py-2 text-sm font-semibold text-white disabled:opacity-40">{busy?'กำลังบันทึก...':'ตั้งรหัสผ่านใหม่'}</button></div></form>}</AcademicDialog>}
  </main>;
 }

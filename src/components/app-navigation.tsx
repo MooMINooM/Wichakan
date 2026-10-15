@@ -53,13 +53,12 @@ export default function AppNavigation(){
    <div className="flex min-w-0 items-center gap-3">
     {items.length>0&&<button onClick={()=>setOpen(x=>!x)} aria-expanded={open} aria-label="เปิดหรือปิดเมนู" className="rounded-lg border border-slate-200 px-3 py-2 text-lg lg:hidden">☰</button>}
     <Link href="/workspace" className="flex items-center gap-3">
-     <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-800 text-xl font-bold text-white">{['/academic','/admin'].includes(pathname)?<AcademicIcon name="school"/>:'W'}</div>
+     <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-800 text-xl font-bold text-white">{['/academic','/admin','/personnel'].includes(pathname)?<AcademicIcon name="school"/>:'W'}</div>
      <div><div className="text-lg font-extrabold leading-tight tracking-tight text-blue-950">Wichakan</div><div className="hidden text-xs text-slate-500 sm:block">ระบบบริหารจัดการสถานศึกษา</div></div>
     </Link>
    </div>
-   <div className="hidden min-w-0 max-w-lg flex-1 items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-500 md:flex">
-    <span aria-hidden="true">⌕</span><span>เข้าถึงข้อมูลและเมนูได้จากแถบนำทางด้านซ้าย</span>
-   </div>
+   {pathname==='/personnel'?<label className="hidden items-center gap-2 rounded-xl border border-blue-100 bg-white px-3 py-2 text-sm font-semibold text-blue-900 md:flex"><AcademicIcon name="calendar"/><select aria-label="ปีการศึกษาสรุปบุคลากร" className="bg-transparent outline-none" value={currentYear} disabled={!years.length} onChange={e=>{setCurrentYear(e.target.value);setYearSelection(schoolId,e.target.value);}}>{!years.length&&<option value="">ยังไม่มีปีการศึกษา</option>}{years.map(y=><option key={y.id} value={y.id}>ปีการศึกษา {y.year_be}</option>)}</select></label>:<div className="hidden min-w-0 max-w-lg flex-1 items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-500 md:flex"><span aria-hidden="true">⌕</span><span>เข้าถึงข้อมูลและเมนูได้จากแถบนำทางด้านซ้าย</span></div>}
+
    <div className="flex items-center gap-2">
     <Link href="/workspace" className="rounded-xl border border-blue-100 bg-blue-50 px-3 py-2 text-xs font-semibold text-blue-800 sm:text-sm">⇄ <span className="hidden sm:inline">สลับบทบาท</span><span className="sm:hidden">บทบาท</span></Link>
     <button onClick={signOut} disabled={busy} className="rounded-xl border border-slate-200 px-3 py-2 text-xs font-medium text-slate-600 hover:bg-slate-50 disabled:opacity-40">{busy?'กำลังออก...':'ออกจากระบบ'}</button>
