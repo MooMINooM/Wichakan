@@ -10,7 +10,7 @@ const adminItems=[
  ['/academic/teachers','มอบหมายครู','♙'],['/curriculum','หลักสูตรและรายวิชา','▤'],
  ['/personnel','บุคลากร','♧'],['/students/promote','เลื่อนชั้นนักเรียน','↗']
 ];
-const teacherItems=[['/teacher','งานสอนของฉัน','▤']];
+const teacherItems=[['/teacher','แดชบอร์ดครู','⌂'],['/teacher#courses','รายวิชาที่สอน','▤'],['/teacher/scores','บันทึกคะแนน','▦'],['/teacher#homerooms','ห้องประจำชั้น','♧']];
 export default function AppNavigation(){
  const pathname=usePathname().replace(/\/+$/,'')||'/',router=useRouter();
  const [busy,setBusy]=useState(false),[open,setOpen]=useState(false);
@@ -38,6 +38,7 @@ export default function AppNavigation(){
  const items=isTeacher?teacherItems:isAdmin?adminItems:[];
  const activeUrl=items.filter(([url])=>pathname===url||pathname.startsWith(url+'/')).sort((a,b)=>b[0].length-a[0].length)[0]?.[0];
  async function signOut(){
+  if(!window.dispatchEvent(new Event('wichakan:before-leave',{cancelable:true})))return;
   const db=getSupabaseBrowserClient();if(!db)return;
   setBusy(true);const {error}=await db.auth.signOut();setBusy(false);
   if(!error)router.replace('/login');
