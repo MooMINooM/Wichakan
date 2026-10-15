@@ -1,7 +1,8 @@
 import type {ReactNode} from 'react';
 
-export function AcademicIcon({name,className=''}:{name:'calendar'|'book'|'users'|'chart'|'check'|'edit'|'school'|'search'|'file';className?:string}){
+export function AcademicIcon({name,className=''}:{name:'calendar'|'book'|'users'|'chart'|'check'|'edit'|'school'|'search'|'file'|'alert';className?:string}){
  const paths:Record<typeof name,ReactNode>={
+  alert:<><path d="m12 3 10 18H2Z"/><path d="M12 9v5m0 3h.01"/></>,
   calendar:<><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M7 3v4m10-4v4M3 11h18M7 15h2m4 0h4m-10 3h2"/></>,
   book:<><path d="M12 5C8 2 4 3 2 4v15c4-2 7-1 10 1 3-2 6-3 10-1V4c-4-2-7-1-10 1Zm0 0v15"/><path d="M6 8h2m8 0h2M6 12h2m8 0h2"/></>,
   users:<><circle cx="12" cy="7" r="3"/><path d="M6 21v-3a6 6 0 0 1 12 0v3ZM5 5a3 3 0 0 0 0 6M19 5a3 3 0 0 1 0 6M3 21H1v-4a4 4 0 0 1 3-4m17 8h2v-4a4 4 0 0 0-3-4"/></>,

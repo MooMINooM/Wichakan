@@ -15,5 +15,9 @@ jobs:
         run: npm install --no-audit --no-fund
       - name: Type check
         run: npm run lint
+      - name: Check curriculum and teacher coverage
+        run: |
+          node tests/school-readiness.cjs
+          node tests/teacher-assignment-rows.cjs
       - name: Build
         run: npm run build
