@@ -2,110 +2,113 @@
 import Link from 'next/link';
 import {useEffect,useState} from 'react';
 import {useRouter} from 'next/navigation';
+import {AcademicIcon,SchoolScene} from '@/components/academic-visuals';
 import {getSupabaseBrowserClient} from '@/lib/supabase/browser';
-import {resolveYear,YEAR_EVENT} from '@/lib/academic-year-selection';
-type Summary={students:number|null;staff:number|null;rooms:number|null;courses:number|null};
-const quick=[
- {href:'/students',title:'ทะเบียนนักเรียน',text:'ค้นหา เพิ่ม และจัดการนักเรียน',icon:'◉',color:'bg-blue-50 text-blue-700'},
- {href:'/academic/teachers',title:'มอบหมายครู',text:'มอบหมายครูประจำชั้นและรายวิชา',icon:'♙',color:'bg-emerald-50 text-emerald-700'},
- {href:'/curriculum',title:'หลักสูตร',text:'จัดรายวิชาตามระดับชั้นและชั่วโมง',icon:'▤',color:'bg-violet-50 text-violet-700'},
- {href:'/students/promote',title:'เลื่อนชั้นนักเรียน',text:'จัดการเลื่อนชั้นสำหรับปีถัดไป',icon:'↗',color:'bg-sky-50 text-sky-700'}
-];
-const other=[
- {href:'/academic',title:'ปีการศึกษาและห้องเรียน',detail:'กำหนดปี ภาคเรียน และห้องเรียน'},
- {href:'/academic/templates',title:'แม่แบบห้องเรียน',detail:'เตรียมห้องเรียนล่วงหน้า'},
- {href:'/personnel',title:'บุคลากรและสิทธิ์',detail:'กำหนดสิทธิ์ผู้ใช้งาน'}
-];
+import {resolveYear,setYearSelection,YEAR_EVENT} from '@/lib/academic-year-selection';
+import {summarizeLevels,type SchoolRoom,type SchoolEnrollment,type SchoolOffering,type SchoolAssignment} from '@/lib/school-readiness';
+
+type Year={id:string;year_be:number;is_active:boolean};
+type Term={id:string;academic_year_id:string;term_no:number};
+type Snapshot={yearId:string;rooms:SchoolRoom[];enrollments:SchoolEnrollment[];offerings:SchoolOffering[];assignments:SchoolAssignment[]};
+const emptySnapshot:Snapshot={yearId:'',rooms:[],enrollments:[],offerings:[],assignments:[]};
+const statusLabels={ready:'พร้อมลงคะแนน',progress:'กำลังดำเนินการ',empty:'ยังไม่เริ่มดำเนินการ'};
+
+// Read every page so school totals are not truncated by the Data API row limit.
+async function readAll<T>(query:(from:number,to:number)=>PromiseLike<{data:T[]|null;error:{message:string}|null}>):Promise<T[]>{
+ const rows:T[]=[];
+ for(let from=0;;from+=500){const result=await query(from,from+499);if(result.error)throw new Error(result.error.message);rows.push(...(result.data??[]));if((result.data?.length??0)<500)return rows;}
+}
+
 export default function AdminPage(){
  const db=getSupabaseBrowserClient(),router=useRouter();
- const [ready,setReady]=useState(false),[error,setError]=useState('');
- const [summary,setSummary]=useState<Summary>({students:null,staff:null,rooms:null,courses:null});
- const [refresh,setRefresh]=useState(0),[yearLabel,setYearLabel]=useState<number|null>(null);
+ const [schoolId,setSchoolId]=useState(''),[schoolName,setSchoolName]=useState('');
+ const [years,setYears]=useState<Year[]>([]),[terms,setTerms]=useState<Term[]>([]);
+ const [yearId,setYearId]=useState(''),[termId,setTermId]=useState(''),[view,setView]=useState('all');
+ const [snapshot,setSnapshot]=useState<Snapshot>(emptySnapshot);
+ const [loading,setLoading]=useState(true),[error,setError]=useState(''),[revision,setRevision]=useState(0),[updatedAt,setUpdatedAt]=useState('');
+ const [showAll,setShowAll]=useState(false),[selectedLevel,setSelectedLevel]=useState('');
  useEffect(()=>{let live=true;(async()=>{
-  if(!db){setError('ยังไม่ได้เชื่อมต่อ Supabase');return;}
-  const {data:{user}}=await db.auth.getUser();if(!user){router.replace('/login');return;}
-  const {data,error:e}=await db.from('school_memberships').select('school_id').eq('user_id',user.id).eq('role','school_admin').eq('active',true).limit(1);
-  if(!live)return;
-  if(e){setError(e.message);return;}
-  if(!data?.length){router.replace('/workspace');return;}
-  const school=data[0].school_id;
-  setReady(true);
-  const [staff,academicYears]=await Promise.all([
-   db.from('school_memberships').select('user_id').eq('school_id',school).eq('active',true),
-   db.from('academic_years').select('id,year_be,is_active').eq('school_id',school).order('year_be',{ascending:false})
-  ]);
-  if(!live)return;
-  if(academicYears.error){setError(academicYears.error.message);return;}
-  const selectedId=resolveYear(academicYears.data??[],school);
-  setYearLabel(academicYears.data?.find(y=>y.id===selectedId)?.year_be??null);
-  if(!selectedId){
-   setSummary({students:0,staff:staff.error?null:new Set((staff.data??[]).map(m=>m.user_id)).size,rooms:0,courses:0});return;
-  }
-  const [enrollments,yearRooms]=await Promise.all([
-   db.from('enrollments').select('student_id').eq('school_id',school).eq('academic_year_id',selectedId).in('status',['active','completed']),
-   db.from('classrooms').select('id').eq('school_id',school).eq('academic_year_id',selectedId)
-  ]);
-  if(!live)return;
-  const roomIds=(yearRooms.data??[]).map(r=>r.id);
-  const courseResult=roomIds.length?
-   await db.from('course_offerings').select('id',{count:'exact',head:true}).eq('school_id',school).in('classroom_id',roomIds):
-   {count:0,error:null};
-  if(!live)return;
-  setSummary({
-   students:enrollments.error?null:new Set((enrollments.data??[]).map(e=>e.student_id)).size,
-   staff:staff.error?null:new Set((staff.data??[]).map(m=>m.user_id)).size,
-   rooms:yearRooms.error?null:roomIds.length,
-   courses:courseResult.error?null:courseResult.count
-  });
- })();return()=>{live=false;};},[db,router,refresh]);
+  try{
+   if(!db)throw new Error('ยังไม่ได้เชื่อมต่อ Supabase');
+   const {data:{user},error:authError}=await db.auth.getUser();if(!live)return;
+   if(authError)throw authError;if(!user){router.replace('/login');return;}
+   const result=await db.from('school_memberships').select('school_id,schools(name_th)').eq('user_id',user.id).eq('role','school_admin').eq('active',true).limit(1);
+   if(result.error)throw result.error;if(!live)return;
+   if(!result.data?.length){router.replace('/workspace');return;}
+   const member=result.data[0] as unknown as {school_id:string;schools:{name_th:string}|null};
+   const [y,t]=await Promise.all([
+    db.from('academic_years').select('id,year_be,is_active').eq('school_id',member.school_id).order('year_be',{ascending:false}),
+    db.from('terms').select('id,academic_year_id,term_no').eq('school_id',member.school_id).order('term_no')
+   ]);
+   if(y.error||t.error)throw y.error??t.error;if(!live)return;
+   setYears(y.data??[]);setTerms(t.data??[]);setSchoolName(member.schools?.name_th??'');setSchoolId(member.school_id);setYearId(resolveYear(y.data??[],member.school_id));
+  }catch(e){if(live){setError(e instanceof Error?e.message:(e as {message?:string})?.message??'โหลดข้อมูลไม่สำเร็จ');setLoading(false);}}
+ })();return()=>{live=false;};},[db,router]);
  useEffect(()=>{
-  const refreshOnYear=(event:Event)=>{const detail=(event as CustomEvent<{schoolId:string;yearId:string}>).detail;
-   if(detail?.yearId)setRefresh(v=>v+1);};
-  window.addEventListener(YEAR_EVENT,refreshOnYear);
-  return()=>window.removeEventListener(YEAR_EVENT,refreshOnYear);
- },[]);
- const metrics=[
- {title:'นักเรียนในปีที่เลือก',value:summary.students,icon:'◉',color:'bg-blue-50 text-blue-700',href:'/students'},
- {title:'ครูและบุคลากร',value:summary.staff,icon:'♙',color:'bg-emerald-50 text-emerald-700',href:'/personnel'},
- {title:'ห้องเรียน',value:summary.rooms,icon:'⌂',color:'bg-violet-50 text-violet-700',href:'/academic'},
- {title:'รายวิชาที่เปิดสอน',value:summary.courses,icon:'▤',color:'bg-orange-50 text-orange-700',href:'/academic/teachers'}
- ];
- return <main className="mx-auto max-w-7xl px-4 py-6 sm:px-6 sm:py-8">
-  <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-[#e8f3ff] via-[#eff7ff] to-[#d9edff] p-7 sm:p-9">
-   <div className="relative z-10"><p className="text-sm font-semibold text-slate-500">ยินดีต้อนรับกลับ</p><h1 className="mt-2 text-3xl font-extrabold tracking-tight text-[#123b72] sm:text-4xl">จัดการสถานศึกษา</h1><p className="mt-3 text-sm text-slate-600 sm:text-base">บริหารงานวิชาการได้อย่างง่ายดาย จากที่เดียว{yearLabel?' · ปีการศึกษา '+yearLabel:''}</p></div>
-   <div aria-hidden="true" className="pointer-events-none absolute bottom-0 right-7 hidden text-[120px] leading-none text-blue-200/50 md:block">⌂</div>
+  if(!schoolId)return;
+  const sync=(event:Event)=>{const detail=(event as CustomEvent<{schoolId:string;yearId:string}>).detail;if(detail?.schoolId===schoolId&&years.some(y=>y.id===detail.yearId)){setYearId(detail.yearId);setTermId('');setSelectedLevel('');}};
+  window.addEventListener(YEAR_EVENT,sync);return()=>window.removeEventListener(YEAR_EVENT,sync);
+ },[schoolId,years]);
+ useEffect(()=>{let live=true;
+  if(!db||!schoolId)return;
+  if(!yearId){setSnapshot(emptySnapshot);setLoading(false);return;}
+  setLoading(true);setError('');
+  (async()=>{try{
+   const [rooms,enrollments,offerings,assignments]=await Promise.all([
+    readAll<SchoolRoom>((a,b)=>db.from('classrooms').select('id,academic_year_id,level_code,room_code').eq('school_id',schoolId).eq('academic_year_id',yearId).order('id').range(a,b)),
+    readAll<SchoolEnrollment>((a,b)=>db.from('enrollments').select('student_id,classroom_id,academic_year_id,status').eq('school_id',schoolId).eq('academic_year_id',yearId).in('status',['active','completed']).order('id').range(a,b)),
+    readAll<SchoolOffering>((a,b)=>db.from('course_offerings').select('id,classroom_id,term_id,subject_id').eq('school_id',schoolId).order('id').range(a,b)),
+    readAll<SchoolAssignment>((a,b)=>db.from('teaching_assignments').select('course_offering_id').eq('school_id',schoolId).order('id').range(a,b))
+   ]);
+   if(!live)return;setSnapshot({yearId,rooms,enrollments,offerings,assignments});setUpdatedAt(new Date().toLocaleString('th-TH',{day:'numeric',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'}));
+  }catch(e){if(live)setError(e instanceof Error?e.message:'โหลดข้อมูลไม่สำเร็จ');}finally{if(live)setLoading(false);}})();
+  return()=>{live=false;};
+ },[db,schoolId,yearId,revision]);
+ const year=years.find(y=>y.id===yearId);
+ const yearTerms=terms.filter(t=>t.academic_year_id===yearId);
+ const term=yearTerms.find(t=>t.id===termId)??yearTerms[0];
+ const current=snapshot.yearId===yearId;
+ const rows=current?summarizeLevels(snapshot.rooms,snapshot.enrollments,snapshot.offerings,snapshot.assignments,yearId,term?.id??''):[];
+ const shown=rows.filter(r=>(view==='all'||(view==='needs'?r.status!=='ready':r.level.startsWith(view)))&&(!selectedLevel||r.level===selectedLevel));
+ const readyCount=rows.filter(r=>r.status==='ready').length;
+ const readiness=rows.length?Math.round(readyCount/rows.length*100):0;
+ const students=new Set(snapshot.enrollments.filter(e=>current&&snapshot.rooms.some(r=>r.id===e.classroom_id)&&['active','completed'].includes(e.status)).map(e=>e.student_id)).size;
+ const alerts=[...rows].sort((a,b)=>(a.status==='ready'?1:0)-(b.status==='ready'?1:0)||a.progress-b.progress).map(r=>({level:r.level,title:r.missingStudentRooms?'ยังไม่มีรายชื่อนักเรียน '+r.missingStudentRooms+' ห้อง':r.missingCourseRooms?'ยังไม่มีรายวิชาที่เปิดสอน '+r.missingCourseRooms+' ห้อง':r.assignedOfferings<r.offeringCount?'ยังมอบหมายครูไม่ครบ '+(r.offeringCount-r.assignedOfferings)+' รายการ':'เตรียมข้อมูลพร้อม รอข้อมูลคะแนน',detail:r.assignedOfferings<r.offeringCount?'มอบหมายแล้ว '+r.assignedOfferings+' จาก '+r.offeringCount+' รายการ':r.rooms+' ห้อง · '+r.students+' คน · '+r.courses+' รายวิชา',status:r.status}));
+ const visibleAlerts=showAll?alerts:alerts.slice(0,4);
+ const canShow=current&&!error;
+ function chooseYear(id:string){setYearId(id);setTermId('');setSelectedLevel('');setYearSelection(schoolId,id);}
+ return <main className="academic-dashboard school-dashboard mx-auto px-4 pb-6 pt-4 sm:px-6">
+  <header className="academic-hero"><div className="relative z-10"><h1>จัดการสถานศึกษา</h1><p>ติดตามความพร้อมของแต่ละระดับชั้นและภาพรวมงานวิชาการของโรงเรียน</p><span>{schoolName||'Wichakan · ระบบบริหารจัดการสถานศึกษา'}</span></div><SchoolScene/></header>
+  {error&&<div role="alert" className="mt-3 rounded-xl bg-red-50 p-4 text-sm text-red-800">{error}<button className="ml-3 font-bold underline" onClick={()=>schoolId?setRevision(x=>x+1):window.location.reload()}>ลองอีกครั้ง</button></div>}
+  <div className="academic-filters school-filters" aria-busy={loading}>
+   <label><AcademicIcon name="calendar"/><span>ปีการศึกษา</span><select disabled={!years.length} value={yearId} onChange={e=>chooseYear(e.target.value)}>{!years.length&&<option value="">ยังไม่มีปีการศึกษา</option>}{years.map(y=><option key={y.id} value={y.id}>{y.year_be}{y.is_active?' (ปัจจุบัน)':''}</option>)}</select></label>
+   <label><AcademicIcon name="file"/><span>ภาคเรียน</span><select disabled={!yearTerms.length} value={term?.id??''} onChange={e=>setTermId(e.target.value)}>{!yearTerms.length&&<option value="">ยังไม่มีภาคเรียน</option>}{yearTerms.map(t=><option key={t.id} value={t.id}>ภาคเรียนที่ {t.term_no}</option>)}</select></label>
+   <label><AcademicIcon name="chart"/><span>มุมมอง</span><select value={view} onChange={e=>{setView(e.target.value);setSelectedLevel('');}}><option value="all">ทุกระดับชั้น</option><option value="อ.">อนุบาล</option><option value="ป.">ประถมศึกษา</option><option value="ม.">มัธยมศึกษา</option><option value="needs">ต้องติดตาม</option></select></label>
+   <button type="button" disabled={loading||!schoolId} className="academic-primary" onClick={()=>setRevision(x=>x+1)}><AcademicIcon name="search"/>{loading?'กำลังโหลด...':'แสดงข้อมูล'}</button>
   </div>
-  {error&&<p role="alert" className="mt-5 rounded-xl bg-red-50 p-4 text-sm text-red-700">{error}</p>}
-  {!ready&&!error&&<p className="mt-5 text-sm text-slate-500">กำลังโหลดข้อมูล...</p>}
-  {ready&&<>
-   <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-    {metrics.map(m=><Link key={m.href} href={m.href} className="group flex items-center gap-4 rounded-2xl border border-slate-100 bg-white p-5 shadow-sm transition hover:border-blue-200 hover:shadow-md">
-     <span className={`flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl text-3xl ${m.color}`}>{m.icon}</span>
-     <span className="min-w-0"><span className="block text-sm font-medium text-slate-500">{m.title}</span><span className="mt-1 block text-3xl font-extrabold text-[#102f61]">{m.value===null?'—':m.value.toLocaleString('th-TH')}</span></span>
-     <span className="ml-auto text-blue-400 transition group-hover:translate-x-1">›</span>
-    </Link>)}
-   </div>
-   <section className="mt-5 rounded-2xl border border-slate-100 bg-white p-5 shadow-sm sm:p-6">
-    <div className="flex items-center justify-between gap-3"><h2 className="text-xl font-bold text-slate-900">งานที่ใช้บ่อย</h2><Link href="/workspace" className="text-sm font-medium text-blue-700">พื้นที่ทำงาน ↗</Link></div>
-    <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-     {quick.map(q=><Link key={q.href} href={q.href} className="group flex gap-3 rounded-xl border border-slate-100 bg-slate-50/70 p-4 transition hover:-translate-y-0.5 hover:border-blue-200 hover:bg-white">
-      <span className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-xl text-2xl ${q.color}`}>{q.icon}</span><span className="min-w-0"><span className="block font-bold text-slate-900">{q.title}</span><span className="mt-1 block text-xs leading-5 text-slate-500">{q.text}</span><span className="mt-2 block text-sm font-semibold text-blue-700">เปิดใช้งาน →</span></span>
-     </Link>)}
-    </div>
+  {loading&&<p role="status" className="school-loading">กำลังโหลดข้อมูลสถานศึกษา...</p>}
+  <section className="school-metrics" aria-label="ภาพรวมสถานศึกษา" aria-busy={loading}>
+   {([{label:'ระดับชั้นทั้งหมด',value:rows.length,unit:'ระดับ',detail:rows.length?rows[0].level+' – '+rows[rows.length-1].level:'ยังไม่มีห้องเรียน',icon:'school',color:'blue'},{label:'นักเรียนทั้งหมด',value:students,unit:'คน',detail:year?'ปีการศึกษา '+year.year_be:'ยังไม่กำหนดปี',icon:'users',color:'green'},{label:'รายวิชาที่เปิดสอน',value:rows.reduce((n,r)=>n+r.courses,0),unit:'รายวิชา',detail:term?'ภาคเรียนที่ '+term.term_no:'ยังไม่กำหนดภาคเรียน',icon:'book',color:'purple'},{label:'พร้อมลงคะแนน',value:readiness,unit:'%',detail:readyCount+' จาก '+rows.length+' ระดับเตรียมข้อมูลครบ',icon:'check',color:'green'}] as const).map(m=><div key={m.label} className={'academic-stat '+m.color}><i><AcademicIcon name={m.icon}/></i><div><p>{m.label}</p><strong>{loading||!canShow?'—':m.value.toLocaleString('th-TH')}<small>{m.unit==='%'?'%':' '+m.unit}</small></strong><span>{m.detail}</span></div></div>)}
+  </section>
+  <div className="school-grid">
+   <section className="academic-panel school-table-panel" aria-labelledby="school-level-heading">
+    <div className="academic-panel-heading"><h2 id="school-level-heading"><AcademicIcon name="chart"/>ภาพรวมความพร้อมรายระดับชั้น</h2><span>{updatedAt&&canShow?'ข้อมูล ณ '+updatedAt:''}</span></div>
+    {selectedLevel&&<div className="school-selection">กำลังดู {selectedLevel}<button onClick={()=>setSelectedLevel('')}>แสดงทุกระดับชั้น ×</button></div>}
+    <div className="school-table-scroll"><table className="school-table"><thead><tr><th>ระดับชั้น</th><th>จำนวนนักเรียน</th><th>จำนวนรายวิชา</th><th>มอบหมายครู</th><th>ลงคะแนน</th><th>ความพร้อม</th><th>สถานะ</th></tr></thead><tbody>
+     {canShow&&!loading&&shown.map(r=><tr key={r.level}><th scope="row"><button title={'ดูรายละเอียด '+r.level} onClick={()=>setSelectedLevel(r.level)}>{r.level}</button></th><td>{r.students} คน</td><td>{r.courses} รายวิชา</td><td><span className={'school-cell-status '+(r.courses&&r.assigned===r.courses?'done':'waiting')}><b aria-hidden="true">{r.courses&&r.assigned===r.courses?'✓':'!'}</b>{r.courses?'ครบ '+r.assigned+'/'+r.courses:'ยังไม่กำหนด'}</span></td><td className="school-no-scores">ยังไม่มีข้อมูล</td><td><div className="school-progress-cell"><progress max="100" value={r.progress} aria-label={'ความพร้อม '+r.level} className={r.status==='ready'?'complete':''}/><span>{r.progress}%</span></div></td><td><span className={'school-status '+r.status}>{statusLabels[r.status]}</span></td></tr>)}
+    </tbody></table></div>
+    {(!canShow||loading)&&<p className="school-empty">{loading?'กำลังโหลดข้อมูล...':'ยังไม่สามารถแสดงข้อมูลได้'}</p>}
+    {canShow&&!loading&&!shown.length&&<div className="school-empty"><p>{rows.length?'ไม่มีระดับชั้นในมุมมองนี้':'ยังไม่มีห้องเรียนในปีการศึกษาที่เลือก'}</p><Link href="/academic">ไปตั้งค่างานวิชาการ →</Link></div>}
+    <p className="school-table-note">ความพร้อมคำนวณจากรายชื่อนักเรียน รายวิชา และการมอบหมายครูครบทุกห้อง ยังไม่รวมผลการลงคะแนน</p>
+    <div className="school-footer-links"><Link href="/academic">ตั้งค่างานวิชาการ ↗</Link><Link href="/academic/teachers">มอบหมายครู ↗</Link><Link href="/students/history">จัดนักเรียนเข้าห้อง ↗</Link></div>
    </section>
-   <section className="mt-5 grid gap-5 xl:grid-cols-[minmax(0,1fr)_300px]">
-    <div className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm sm:p-6">
-     <h2 className="text-xl font-bold">จัดการงานวิชาการ</h2><p className="mt-1 text-sm text-slate-500">เข้าถึงการตั้งค่าและงานบริหารที่เหลือ</p>
-     <div className="mt-4 divide-y divide-slate-100">{other.map(m=><Link key={m.href} href={m.href} className="flex items-center justify-between gap-4 py-4 hover:text-blue-800"><div><p className="font-semibold">{m.title}</p><p className="mt-1 text-sm text-slate-500">{m.detail}</p></div><span className="text-xl text-blue-500">›</span></Link>)}</div>
-    </div>
-    <div className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm sm:p-6">
-     <h2 className="text-xl font-bold">ลิงก์ด่วน</h2>
-     <div className="mt-4 grid grid-cols-2 gap-3">{[
-      ['/academic','ห้องเรียน'],['/curriculum','รายวิชา'],['/personnel','บุคลากร'],['/students/history','ประวัตินักเรียน']
-     ].map(([href,label])=><Link key={href} href={href} className="rounded-xl border border-blue-100 bg-blue-50/50 p-4 text-center text-sm font-semibold text-blue-800 hover:bg-blue-100">{label}</Link>)}</div>
-     <button type="button" onClick={()=>setRefresh(x=>x+1)} className="mt-5 w-full rounded-xl border border-slate-200 px-4 py-3 text-sm font-medium text-slate-600 hover:bg-slate-50">↻ รีเฟรชสรุปข้อมูล</button>
-    </div>
-   </section>
-  </>}
+   <aside className="school-aside">
+    <section className="academic-panel school-followup"><div className="academic-panel-heading"><h2><span className="school-alert-symbol" aria-hidden="true">!</span>รายการที่ต้องติดตาม</h2><button type="button" className="academic-soft-button" onClick={()=>setShowAll(x=>!x)}>{showAll?'ย่อรายการ':'ดูทั้งหมด'}</button></div>
+     {canShow&&!loading&&visibleAlerts.map(a=><button type="button" key={a.level} className="school-alert-item" onClick={()=>{setSelectedLevel(a.level);setView('all');document.getElementById('school-level-heading')?.scrollIntoView({block:'nearest',behavior:'smooth'});}}><span className={'school-alert-mark '+(a.status==='ready'?'info':'warning')} aria-hidden="true">{a.status==='ready'?'i':'!'}</span><strong>{a.level}</strong><span><b>{a.title}</b><small>{a.detail}</small></span><span aria-hidden="true" className="school-arrow">›</span></button>)}
+     {canShow&&!loading&&!alerts.length&&<p className="school-empty">ยังไม่มีรายการที่ต้องติดตาม</p>}
+    </section>
+    <section className="academic-panel school-status-summary"><h2><AcademicIcon name="chart"/>สรุปสถานะรายระดับชั้น</h2>{(['ready','progress','empty'] as const).map(status=>{const count=rows.filter(r=>r.status===status).length;return <div key={status}><span className={'school-dot '+status}/><span>{statusLabels[status]}</span><progress max={Math.max(rows.length,1)} value={canShow&&!loading?count:0} className={status}/><b>{canShow&&!loading?count:'—'} ระดับชั้น</b></div>;})}</section>
+   </aside>
+  </div>
  </main>;
 }
