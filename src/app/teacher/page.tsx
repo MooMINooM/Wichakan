@@ -1,112 +1,66 @@
 'use client';
-import PageHeader from '@/components/page-header';
 import Link from 'next/link';
 import {useEffect,useState} from 'react';
-import {useRouter} from 'next/navigation';
-import {getSupabaseBrowserClient} from '@/lib/supabase/browser';
-import {resolveYear,YEAR_EVENT} from '@/lib/academic-year-selection';
-type Room={id:string;level_code:string;room_code:string;academic_year_id:string};
-type Homeroom={classroom_id:string};
-type Offering={id:string;classroom_id:string;subject_id:string;term_id:string};
-type Assignment={course_offering_id:string};
-type Subject={id:string;subject_code:string;name_th:string};
-type Term={id:string;academic_year_id:string;term_no:number};
-type Year={id:string;year_be:number;is_active:boolean};
-type Student={id:string;student_no:string;first_name_th:string;last_name_th:string};
-const label=(r:Room)=>r.room_code.startsWith(r.level_code+'/')?r.room_code:r.level_code+'/'+r.room_code;
+import PageHeader from '@/components/page-header';
+import AcademicDialog from '@/components/academic-dialog';
+import {AcademicIcon} from '@/components/academic-visuals';
+import {resolveYear,setYearSelection,YEAR_EVENT} from '@/lib/academic-year-selection';
+import {useTeacherWorkspace,teacherRoomLabel} from '@/lib/use-teacher-workspace';
+import {teacherOverview,type CourseOverview} from '@/lib/teacher-overview';
+const statusLabel={complete:'เสร็จแล้ว',progress:'กำลังดำเนินการ',empty:'ยังไม่เริ่ม',configuration:'รอตั้งคะแนนเต็ม','no-students':'ยังไม่มีนักเรียน'};
+const scoreLink=(course:CourseOverview)=>'/teacher/scores?offering='+encodeURIComponent(course.offerings[0].id);
 export default function TeacherPage(){
- const db=getSupabaseBrowserClient(),router=useRouter();
- const [selectedCourse,setSelectedCourse]=useState(''),[roster,setRoster]=useState<Student[]>([]),[rosterLoading,setRosterLoading]=useState(false),[rosterError,setRosterError]=useState('');
- const [revision,setRevision]=useState(0),[terms,setTerms]=useState<Term[]>([]),[years,setYears]=useState<Year[]>([]);
- const [yearId,setYearId]=useState(''),[schoolId,setSchoolId]=useState('');
- const [ready,setReady]=useState(false),[error,setError]=useState(''),[rooms,setRooms]=useState<Room[]>([]),[homerooms,setHomerooms]=useState<Homeroom[]>([]),[offerings,setOfferings]=useState<Offering[]>([]),[assignments,setAssignments]=useState<Assignment[]>([]),[subjects,setSubjects]=useState<Subject[]>([]);
- useEffect(()=>{let live=true;(async()=>{
-  if(!db){setError('ยังไม่ได้เชื่อม Supabase');return;}
-  const {data:{user}}=await db.auth.getUser();if(!user){router.replace('/login');return;}
-  const {data:roles,error:roleError}=await db.from('school_memberships').select('school_id').eq('user_id',user.id).eq('role','teacher').eq('active',true);
-  if(!live)return;
-  if(roleError){setError(roleError.message);return;}
-  if(!roles?.length){router.replace('/workspace');return;}
-  const schoolIds=roles.map(r=>r.school_id);
-  setSchoolId(schoolIds[0]);
-  const [h,a]=await Promise.all([
-   db.from('homeroom_assignments').select('classroom_id').eq('teacher_user_id',user.id).in('school_id',schoolIds),
-   db.from('teaching_assignments').select('course_offering_id').eq('teacher_user_id',user.id).in('school_id',schoolIds),
-  ]);
-  if(!live)return;
-  const assignmentError=h.error??a.error;
-  if(assignmentError){setError(assignmentError.message);return;}
-  const assignedIds=(a.data??[]).map(x=>x.course_offering_id);
-  const homeroomIds=(h.data??[]).map(x=>x.classroom_id);
-  const o=assignedIds.length
-   ?await db.from('course_offerings').select('id,classroom_id,subject_id,term_id').in('id',assignedIds).in('school_id',schoolIds)
-   :{data:[] as Offering[],error:null};
-  if(!live)return;
-  if(o.error){setError(o.error.message);return;}
-  const roomIds=[...new Set([...homeroomIds,...(o.data??[]).map(x=>x.classroom_id)])];
-  const subjectIds=[...new Set((o.data??[]).map(x=>x.subject_id))];
-  const termIds=[...new Set((o.data??[]).map(x=>x.term_id))];
-  const [r,s,t]=await Promise.all([
-   roomIds.length?db.from('classrooms').select('id,level_code,room_code,academic_year_id').in('id',roomIds).in('school_id',schoolIds):Promise.resolve({data:[] as Room[],error:null}),
-   subjectIds.length?db.from('subjects').select('id,subject_code,name_th').in('id',subjectIds).in('school_id',schoolIds):Promise.resolve({data:[] as Subject[],error:null}),
-   termIds.length?db.from('terms').select('id,academic_year_id,term_no').in('id',termIds).in('school_id',schoolIds):Promise.resolve({data:[] as Term[],error:null}),
-  ]);
-  if(!live)return;
-  const issue=r.error??s.error??t.error;
-  if(issue){setError(issue.message);return;}
-  const y=await db.from('academic_years').select('id,year_be,is_active').eq('school_id',schoolIds[0]).order('year_be',{ascending:false});
-  if(!live)return;
-  if(y.error){setError(y.error.message);return;}
-  setRooms(r.data??[]);setHomerooms(h.data??[]);setAssignments(a.data??[]);setOfferings(o.data??[]);setSubjects(s.data??[]);setTerms(t.data??[]);setYears(y.data??[]);setYearId(resolveYear(y.data??[],schoolIds[0]));setReady(true);
- })();return()=>{live=false;};},[db,router,revision]);
- useEffect(()=>{let active=true;(async()=>{
-   if(!db||!ready||!selectedCourse){setRoster([]);setRosterError('');return;}
-   const offering=offerings.find(o=>o.id===selectedCourse);
-   if(!offering||!assignments.some(a=>a.course_offering_id===selectedCourse)){setRoster([]);return;}
-   setRosterLoading(true);setRosterError('');
-   const {data:enrollments,error:enrollmentError}=await db.from('enrollments')
-    .select('student_id').eq('classroom_id',offering.classroom_id).in('status',['active','completed']);
-   if(!active)return;
-   if(enrollmentError){setRosterError(enrollmentError.message);setRosterLoading(false);return;}
-   const ids=(enrollments??[]).map(e=>e.student_id);
-   if(!ids.length){setRoster([]);setRosterLoading(false);return;}
-   const {data:students,error:studentError}=await db.from('students')
-    .select('id,student_no,first_name_th,last_name_th').in('id',ids).order('student_no');
-   if(!active)return;
-   if(studentError)setRosterError(studentError.message);else setRoster(students??[]);
-   setRosterLoading(false);
- })();return()=>{active=false;};},[db,ready,selectedCourse,revision,offerings,assignments]);
- useEffect(()=>{
-  if(!schoolId)return;
-  const update=(e:Event)=>{const detail=(e as CustomEvent<{schoolId:string;yearId:string}>).detail;
-   if(detail?.schoolId===schoolId){setYearId(detail.yearId);setSelectedCourse('');}};
-  window.addEventListener(YEAR_EVENT,update);return()=>window.removeEventListener(YEAR_EVENT,update);
- },[schoolId]);
- const roomYear=(id:string)=>rooms.find(r=>r.id===id)?.academic_year_id;
- const mine=offerings.filter(o=>assignments.some(a=>a.course_offering_id===o.id)&&roomYear(o.classroom_id)===yearId);
- const visibleHomerooms=homerooms.filter(h=>roomYear(h.classroom_id)===yearId);
- const hiddenAssignments=assignments.length-offerings.filter(o=>assignments.some(a=>a.course_offering_id===o.id)).length;
- return <main className="wichakan-page mx-auto max-w-7xl px-4 py-7 sm:px-6 sm:py-9">
-  <PageHeader title="งานสอนของฉัน" context={"ปีการศึกษา "+(years.find(y=>y.id===yearId)?.year_be??"—")}/>
-  <div className="mt-5 flex justify-end"><button onClick={()=>{setReady(false);setError('');setRevision(x=>x+1);}} className="rounded-xl border border-blue-200 bg-white px-4 py-2 text-sm font-medium text-blue-800">รีเฟรชงานสอน ↻</button></div>
-  {error&&<p role="alert" className="mt-5 rounded-xl bg-red-50 p-4 text-red-700">{error}</p>}
-  {ready&&<div className="mt-6 grid gap-5 lg:grid-cols-[minmax(240px,0.85fr)_minmax(0,2fr)]">
-   <section className="ui-panel rounded-2xl border border-slate-100 bg-white p-6 shadow-sm"><h2 className="text-xl font-bold">ห้องประจำชั้นของฉัน</h2>
-    <div className="mt-4 space-y-3">{visibleHomerooms.map((h,i)=>{const room=rooms.find(r=>r.id===h.classroom_id);return <div key={i} className="rounded-xl bg-slate-50 p-3">{room?label(room):'ห้องเรียน'}</div>;})}</div>
-    {!visibleHomerooms.length&&<p className="mt-4 text-sm text-slate-500">ไม่มีห้องประจำชั้นในปีการศึกษาที่เลือก</p>}
-   </section>
-   <section className="ui-panel rounded-2xl border bg-white p-6"><div className="flex flex-wrap items-center justify-between gap-2"><h2 className="text-xl font-bold">รายวิชาที่ฉันสอน</h2><span className="rounded-full bg-blue-50 px-3 py-1 text-xs font-semibold text-blue-800">{mine.length} รายวิชา</span></div>
-    <div className="mt-4 space-y-3">{mine.map(o=>{const room=rooms.find(r=>r.id===o.classroom_id);const sub=subjects.find(s=>s.id===o.subject_id);return <div key={o.id} className="rounded-xl border border-slate-100 bg-slate-50/70 p-4 transition hover:border-blue-200 hover:bg-blue-50/40"><p className="font-semibold text-slate-900">{sub?.subject_code} {sub?.name_th}</p><p className="mt-1 text-sm text-slate-500">{room?label(room):'ห้องเรียน'} · ปี {years.find(y=>y.id===room?.academic_year_id)?.year_be??'—'} · ภาคเรียน {terms.find(t=>t.id===o.term_id)?.term_no??'—'}</p><button onClick={()=>{setSelectedCourse(o.id);setRoster([]);}} className="ui-primary mt-3 inline-flex min-h-11 items-center rounded-xl bg-blue-700 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-800">ดูรายชื่อในห้อง →</button></div>;})}</div>
-    {hiddenAssignments>0&&<p role="alert" className="mt-4 rounded-lg bg-amber-50 p-3 text-sm text-amber-800">พบการมอบหมาย {hiddenAssignments} รายการ แต่ไม่สามารถอ่านรายละเอียดรายวิชาได้ กรุณาแจ้งผู้ดูแลตรวจสอบสิทธิ์การอ่านข้อมูล</p>}
-    {!mine.length&&hiddenAssignments===0&&<p className="mt-4 text-sm text-slate-500">ไม่มีรายวิชาที่ได้รับมอบหมายในปีการศึกษาที่เลือก</p>}
-   </section>
-  </div>}
-  {ready&&selectedCourse&&mine.some(o=>o.id===selectedCourse)&&<section className="ui-panel mt-5 scroll-mt-36 rounded-2xl border bg-white p-6">
-   <div className="flex items-center justify-between"><h2 className="text-xl font-bold">รายชื่อนักเรียนในวิชาที่เลือก</h2><button className="text-sm text-blue-800" onClick={()=>setSelectedCourse('')}>ปิด</button></div>
-   {rosterLoading&&<p className="mt-3 text-sm text-slate-500">กำลังโหลดรายชื่อ...</p>}
-   {rosterError&&<p role="alert" className="mt-3 text-sm text-red-700">{rosterError}</p>}
-   {!rosterLoading&&!rosterError&&<div className="mt-4 divide-y">{roster.map(s=><div key={s.id} className="py-3 text-sm">{s.student_no} — {s.first_name_th} {s.last_name_th}</div>)}{roster.length===0&&<p className="py-4 text-sm text-slate-500">ไม่มีนักเรียนที่ลงทะเบียนในห้องนี้</p>}</div>}
-  </section>}
-  <div className="mt-6"><Link href="/teacher/scores" className="inline-flex rounded-xl bg-blue-700 px-5 py-3 text-sm font-semibold text-white">บันทึกคะแนนรายวิชา →</Link><p className="mt-3 text-xs text-slate-500">ปพ.6 ยังอยู่ระหว่างพัฒนา</p></div>
+ const {data,loading,error,reload}=useTeacherWorkspace();
+ const [yearId,setYearId]=useState(''),[termId,setTermId]=useState(''),[subjectId,setSubjectId]=useState(''),[rosterRoom,setRosterRoom]=useState('');
+ useEffect(()=>{if(data.schoolId)setYearId(prev=>resolveYear(data.years,data.schoolId,prev));},[data.schoolId,data.years]);
+ useEffect(()=>{if(!data.schoolId)return;const sync=(e:Event)=>{const d=(e as CustomEvent<{schoolId:string;yearId:string}>).detail;if(d?.schoolId===data.schoolId){setYearId(d.yearId);setTermId('');setSubjectId('');setRosterRoom('');}};window.addEventListener(YEAR_EVENT,sync);return()=>window.removeEventListener(YEAR_EVENT,sync);},[data.schoolId]);
+ const yearTerms=data.terms.filter(t=>t.academic_year_id===yearId),validTerm=yearTerms.some(t=>t.id===termId)?termId:yearTerms[0]?.id??'';
+ const allCourses=teacherOverview(data,yearId,validTerm),validSubject=allCourses.some(c=>c.subjectId===subjectId)?subjectId:'';
+ const courses=validSubject?allCourses.filter(c=>c.subjectId===validSubject):allCourses;
+ const homeRooms=data.rooms.filter(r=>r.academic_year_id===yearId&&data.homerooms.some(h=>h.classroom_id===r.id));
+ const completed=courses.filter(c=>c.status==='complete').length,inProgress=courses.filter(c=>c.status==='progress').length;
+ const studentCount=new Set(courses.flatMap(c=>c.studentIds)).size;
+ const ready=!loading&&!error&&!!data.schoolId,contextReady=ready&&!!validTerm;
+ const tasks=courses.filter(c=>c.status!=='complete').sort((a,b)=>(a.progress??-1)-(b.progress??-1));
+ const homeRoster=(roomId:string)=>{const ids=new Set(data.enrollments.filter(e=>e.classroom_id===roomId&&e.academic_year_id===yearId).map(e=>e.student_id));return data.students.filter(s=>ids.has(s.id));};
+ const roster=homeRoster(rosterRoom),selectedHome=data.rooms.find(r=>r.id===rosterRoom);
+ return <main className="wichakan-page teacher-dashboard">
+  <PageHeader title="แดชบอร์ดครู"/>
+  {error&&<p role="alert" className="teacher-error">{error}<button onClick={()=>void reload()}>ลองอีกครั้ง</button></p>}
+  {loading&&<p role="status" className="mb-4 text-sm text-slate-500">กำลังโหลดงานสอน...</p>}
+  <section className="ui-panel teacher-filters" aria-label="เลือกงานสอน">
+   <label>ปีการศึกษา<select aria-label="ปีการศึกษา dashboard" disabled={!ready} value={yearId} onChange={e=>{setYearId(e.target.value);setTermId('');setSubjectId('');setYearSelection(data.schoolId,e.target.value);}}>{!data.years.length&&<option value="">ยังไม่มีปีการศึกษา</option>}{data.years.map(y=><option key={y.id} value={y.id}>{y.year_be}</option>)}</select></label>
+   <label>ภาคเรียน<select aria-label="ภาคเรียน dashboard" disabled={!ready} value={validTerm} onChange={e=>{setTermId(e.target.value);setSubjectId('');}}>{!yearTerms.length&&<option value="">ยังไม่มีภาคเรียน</option>}{yearTerms.map(t=><option key={t.id} value={t.id}>ภาคเรียนที่ {t.term_no}</option>)}</select></label>
+   <label>รายวิชา<select aria-label="รายวิชา dashboard" disabled={!ready} value={validSubject} onChange={e=>setSubjectId(e.target.value)}><option value="">ทั้งหมด</option>{allCourses.map(c=><option key={c.subjectId} value={c.subjectId}>{c.code} {c.name}</option>)}</select></label>
+   <button className="ui-secondary" disabled={loading} onClick={()=>void reload()}>อัปเดตข้อมูล</button>
+  </section>
+  {data.hiddenAssignments>0&&ready&&<p role="alert" className="teacher-warning">มีงานสอน {data.hiddenAssignments} รายการที่อ่านรายละเอียดไม่ได้ กรุณาแจ้งผู้ดูแลระบบ</p>}
+  <section className="teacher-metrics" aria-label="สรุปงานสอน">
+   <div className="teacher-metric blue"><i><AcademicIcon name="users"/></i><div><p>ห้องประจำชั้น</p><strong>{ready?(homeRooms.length?homeRooms.map(teacherRoomLabel).join(', '):'—'):'—'}</strong><span>{ready?homeRooms.length+' ห้อง':'รอข้อมูล'}</span></div></div>
+   <div className="teacher-metric green"><i><AcademicIcon name="book"/></i><div><p>รายวิชาที่สอน</p><strong>{contextReady?courses.length:'—'}</strong><span>รายวิชา</span></div></div>
+   <div className="teacher-metric purple"><i><AcademicIcon name="users"/></i><div><p>นักเรียนที่สอน</p><strong>{contextReady?studentCount:'—'}</strong><span>คน · ไม่นับซ้ำ</span></div></div>
+   <div className="teacher-metric orange"><i><AcademicIcon name="check"/></i><div><p>วิชาที่ลงคะแนนเสร็จ</p><strong>{contextReady?completed:'—'}</strong><span>จาก {contextReady?courses.length:'—'} รายวิชา</span></div></div>
+  </section>
+  <div className="teacher-dashboard-grid">
+   <div className="teacher-dashboard-main">
+    <section className="ui-panel teacher-courses" id="courses" aria-labelledby="teacher-courses-heading">
+     <div className="teacher-panel-heading"><h2 id="teacher-courses-heading"><AcademicIcon name="book"/>รายวิชาที่สอน</h2></div>
+     <div className="teacher-table-scroll"><table className="teacher-course-table"><thead><tr><th>รหัสวิชา</th><th>ชื่อวิชา</th><th>ห้องเรียน</th><th>นักเรียน</th><th>ความคืบหน้าการลงคะแนน</th><th>สถานะ</th><th>จัดการ</th></tr></thead><tbody>{contextReady&&courses.map(c=><tr key={c.subjectId}><td>{c.code}</td><th scope="row">{c.name}</th><td>{c.roomIds.map(id=>data.rooms.find(r=>r.id===id)).filter(r=>!!r).map(teacherRoomLabel).join(', ')}</td><td>{c.studentIds.length}</td><td><div className={'teacher-progress '+c.status}><progress max="100" value={c.progress??0} aria-label={'ความคืบหน้า '+c.name}/><span>{c.progress===null?'—':c.progress+'%'}</span></div></td><td><span className={'teacher-state '+c.status}>{statusLabel[c.status]}</span></td><td><Link className="ui-primary teacher-table-button" href={scoreLink(c)}>บันทึกคะแนน</Link></td></tr>)}</tbody></table></div>
+     {!loading&&!error&&(!validTerm||!courses.length)&&<p className="teacher-empty">{!validTerm?'ยังไม่มีภาคเรียนในปีที่เลือก':'ยังไม่มีรายวิชาที่ได้รับมอบหมายในภาคเรียนนี้'}</p>}
+    </section>
+    <section className="ui-panel" id="homerooms" aria-labelledby="teacher-homerooms-heading"><div className="teacher-panel-heading"><h2 id="teacher-homerooms-heading"><AcademicIcon name="users"/>ห้องประจำชั้น</h2></div>
+     {ready&&homeRooms.map(r=><div className="teacher-homeroom-card" key={r.id}><AcademicIcon name="users"/><div><h3>{teacherRoomLabel(r)}</h3><p>นักเรียน {homeRoster(r.id).length} คน</p><span>ปีการศึกษา {data.years.find(y=>y.id===yearId)?.year_be??'—'}</span></div><button className="ui-secondary" onClick={()=>setRosterRoom(r.id)}><AcademicIcon name="users"/>ดูรายชื่อนักเรียน</button></div>)}
+     {ready&&!homeRooms.length&&<p className="teacher-empty">ไม่มีห้องประจำชั้นในปีที่เลือก</p>}
+    </section>
+   </div>
+   <aside className="ui-panel teacher-overview" aria-label="ภาพรวมงานของครู"><div className="teacher-panel-heading"><h2><AcademicIcon name="chart"/>ภาพรวมงานของครู</h2></div>
+    <div className="teacher-overview-progress"><span>ความคืบหน้าการลงคะแนน (รายวิชา)</span><strong>{contextReady?completed+'/'+courses.length:'—'}</strong><progress max="100" value={contextReady&&courses.length?completed/courses.length*100:0} aria-label="สัดส่วนวิชาที่ลงคะแนนเสร็จ"/><b>{contextReady&&courses.length?Math.floor(completed/courses.length*100)+'%':'—'}</b></div>
+    <div className="teacher-overview-legend"><p><i className="complete"/>เสร็จแล้ว <span>{contextReady?completed:'—'} รายวิชา</span></p><p><i className="progress"/>กำลังดำเนินการ <span>{contextReady?inProgress:'—'} รายวิชา</span></p><p><i className="empty"/>ยังไม่ครบ / รอตั้งค่า <span>{contextReady?courses.length-completed-inProgress:'—'} รายวิชา</span></p></div>
+    <h3 className="teacher-tasks-heading"><AcademicIcon name="file"/>งานที่ต้องดำเนินการ</h3>
+    {contextReady&&tasks.map(c=><Link href={scoreLink(c)} className={'teacher-task '+c.status} key={c.subjectId}><i aria-hidden="true"/><div><strong>{c.name}</strong><p>{c.status==='configuration'?'รอ Admin ตั้งคะแนนเต็ม':c.status==='no-students'?'ยังไม่มีนักเรียนในห้อง':c.saved+'/'+c.expected+' รายการ · '+statusLabel[c.status]}</p></div><span aria-hidden="true">›</span></Link>)}
+    {contextReady&&!tasks.length&&<p className="teacher-empty">{courses.length?'ลงคะแนนครบทุกวิชาแล้ว':'ยังไม่มีงานสอนในภาคเรียนนี้'}</p>}
+   </aside>
+  </div>
+  {selectedHome&&<AcademicDialog title={'รายชื่อนักเรียน '+teacherRoomLabel(selectedHome)} onClose={()=>setRosterRoom('')}><p className="mb-3 text-sm text-slate-500">ปีการศึกษา {data.years.find(y=>y.id===yearId)?.year_be??'—'} · {roster.length} คน</p><div className="teacher-table-scroll"><table className="w-full text-left"><thead><tr><th>เลขที่</th><th>รหัส</th><th>ชื่อ–นามสกุล</th></tr></thead><tbody>{roster.map((s,i)=><tr key={s.id}><td>{i+1}</td><td>{s.student_no}</td><td>{s.first_name_th} {s.last_name_th}</td></tr>)}</tbody></table></div>{!roster.length&&<p className="teacher-empty">ไม่มีนักเรียนลงทะเบียนในห้องนี้</p>}</AcademicDialog>}
  </main>;
 }

@@ -19,5 +19,6 @@ jobs:
         run: |
           node tests/school-readiness.cjs
           node tests/teacher-assignment-rows.cjs
+          node tests/teacher-scores.cjs
       - name: Build
         run: npm run build
