@@ -1,17 +1,18 @@
 'use client';
 import Link from 'next/link';
+import {AcademicIcon} from '@/components/academic-visuals';
 import {usePathname,useRouter} from 'next/navigation';
 import {useEffect,useState} from 'react';
 import {getYearSelection,resolveYear,setYearSelection,YEAR_EVENT} from '@/lib/academic-year-selection';
 import {getSupabaseBrowserClient} from '@/lib/supabase/browser';
 const adminItems=[
- ['/admin','ภาพรวม','⌂'],['/students','ทะเบียนนักเรียน','◉'],['/academic','ตั้งค่าปีการศึกษา','▦'],
+ ['/admin','ภาพรวม','⌂'],['/students','ทะเบียนนักเรียน','◉'],['/academic','ตั้งค่างานวิชาการ','▦'],
  ['/academic/teachers','มอบหมายครู','♙'],['/curriculum','หลักสูตรและรายวิชา','▤'],
  ['/personnel','บุคลากร','♧'],['/students/promote','เลื่อนชั้นนักเรียน','↗']
 ];
 const teacherItems=[['/teacher','งานสอนของฉัน','▤']];
 export default function AppNavigation(){
- const pathname=usePathname(),router=useRouter();
+ const pathname=usePathname().replace(/\/+$/,'')||'/',router=useRouter();
  const [busy,setBusy]=useState(false),[open,setOpen]=useState(false);
  const [schoolId,setSchoolId]=useState(''),[years,setYears]=useState<{id:string;year_be:number;is_active:boolean}[]>([]),[currentYear,setCurrentYear]=useState('');
  useEffect(()=>{let live=true;(async()=>{
@@ -52,7 +53,7 @@ export default function AppNavigation(){
    <div className="flex min-w-0 items-center gap-3">
     {items.length>0&&<button onClick={()=>setOpen(x=>!x)} aria-expanded={open} aria-label="เปิดหรือปิดเมนู" className="rounded-lg border border-slate-200 px-3 py-2 text-lg lg:hidden">☰</button>}
     <Link href="/workspace" className="flex items-center gap-3">
-     <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-800 text-xl font-bold text-white">W</div>
+     <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-800 text-xl font-bold text-white">{pathname==='/academic'?<AcademicIcon name="school"/>:'W'}</div>
      <div><div className="text-lg font-extrabold leading-tight tracking-tight text-blue-950">Wichakan</div><div className="hidden text-xs text-slate-500 sm:block">ระบบบริหารจัดการสถานศึกษา</div></div>
     </Link>
    </div>
