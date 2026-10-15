@@ -1,6 +1,8 @@
 'use client';
 
 import Link from 'next/link';
+import AcademicDialog from '@/components/academic-dialog';
+import {AcademicIcon,SchoolScene} from '@/components/academic-visuals';
 import PageControls,{PAGE_SIZE} from '@/components/page-controls';
 import {resolveYear,setYearSelection,YEAR_EVENT} from '@/lib/academic-year-selection';
 import { useCallback, useEffect, useState } from 'react';
@@ -34,7 +36,10 @@ export default function AcademicSetupPage() {
   const [end,setEnd] = useState('');
   const [level,setLevel] = useState('ป.1');
   const [room,setRoom] = useState('1');
-  const [section,setSection]=useState<'years'|'terms'|'rooms'>('rooms');
+  const [section,setSection]=useState<'years'|'terms'|'rooms'|null>(null);
+  const [selectedTerm,setSelectedTerm]=useState(''),[selectedRoom,setSelectedRoom]=useState('');
+  const [offerings,setOfferings]=useState<{id:string;term_id:string;classroom_id:string;subject_id:string}[]>([]);
+  const [dataLoading,setDataLoading]=useState(false);
   const [roomQuery,setRoomQuery]=useState(''),[roomPage,setRoomPage]=useState(1),[yearPage,setYearPage]=useState(1);
   const [roomFormOpen,setRoomFormOpen]=useState(false),[levelFilter,setLevelFilter]=useState('');
   const [busy,setBusy] = useState(false);
@@ -46,23 +51,28 @@ export default function AcademicSetupPage() {
   const load = useCallback(async(id:string)=>{
     const db=getSupabaseBrowserClient();
     if(!db)return;
+    setDataLoading(true);
+    try {
     const {data:{user}}=await db.auth.getUser();
     if(!user){router.replace('/login');return;}
-    const [a,b,c,d,h,en]=await Promise.all([
+    const [a,b,c,d,h,en,o]=await Promise.all([
       db.from('academic_years').select('id,year_be,is_active').eq('school_id',id).order('year_be',{ascending:false}),
       db.from('terms').select('id,academic_year_id,term_no,starts_on,ends_on').eq('school_id',id),
       db.from('classrooms').select('id,academic_year_id,level_code,room_code').eq('school_id',id),
       db.from('school_memberships').select('role').eq('school_id',id).eq('user_id',user.id).eq('active',true),
       db.from('homeroom_assignments').select('classroom_id,teacher_user_id').eq('school_id',id),
       db.from('enrollments').select('classroom_id,student_id,status').eq('school_id',id),
+      db.from('course_offerings').select('id,term_id,classroom_id,subject_id').eq('school_id',id),
     ]);
-    const problem=[a.error,b.error,c.error,d.error,h.error,en.error].find(Boolean);
+    const problem=[a.error,b.error,c.error,d.error,h.error,en.error,o.error].find(Boolean);
     if(problem){setError(problem.message);return;}
-    setYears(a.data??[]);setTerms(b.data??[]);setRooms(c.data??[]);setHomerooms(h.data??[]);setEnrollments(en.data??[]);
+    setOfferings(o.data??[]);setYears(a.data??[]);setTerms(b.data??[]);setRooms(c.data??[]);setHomerooms(h.data??[]);setEnrollments(en.data??[]);
     const ids=[...new Set((h.data??[]).map(x=>x.teacher_user_id))];
     if(ids.length){const p=await db.from('profiles').select('user_id,display_name').in('user_id',ids);setProfiles(p.data??[]);}else setProfiles([]);
     setRoles((d.data??[]).map(m=>m.role));
     setSelectedYear(old=>resolveYear(a.data??[],id,old));
+    } catch(e){setError(e instanceof Error?e.message:'โหลดข้อมูลงานวิชาการไม่สำเร็จ');}
+    finally{setDataLoading(false);}
   },[router]);
 
   useEffect(()=>{
@@ -85,13 +95,13 @@ export default function AcademicSetupPage() {
   useEffect(()=>{if(schoolId){setError('');setSelectedYear('');void load(schoolId);}},[schoolId,load]);
 
   async function execute(action:()=>PromiseLike<{error:{message:string}|null}>,success:string){
-    if(!schoolId||busy||!canManage)return;
+    if(!schoolId||busy||!canManage)return false;
     setBusy(true);setError('');setMessage('');
     try{
       const result=await action();
-      if(result.error)setError(result.error.message);
-      else{await load(schoolId);setMessage(success);}
-    }catch(e){setError(e instanceof Error?e.message:'การบันทึกไม่สำเร็จ');}
+      if(result.error){setError(result.error.message);return false;}
+      else{await load(schoolId);setMessage(success);return true;}
+    }catch(e){setError(e instanceof Error?e.message:'การบันทึกไม่สำเร็จ');return false;}
     finally{setBusy(false);}
   }
   useEffect(()=>{if(schoolId&&selectedYear)setYearSelection(schoolId,selectedYear);},[schoolId,selectedYear]);
@@ -113,23 +123,68 @@ export default function AcademicSetupPage() {
   const yearName=selected?.year_be??'—';
   const roomLabel=(r:Classroom)=>r.room_code.startsWith(r.level_code+'/')?r.room_code:r.level_code+'/'+r.room_code;
   const formatDate=(date:string|null)=>date?new Date(date+'T00:00:00').toLocaleDateString('th-TH',{day:'2-digit',month:'2-digit',year:'numeric'}):'ไม่ระบุ';
-  const card='rounded-2xl border border-slate-100 bg-white p-4 shadow-sm sm:p-5';
-  return <main className="mx-auto max-w-7xl px-4 pb-6 pt-4 sm:px-6">
-   <header className="relative overflow-hidden rounded-2xl border border-blue-100 bg-gradient-to-r from-[#daeeff] via-[#edf7ff] to-[#d4eaff] px-6 py-5 sm:py-6">
-    <div className="relative z-10"><p className="text-xs font-semibold tracking-wide text-blue-600">WICHAKAN · ACADEMIC SETUP</p><h1 className="mt-1 text-2xl font-extrabold text-[#123b72] sm:text-3xl">ตั้งค่างานวิชาการ</h1><p className="mt-2 text-sm text-slate-600">จัดการปีการศึกษา ภาคเรียน และห้องเรียนได้อย่างเป็นระบบ ง่ายต่อการใช้งาน</p></div>
-    <div aria-hidden="true" className="pointer-events-none absolute -bottom-12 right-8 hidden rotate-[-12deg] text-[140px] leading-none text-blue-200/50 lg:block">▦</div>
+
+  // Derive valid selections during render so changing year never displays a stale room/term.
+  const activeTerm=yearTerms.find(t=>t.id===selectedTerm)??yearTerms[0];
+  const activeRoom=yearRooms.find(r=>r.id===selectedRoom)??yearRooms[0];
+  const studentCount=activeRoom?countStudents(activeRoom):0;
+  const courseCount=activeRoom&&activeTerm?new Set(offerings.filter(o=>o.classroom_id===activeRoom.id&&o.term_id===activeTerm.id).map(o=>o.subject_id)).size:0;
+  const today=new Date().toLocaleDateString('en-CA');
+  const termStatus=!activeTerm?'ยังไม่กำหนด':!activeTerm.starts_on||!activeTerm.ends_on?'ยังไม่ระบุวันที่':today<activeTerm.starts_on?'ยังไม่เปิดภาคเรียน':today>activeTerm.ends_on?'สิ้นสุดภาคเรียน':'กำลังศึกษา';
+  const calendarDays=activeTerm?.starts_on&&activeTerm.ends_on?Math.max(0,Math.round((Date.parse(activeTerm.ends_on)-Date.parse(activeTerm.starts_on))/86400000)+1):null;
+  const levelName=(code:string)=>code.startsWith('อ.')?'อนุบาลปีที่ '+code.slice(2):code.startsWith('ป.')?'ประถมศึกษาปีที่ '+code.slice(2):'มัธยมศึกษาปีที่ '+code.slice(2);
+  const checks=[{label:'กำหนดปีการศึกษา',ready:!!selected},{label:'กำหนดภาคเรียน',ready:!!activeTerm?.starts_on&&!!activeTerm?.ends_on},{label:'ข้อมูลห้องเรียน',ready:!!activeRoom},{label:'รายชื่อนักเรียน',ready:studentCount>0}];
+  function openManager(value:'years'|'terms'|'rooms'){setError('');setMessage('');setSection(value);}
+  return <main className="academic-dashboard mx-auto px-4 pb-6 pt-4 sm:px-6">
+   <header className="academic-hero">
+    <div className="relative z-10"><h1>ตั้งค่างานวิชาการ</h1><p>จัดการงานวิชาการของโรงเรียนได้ครบจบในที่เดียว</p><span>{schools.find(s=>s.id===schoolId)?.name_th??'Wichakan · ระบบบริหารจัดการสถานศึกษา'}</span></div>
+    <SchoolScene/>
    </header>
-   {loading&&<p className="mt-4 text-sm">กำลังโหลด...</p>}
-   {!loading&&schools.length===0&&<p className="mt-4 rounded-xl bg-amber-50 p-4 text-sm">บัญชีนี้ยังไม่ได้รับสิทธิ์ในโรงเรียน</p>}
-   {schools.length>0&&<p className="mt-3 text-sm font-medium text-blue-900">{schools.find(s=>s.id===schoolId)?.name_th}</p>}
+   {loading&&<p role="status" className="mt-4 text-sm">กำลังโหลด...</p>}
+   {!loading&&schools.length===0&&!error&&<p className="mt-4 rounded-xl bg-amber-50 p-4 text-sm">บัญชีนี้ยังไม่ได้รับสิทธิ์ในโรงเรียน</p>}
    {error&&<p role="alert" className="mt-3 rounded-xl bg-red-50 p-3 text-sm text-red-800">{error}</p>}
    {message&&<p role="status" className="mt-3 rounded-xl bg-emerald-50 p-3 text-sm text-emerald-800">{message}</p>}
    {schoolId&&<>
-    <nav className="mt-4 flex gap-2 overflow-x-auto" aria-label="หัวข้อตั้งค่างานวิชาการ">
-     {([['years','▣','ปีการศึกษา'],['terms','▤','ภาคเรียน'],['rooms','▦','ห้องเรียน']] as const).map(([key,icon,title])=><button key={key} type="button" onClick={()=>setSection(key)} aria-current={section===key?'page':undefined} className={`min-w-32 shrink-0 rounded-t-xl border border-b-2 px-5 py-3 text-sm font-semibold transition ${section===key?'border-blue-300 border-b-blue-600 bg-blue-50 text-blue-700':'border-slate-200 bg-white text-slate-600 hover:bg-blue-50'}`}><span aria-hidden="true" className="mr-2">{icon}</span>{title}</button>)}
-    </nav>
-    <div className="grid items-start gap-4 xl:grid-cols-[minmax(0,1.85fr)_minmax(300px,1fr)]">
-     <div className={card}>
+    <div className="academic-filters" aria-busy={dataLoading}>
+     <label><AcademicIcon name="calendar"/><span>ปีการศึกษา</span><select value={selectedYear} disabled={dataLoading||!years.length} onChange={e=>{setSelectedYear(e.target.value);setSelectedTerm('');setSelectedRoom('');setRoomPage(1);}}>{!years.length&&<option value="">ยังไม่มีปีการศึกษา</option>}{years.map(y=><option key={y.id} value={y.id}>{y.year_be}{y.is_active?' (ปัจจุบัน)':''}</option>)}</select></label>
+     <label><AcademicIcon name="book"/><span>ภาคเรียน</span><select value={activeTerm?.id??''} disabled={dataLoading||!yearTerms.length} onChange={e=>setSelectedTerm(e.target.value)}>{!yearTerms.length&&<option value="">ยังไม่มีภาคเรียน</option>}{yearTerms.map(t=><option key={t.id} value={t.id}>ภาคเรียนที่ {t.term_no}</option>)}</select></label>
+     <label><AcademicIcon name="users"/><span>ห้องเรียน</span><select value={activeRoom?.id??''} disabled={dataLoading||!yearRooms.length} onChange={e=>setSelectedRoom(e.target.value)}>{!yearRooms.length&&<option value="">ยังไม่มีห้องเรียน</option>}{yearRooms.map(r=><option key={r.id} value={r.id}>{roomLabel(r)}</option>)}</select></label>
+     <button type="button" className="academic-primary" disabled={dataLoading} onClick={()=>{setError('');void load(schoolId);}}><AcademicIcon name="search"/>{dataLoading?'กำลังโหลด...':'ดูข้อมูล'}</button>
+    </div>
+    <div className="academic-management" aria-label="จัดการข้อมูลงานวิชาการ">
+     <button type="button" onClick={()=>openManager('years')}>จัดการปีการศึกษา</button><span>·</span><button type="button" onClick={()=>openManager('terms')}>จัดการภาคเรียน</button><span>·</span><button type="button" onClick={()=>openManager('rooms')}>จัดการห้องเรียน</button><Link href="/academic/templates" className="ml-auto">เตรียมปีใหม่ ↗</Link>
+    </div>
+    <div className="academic-panels" aria-busy={dataLoading}>
+     <section className="academic-panel" aria-labelledby="room-heading">
+      <div className="academic-panel-heading"><h2 id="room-heading"><AcademicIcon name="users"/>ข้อมูลห้องเรียน</h2><button type="button" onClick={()=>openManager('rooms')} className="academic-soft-button"><AcademicIcon name="edit"/>จัดการห้องเรียน</button></div>
+      {activeRoom?<>
+       <div className="academic-room-summary"><div className="academic-room-avatar"><AcademicIcon name="users"/></div><div><h3>{roomLabel(activeRoom)}</h3><p>{levelName(activeRoom.level_code)}</p><span className="academic-student-badge">{studentCount} คน</span></div></div>
+       <dl className="academic-room-details">
+        <div><dt><AcademicIcon name="school"/>ระดับชั้น</dt><dd>{levelName(activeRoom.level_code)} ({activeRoom.level_code})</dd></div>
+        <div><dt><AcademicIcon name="users"/>ห้องเรียน</dt><dd>{roomLabel(activeRoom)}</dd></div>
+        <div><dt><AcademicIcon name="users"/>ครูประจำชั้น</dt><dd>{teacherName(activeRoom)}</dd></div>
+        <div><dt><AcademicIcon name="calendar"/>ปีการศึกษา</dt><dd>{yearName} · {activeTerm?'ภาคเรียนที่ '+activeTerm.term_no:'ยังไม่มีภาคเรียน'}</dd></div>
+       </dl>
+      </>:<div className="academic-empty"><AcademicIcon name="users"/><h3>{dataLoading?'กำลังโหลดข้อมูล':'ยังไม่มีห้องเรียนในปีนี้'}</h3><p>เพิ่มห้องเรียนเพื่อเริ่มจัดการข้อมูลงานวิชาการ</p><button disabled={!canManage||!selectedYear||dataLoading} type="button" onClick={()=>{setRoomFormOpen(true);openManager('rooms');}} className="academic-soft-button">＋ เพิ่มห้องเรียน</button></div>}
+      <div className="academic-quick"><h3>ϟ เมนูด่วน</h3><div>
+       {([{href:'/academic/teachers',label:'มอบหมายครู',icon:'book',color:'green'},{href:'/students/history',label:'จัดนักเรียนเข้าห้อง',icon:'users',color:'purple'},{href:'/curriculum',label:'หลักสูตรและรายวิชา',icon:'chart',color:'orange'},{href:'/students',label:'ทะเบียนนักเรียน',icon:'file',color:'blue'}] as const).map(item=><Link key={item.href} href={item.href} className={'academic-quick-link '+item.color}><AcademicIcon name={item.icon}/><span>{item.label}</span><b aria-hidden="true">›</b></Link>)}
+      </div></div>
+     </section>
+     <section className="academic-panel" aria-labelledby="overview-heading">
+      <div className="academic-panel-heading"><h2 id="overview-heading"><AcademicIcon name="chart"/>ภาพรวมห้องเรียน</h2><span>{activeTerm?'ภาคเรียนที่ '+activeTerm.term_no+' · ':''}ปี {yearName}</span></div>
+      <div className="academic-stats">
+       <div className="academic-stat blue"><i><AcademicIcon name="users"/></i><div><p>จำนวนนักเรียน</p><strong>{activeRoom?studentCount:'—'} <small>คน</small></strong></div></div>
+       <div className="academic-stat green"><i><AcademicIcon name="file"/></i><div><p>รายวิชาที่เปิดสอน</p><strong>{activeRoom&&activeTerm?courseCount:'—'} <small>รายวิชา</small></strong></div></div>
+       <div className="academic-stat purple"><i><AcademicIcon name="calendar"/></i><div><p>ระยะเวลาภาคเรียน</p><strong>{calendarDays??'—'} <small>วันปฏิทิน</small></strong><span>{activeTerm?formatDate(activeTerm.starts_on)+' – '+formatDate(activeTerm.ends_on):'ยังไม่กำหนดภาคเรียน'}</span></div></div>
+       <div className="academic-stat pink"><i><AcademicIcon name="check"/></i><div><p>สถานะภาคเรียน</p><strong className="academic-term-status">{termStatus}</strong><span>{selected?.is_active?'ปีการศึกษาปัจจุบัน':'ปีการศึกษาที่เลือก'}</span></div></div>
+      </div>
+      <div className="academic-readiness"><h3><AcademicIcon name="check"/>ความพร้อมในการจัดการเรียน</h3><ul>{checks.map(item=><li key={item.label}><span className={item.ready?'academic-ready-icon':'academic-pending-icon'} aria-hidden="true">{item.ready?'✓':'–'}</span><span>{item.label}</span><b className={item.ready?'ready':'pending'}>{item.ready?'พร้อมใช้งาน':'ยังไม่ครบ'}</b></li>)}</ul></div>
+     </section>
+    </div>
+    {section&&<AcademicDialog title={section==='years'?'จัดการปีการศึกษา':section==='terms'?'จัดการภาคเรียน':'จัดการห้องเรียน'} onClose={()=>{if(!busy){setSection(null);setRoomFormOpen(false);}}}>
+     {error&&<p role="alert" className="mb-4 rounded-xl bg-red-50 p-3 text-sm text-red-800">{error}</p>}
+     {message&&<p role="status" className="mb-4 rounded-xl bg-emerald-50 p-3 text-sm text-emerald-800">{message}</p>}
+     <p className="mb-4 text-sm text-slate-500">ปีการศึกษา {yearName}</p>
       {section==='rooms'&&<>
        <div className="flex flex-wrap items-start justify-between gap-3"><div><h2 className="text-lg font-bold text-blue-950">ห้องเรียนในปีการศึกษา {yearName}</h2><p className="mt-1 text-xs text-slate-500">ข้อมูลห้องเรียน ครูประจำชั้น และจำนวนนักเรียน</p></div><button disabled={!canManage||!selectedYear} onClick={()=>setRoomFormOpen(true)} className="rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-40">＋ เพิ่มห้องเรียน</button></div>
        <div className="mt-4 grid gap-2 rounded-xl bg-slate-50 p-3 sm:grid-cols-[minmax(0,1fr)_135px]">
@@ -153,28 +208,12 @@ export default function AcademicSetupPage() {
        <div className="mt-4 space-y-3">{yearTerms.map(t=><div key={t.id} className="rounded-xl border border-slate-100 bg-slate-50 p-4"><h3 className="font-bold text-blue-900">ภาคเรียนที่ {t.term_no}</h3><p className="mt-2 text-sm text-slate-600">เริ่ม {formatDate(t.starts_on)} · สิ้นสุด {formatDate(t.ends_on)}</p></div>)}{yearTerms.length===0&&<p className="text-sm text-slate-500">ยังไม่มีภาคเรียนในปีนี้</p>}</div>
        {canManage&&<details className="mt-4 rounded-xl border border-blue-100 p-4"><summary className="cursor-pointer text-sm font-semibold text-blue-700">＋ เพิ่มภาคเรียน</summary><div className="mt-3 grid gap-3 sm:grid-cols-2"><label className="text-xs">ภาคเรียน<select className="mt-1 w-full rounded-xl border p-3" value={termNo} onChange={e=>setTermNo(e.target.value)}><option value="1">ภาคเรียน 1</option><option value="2">ภาคเรียน 2</option><option value="3">ภาคเรียน 3</option></select></label><div/><label className="text-xs">วันเริ่ม<input type="date" className="mt-1 w-full rounded-xl border p-3" value={start} onChange={e=>setStart(e.target.value)}/></label><label className="text-xs">วันสิ้นสุด<input type="date" className="mt-1 w-full rounded-xl border p-3" value={end} onChange={e=>setEnd(e.target.value)}/></label></div><button disabled={busy||!selectedYear||!!(start&&end&&end<start)} onClick={()=>execute(()=>db!.from('terms').insert({school_id:schoolId,academic_year_id:selectedYear,term_no:Number(termNo),starts_on:start||null,ends_on:end||null}),'เพิ่มภาคเรียนเรียบร้อย')} className="mt-3 rounded-xl bg-blue-600 px-4 py-2 text-sm text-white disabled:opacity-40">บันทึกภาคเรียน</button></details>}
       </>}
-     </div>
-     <aside className="min-w-0 space-y-4">
-      <section className={card}>
-       <h2 className="text-lg font-bold text-blue-950">▥ ภาพรวมปีการศึกษา</h2>
-       <div className="mt-3 grid grid-cols-2 gap-2">
-        {([{label:'ปีการศึกษา',value:String(yearName),icon:'▣'},{label:'ภาคเรียน',value:yearTerms.length+' ภาคเรียน',icon:'▤'},{label:'ห้องเรียนทั้งหมด',value:yearRooms.length+' ห้อง',icon:'▦'},{label:'นักเรียนในห้อง',value:String(new Set(enrollments.filter(e=>yearRooms.some(r=>r.id===e.classroom_id)&&e.status==='active').map(e=>e.student_id)).size)+' คน',icon:'◉'}] as const).map(item=><div key={item.label} className="rounded-xl bg-blue-50/60 p-3"><p className="text-xs text-slate-500">{item.icon} {item.label}</p><p className="mt-1 text-xl font-extrabold text-blue-900">{item.value}</p></div>)}
-       </div>
-       <p className="mt-3 text-xs text-slate-500">{selected?.is_active?'ปีการศึกษาปัจจุบันของโรงเรียน':'กำลังดูข้อมูลย้อนหลังหรือปีที่ยังไม่เปิดใช้งาน'}</p>
-      </section>
-      <section className={card}>
-       <div className="flex items-center justify-between gap-2"><h2 className="font-bold text-blue-950">ปีการศึกษาและภาคเรียน</h2><button onClick={()=>setSection('years')} className="text-xs font-semibold text-blue-700">จัดการปี →</button></div>
-       <label className="mt-3 block text-xs text-slate-500">ปีการศึกษาที่กำลังดู<select className="mt-1 w-full rounded-xl border border-blue-100 bg-blue-50 px-3 py-2 text-sm font-semibold text-blue-900" value={selectedYear} onChange={e=>{setSelectedYear(e.target.value);setRoomPage(1);}}><option value="">เลือกปีการศึกษา</option>{years.map(y=><option key={y.id} value={y.id}>{y.year_be}{y.is_active?' (ปัจจุบัน)':''}</option>)}</select></label>
-       <div className="mt-3 max-h-40 space-y-2 overflow-auto">{yearTerms.map(t=><div key={t.id} className="rounded-xl border border-slate-100 p-3 text-xs"><p className="font-semibold text-blue-900">ภาคเรียน {t.term_no}</p><p className="mt-1 text-slate-500">{formatDate(t.starts_on)} – {formatDate(t.ends_on)}</p></div>)}{yearTerms.length===0&&<p className="text-xs text-slate-500">ยังไม่มีข้อมูลภาคเรียน</p>}</div>
-      </section>
-      {section==='rooms'&&<section className={card}>
+      {section==='rooms'&&<section className="mt-4 rounded-xl border border-blue-100 p-4">
        <div className="flex items-center justify-between"><h2 className="font-bold text-blue-950">＋ เพิ่มห้องเรียน</h2>{roomFormOpen&&<button type="button" onClick={()=>setRoomFormOpen(false)} aria-label="ปิดแบบฟอร์ม" className="text-lg text-slate-400">×</button>}</div>
-       {!roomFormOpen?<div className="mt-3"><p className="text-xs text-slate-500">เพิ่มห้องเรียนของปีการศึกษาที่เลือก โดยมอบหมายครูประจำชั้นแยกในเมนูมอบหมายครู</p><button disabled={!canManage||!selectedYear} type="button" onClick={()=>setRoomFormOpen(true)} className="mt-3 rounded-xl border border-blue-200 px-4 py-2 text-sm font-semibold text-blue-700 disabled:opacity-40">เพิ่มห้องเรียน</button></div>:<div className="mt-3 space-y-3"><div className="grid grid-cols-2 gap-3"><label className="text-xs font-medium">ระดับชั้น<select className="mt-1 w-full rounded-xl border p-3" value={level} onChange={e=>setLevel(e.target.value)}>{levels.map(l=><option key={l} value={l}>{l}</option>)}</select></label><label className="text-xs font-medium">ห้อง<input className="mt-1 w-full rounded-xl border p-3" maxLength={12} placeholder="เช่น 1" value={room} onChange={e=>setRoom(e.target.value)}/></label></div><p className="text-xs text-slate-500">ครูประจำชั้นสามารถมอบหมายได้หลังบันทึกห้องเรียน</p><div className="flex justify-end gap-2"><button onClick={()=>setRoomFormOpen(false)} className="rounded-xl border px-4 py-2 text-sm">ยกเลิก</button><button disabled={!canManage||busy||!selectedYear||!room.trim()} onClick={async()=>{await execute(()=>db!.from('classrooms').insert({school_id:schoolId,academic_year_id:selectedYear,level_code:level,room_code:room.trim()}),'เพิ่มห้องเรียนเรียบร้อย');}} className="rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-40">บันทึกห้องเรียน</button></div></div>}
+       {!roomFormOpen?<div className="mt-3"><p className="text-xs text-slate-500">เพิ่มห้องเรียนของปีการศึกษาที่เลือก โดยมอบหมายครูประจำชั้นแยกในเมนูมอบหมายครู</p><button disabled={!canManage||!selectedYear} type="button" onClick={()=>setRoomFormOpen(true)} className="mt-3 rounded-xl border border-blue-200 px-4 py-2 text-sm font-semibold text-blue-700 disabled:opacity-40">เพิ่มห้องเรียน</button></div>:<div className="mt-3 space-y-3"><div className="grid grid-cols-2 gap-3"><label className="text-xs font-medium">ระดับชั้น<select className="mt-1 w-full rounded-xl border p-3" value={level} onChange={e=>setLevel(e.target.value)}>{levels.map(l=><option key={l} value={l}>{l}</option>)}</select></label><label className="text-xs font-medium">ห้อง<input className="mt-1 w-full rounded-xl border p-3" maxLength={12} placeholder="เช่น 1" value={room} onChange={e=>setRoom(e.target.value)}/></label></div><p className="text-xs text-slate-500">ครูประจำชั้นสามารถมอบหมายได้หลังบันทึกห้องเรียน</p><div className="flex justify-end gap-2"><button onClick={()=>setRoomFormOpen(false)} className="rounded-xl border px-4 py-2 text-sm">ยกเลิก</button><button disabled={!canManage||busy||!selectedYear||!room.trim()} onClick={async()=>{const saved=await execute(()=>db!.from('classrooms').insert({school_id:schoolId,academic_year_id:selectedYear,level_code:level,room_code:room.trim()}),'เพิ่มห้องเรียนเรียบร้อย');if(saved)setRoomFormOpen(false);}} className="rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-40">บันทึกห้องเรียน</button></div></div>}
        <Link className="mt-3 inline-block text-xs font-semibold text-blue-700" href="/academic/teachers">ไปมอบหมายครูประจำชั้น →</Link>
       </section>}
-      <div className="flex flex-wrap gap-3 text-xs"><Link href="/academic/templates" className="font-semibold text-blue-700">แม่แบบห้องเรียน →</Link><Link href="/students/history" className="font-semibold text-blue-700">จัดนักเรียนเข้าห้อง →</Link></div>
-     </aside>
-    </div>
+    </AcademicDialog>}
    </>}
   </main>;
 }
