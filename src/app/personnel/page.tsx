@@ -1,7 +1,8 @@
 'use client';
 import Link from 'next/link';
 import PageControls,{PAGE_SIZE} from '@/components/page-controls';
-import {useEffect,useState} from 'react';
+import {useEffect,useRef,useState} from 'react';
+import AcademicDialog from '@/components/academic-dialog';
 import {useRouter} from 'next/navigation';
 import {getSupabaseBrowserClient} from '@/lib/supabase/browser';
 type Role='teacher'|'academic'|'registrar'|'director';
@@ -17,6 +18,47 @@ export default function PersonnelPage(){
  const [uid,setUid]=useState(''),[displayName,setDisplayName]=useState(''),[role,setRole]=useState<Role>('teacher');
  const [busy,setBusy]=useState(false),[error,setError]=useState(''),[notice,setNotice]=useState('');
  const [refresh,setRefresh]=useState(0);
+ const [accountForm,setAccountForm]=useState<{mode:'edit'|'password';userId:string}|null>(null);
+ const [editName,setEditName]=useState(''),[editEmail,setEditEmail]=useState('');
+ const [password,setPassword]=useState(''),[confirmPassword,setConfirmPassword]=useState(''),[showPassword,setShowPassword]=useState(false);
+ const [formError,setFormError]=useState(''),[accountLoading,setAccountLoading]=useState(false),[accountLoaded,setAccountLoaded]=useState(false);
+ const accountRequestId=useRef(0);
+ async function accountAction(action:string,userId:string,values:Record<string,string>={}){
+  if(!db)throw new Error('ยังไม่ได้เชื่อมต่อระบบ');
+  const result=await db.functions.invoke('manage-staff',{body:{action,school_id:schoolId,user_id:userId,...values}});
+  if(result.error){
+   let message='จัดการบัญชีไม่สำเร็จ กรุณาลองใหม่';
+   const context=(result.error as {context?:Response}).context;
+   if(context&&typeof context.json==='function'){try{const data=await context.json();if(typeof data.error==='string')message=data.error;}catch{}}
+   throw new Error(message);
+  }
+  if(!result.data||result.data.error)throw new Error(result.data?.error??'ไม่ได้รับผลลัพธ์จากระบบจัดการบัญชี');
+  return result.data as {email:string;display_name:string;success?:boolean};
+ }
+ function closeAccountForm(){if(busy)return;accountRequestId.current++;setAccountForm(null);setPassword('');setConfirmPassword('');setShowPassword(false);setFormError('');}
+ async function openAccountForm(mode:'edit'|'password',userId:string){
+  const requestId=++accountRequestId.current;
+  setAccountForm({mode,userId});setFormError('');setNotice('');setPassword('');setConfirmPassword('');setShowPassword(false);setEditName(name(userId));setEditEmail('');setAccountLoaded(false);
+  setAccountLoading(mode==='edit');
+  if(mode==='edit')try{
+   const account=await accountAction('get-account',userId);
+   if(requestId!==accountRequestId.current)return;
+   setEditName(account.display_name);setEditEmail(account.email);setAccountLoaded(true);
+  }catch(e){if(requestId===accountRequestId.current)setFormError(e instanceof Error?e.message:'โหลดข้อมูลบัญชีไม่สำเร็จ');}
+  finally{if(requestId===accountRequestId.current)setAccountLoading(false);}
+ }
+ async function saveAccount(e:React.FormEvent<HTMLFormElement>){
+  e.preventDefault();if(!accountForm||busy||accountLoading)return;
+  if(accountForm.mode==='edit'&&!accountLoaded)return;
+  if(accountForm.mode==='password'&&(password!==confirmPassword||password.length<8||new TextEncoder().encode(password).length>72)){setFormError('รหัสผ่านต้องตรงกัน มีอย่างน้อย 8 ตัวอักษร และไม่เกิน 72 ไบต์');return;}
+  setBusy(true);setFormError('');
+  try{
+   await accountAction(accountForm.mode==='edit'?'update-profile':'reset-password',accountForm.userId,accountForm.mode==='edit'?{display_name:editName.trim(),email:editEmail.trim()}:{password});
+   setNotice(accountForm.mode==='edit'?'แก้ไขข้อมูลบุคลากรแล้ว':'ตั้งรหัสผ่านใหม่แล้ว ครูสามารถเข้าสู่ระบบด้วยรหัสผ่านใหม่ได้');
+   setAccountForm(null);setPassword('');setConfirmPassword('');setShowPassword(false);setRefresh(x=>x+1);
+  }catch(e){setFormError(e instanceof Error?e.message:'บันทึกข้อมูลไม่สำเร็จ');}finally{setBusy(false);}
+ }
+
  useEffect(()=>{let alive=true;(async()=>{
   if(!db){setError('ยังไม่ได้เชื่อมต่อ Supabase');return;}
   const {data:{user}}=await db.auth.getUser();if(!alive)return;
@@ -43,7 +85,8 @@ export default function PersonnelPage(){
   if(p.error)setError(p.error.message);else setProfiles(p.data??[]);
  })();return()=>{alive=false;};},[db,schoolId,refresh]);
  const name=(id:string)=>profiles.find(p=>p.user_id===id)?.display_name??'บัญชี '+id.slice(0,8);
- const filtered=members.filter(m=>(name(m.user_id)+' '+(roleName[m.role as Role]??m.role)).toLocaleLowerCase().includes(query.toLocaleLowerCase()));
+ const people=[...new Set(members.map(m=>m.user_id))].map(userId=>({userId,memberships:members.filter(m=>m.user_id===userId)}));
+ const filtered=people.filter(p=>(name(p.userId)+' '+p.memberships.map(m=>roleName[m.role as Role]??'ผู้ดูแลระบบ').join(' ')).toLocaleLowerCase().includes(query.toLocaleLowerCase()));
  const displayed=filtered.slice((page-1)*PAGE_SIZE,page*PAGE_SIZE);
  async function perform(action:()=>PromiseLike<{error:{message:string}|null}>,success:string){
   if(busy)return;setBusy(true);setError('');setNotice('');
@@ -72,11 +115,39 @@ export default function PersonnelPage(){
    <section className="rounded-2xl border bg-white p-6 shadow-sm">
     <h2 className="text-xl font-bold">บุคลากรในโรงเรียน</h2>
     <input aria-label="ค้นหาบุคลากร" placeholder="ค้นหาชื่อหรือบทบาท..." className="mt-4 w-full rounded-xl border p-3" value={query} onChange={e=>{setQuery(e.target.value);setPage(1);}}/>
-    <div className="mt-5 space-y-3">{displayed.map((m,i)=><div key={m.user_id+'-'+m.role+'-'+i} className="flex flex-wrap items-center justify-between gap-3 rounded-xl border p-3">
-      <div><p className="font-medium">{name(m.user_id)}</p><p className="mt-1 text-xs text-slate-500">{roleName[m.role as Role]??'ผู้ดูแลระบบ'} · {m.active?'เปิดใช้งาน':'ระงับสิทธิ์'}</p></div>
-      {roles.includes(m.role as Role)&&<button disabled={busy} onClick={()=>perform(()=>db!.rpc('set_school_staff_role_active',{p_school_id:schoolId,p_user_id:m.user_id,p_role:m.role,p_active:!m.active}),m.active?'ระงับสิทธิ์แล้ว':'เปิดสิทธิ์แล้ว')} className="rounded-lg border px-3 py-2 text-xs disabled:opacity-40">{m.active?'ระงับสิทธิ์':'เปิดสิทธิ์'}</button>}
-    </div>)}</div><PageControls total={filtered.length} page={Math.min(page,Math.max(1,Math.ceil(filtered.length/PAGE_SIZE)))} onChange={setPage}/>
+    <div className="mt-5 space-y-3">{displayed.map(person=>{
+     const protectedAccount=person.memberships.some(m=>m.role==='school_admin');
+     return <div key={person.userId} className="rounded-xl border border-slate-200 p-4">
+      <p className="font-semibold text-blue-950">{name(person.userId)}</p>
+      <div className="mt-2 flex flex-wrap gap-2">{person.memberships.map(m=><div key={m.role} className="flex items-center gap-2 rounded-lg bg-slate-50 px-2.5 py-2 text-xs text-slate-600"><span>{roleName[m.role as Role]??'ผู้ดูแลระบบ'} · {m.active?'เปิดใช้งาน':'ระงับสิทธิ์'}</span>{roles.includes(m.role as Role)&&<button disabled={busy} onClick={()=>perform(()=>db!.rpc('set_school_staff_role_active',{p_school_id:schoolId,p_user_id:person.userId,p_role:m.role,p_active:!m.active}),m.active?'ระงับสิทธิ์แล้ว':'เปิดสิทธิ์แล้ว')} className="font-semibold text-blue-700 underline disabled:opacity-40">{m.active?'ระงับสิทธิ์':'เปิดสิทธิ์'}</button>}</div>)}</div>
+      {!protectedAccount&&<div className="mt-3 flex flex-wrap gap-2 border-t border-slate-100 pt-3">
+       <button type="button" disabled={busy} onClick={()=>void openAccountForm('edit',person.userId)} className="rounded-lg bg-blue-50 px-3 py-2 text-xs font-semibold text-blue-700 hover:bg-blue-100 disabled:opacity-40">แก้ไขข้อมูล</button>
+       <button type="button" disabled={busy} onClick={()=>void openAccountForm('password',person.userId)} className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-800 hover:bg-amber-100 disabled:opacity-40">รีเซ็ตรหัสผ่าน</button>
+      </div>}
+     </div>;
+    })}{!filtered.length&&<p className="py-5 text-center text-sm text-slate-500">ไม่พบบุคลากร</p>}</div><PageControls total={filtered.length} page={Math.min(page,Math.max(1,Math.ceil(filtered.length/PAGE_SIZE)))} onChange={setPage}/>
+
    </section>
   </div>}
+  {accountForm&&<AcademicDialog title={accountForm.mode==='edit'?'แก้ไขข้อมูลบุคลากร':'รีเซ็ตรหัสผ่านครู'} onClose={closeAccountForm}>
+   <p className="mb-4 text-sm font-semibold text-blue-900">{name(accountForm.userId)}</p>
+   {accountLoading&&<p role="status" className="mb-4 text-sm text-slate-500">กำลังโหลดข้อมูลบัญชี...</p>}
+   {formError&&<p role="alert" className="mb-4 rounded-xl bg-red-50 p-3 text-sm text-red-800">{formError}</p>}
+   {accountForm.mode==='edit'&&!accountLoaded&&!accountLoading&&<button onClick={()=>void openAccountForm('edit',accountForm.userId)} className="mb-4 text-sm font-semibold text-blue-700 underline">โหลดข้อมูลอีกครั้ง</button>}
+   <form onSubmit={saveAccount} className="space-y-4">
+    {accountForm.mode==='edit'?<>
+     <label className="block text-sm font-medium">ชื่อที่แสดง<input required disabled={busy||!accountLoaded} minLength={2} maxLength={150} value={editName} onChange={e=>setEditName(e.target.value)} className="mt-2 w-full rounded-xl border p-3 disabled:bg-slate-50" autoComplete="name"/></label>
+     <label className="block text-sm font-medium">อีเมลเข้าสู่ระบบ<input type="email" required disabled={busy||!accountLoaded} maxLength={254} value={editEmail} onChange={e=>setEditEmail(e.target.value)} className="mt-2 w-full rounded-xl border p-3 disabled:bg-slate-50" autoComplete="off"/></label>
+     <p className="text-xs text-slate-500">เมื่อเปลี่ยนอีเมล ครูต้องใช้อีเมลใหม่ในการเข้าสู่ระบบ</p>
+    </>:<>
+     <p className="text-sm text-slate-600">กำหนดรหัสผ่านใหม่ให้บัญชีนี้ ครูจะเข้าสู่ระบบด้วยรหัสผ่านใหม่นี้</p>
+     <label className="block text-sm font-medium">รหัสผ่านใหม่<input required type={showPassword?'text':'password'} autoComplete="new-password" minLength={8} maxLength={72} disabled={busy} value={password} onChange={e=>setPassword(e.target.value)} className="mt-2 w-full rounded-xl border p-3"/></label>
+     <label className="block text-sm font-medium">ยืนยันรหัสผ่านใหม่<input required type={showPassword?'text':'password'} autoComplete="new-password" minLength={8} maxLength={72} disabled={busy} value={confirmPassword} onChange={e=>setConfirmPassword(e.target.value)} className="mt-2 w-full rounded-xl border p-3"/></label>
+     <label className="flex items-center gap-2 text-xs text-slate-600"><input type="checkbox" checked={showPassword} onChange={e=>setShowPassword(e.target.checked)}/>แสดงรหัสผ่าน</label>
+     <p className="text-xs text-slate-500">อย่างน้อย 8 ตัวอักษร และไม่เกิน 72 ไบต์</p>
+    </>}
+    <div className="flex justify-end gap-2 border-t border-slate-100 pt-4"><button type="button" disabled={busy} onClick={closeAccountForm} className="rounded-xl border px-4 py-2 text-sm disabled:opacity-40">ยกเลิก</button><button type="submit" disabled={busy||accountLoading||(accountForm.mode==='edit'&&!accountLoaded)} className="rounded-xl bg-blue-700 px-4 py-2 text-sm font-semibold text-white disabled:opacity-40">{busy?'กำลังบันทึก...':accountForm.mode==='edit'?'บันทึกข้อมูล':'ตั้งรหัสผ่านใหม่'}</button></div>
+   </form>
+  </AcademicDialog>}
  </main>;
 }
