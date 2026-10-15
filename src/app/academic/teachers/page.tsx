@@ -1,4 +1,5 @@
 'use client';
+import PageHeader from '@/components/page-header';
 import Link from 'next/link';
 import PageControls,{PAGE_SIZE} from '@/components/page-controls';
 import {resolveYear,setYearSelection,YEAR_EVENT} from '@/lib/academic-year-selection';
@@ -79,13 +80,13 @@ export default function TeachersPage(){
   try{const result=await task();if(result.error)setError(result.error.message);else{setNotice(success);setRevision(v=>v+1);}}
   catch(e){setError(e instanceof Error?e.message:'บันทึกไม่สำเร็จ');}finally{setBusy(false);}
  }
- return <main className="mx-auto max-w-6xl px-5 py-8">
+ return <main className="wichakan-page mx-auto max-w-6xl px-5 py-8">
   <Link href="/academic" className="text-sm text-blue-700">← ตั้งค่างานวิชาการ</Link>
-  <h1 className="mt-3 text-3xl font-bold">มอบหมายครู</h1><p className="mt-2 text-sm text-slate-500">Teacher Assignments · ครูประจำชั้นและครูผู้สอนตามปีการศึกษา</p>
+  <PageHeader title="มอบหมายครู"/>
   {error&&<p role="alert" className="mt-5 rounded-xl bg-red-50 p-4 text-red-700">{error}</p>}
   {notice&&<p role="status" className="mt-5 rounded-xl bg-green-50 p-4 text-green-700">{notice}</p>}
   {schoolId&&<div className="mt-6 space-y-5">
-    <section className="rounded-2xl border bg-white p-6 shadow-sm">
+    <section className="ui-panel rounded-2xl border bg-white p-6 shadow-sm">
       <div className="grid gap-3 md:grid-cols-3">
        <label className="text-sm">ปีการศึกษา<select className="mt-2 w-full rounded-xl border p-3" value={yearId} onChange={e=>{setYearId(e.target.value);setClassId('');setTermId('');}}>
        {years.map(y=><option key={y.id} value={y.id}>{y.year_be}</option>)}</select></label>
@@ -94,19 +95,19 @@ export default function TeachersPage(){
       </div>
     </section>
     <div className="grid gap-5 lg:grid-cols-2">
-     <section className="rounded-2xl border bg-white p-6 shadow-sm">
-      <h2 className="text-xl font-bold">ครูประจำชั้น</h2><p className="mt-2 text-sm text-slate-500">ครูประจำชั้นสามารถเปลี่ยนได้ในแต่ละปี โดยไม่กระทบปีเก่า</p>
+     <section className="ui-panel rounded-2xl border bg-white p-6 shadow-sm">
+      <h2 className="text-xl font-bold">ครูประจำชั้น</h2><p className="mt-2 text-sm text-slate-500">กำหนดครูประจำชั้นตามปีการศึกษา</p>
       <div className="mt-4 flex gap-2">
        <select aria-label="ครูประจำชั้น" className="min-w-0 flex-1 rounded-xl border p-3" value={validTeacher} onChange={e=>setTeacherId(e.target.value)}>
         {teachers.map(t=><option key={t.user_id} value={t.user_id}>{t.display_name}</option>)}</select>
-       <button disabled={!canWrite||busy||!validRoom||!validTeacher} onClick={()=>act(()=>db!.from('homeroom_assignments').insert({school_id:schoolId,classroom_id:validRoom,teacher_user_id:validTeacher}),'มอบหมายครูประจำชั้นสำเร็จ')} className="rounded-xl bg-blue-800 px-4 text-white disabled:opacity-40">มอบหมาย</button>
+       <button disabled={!canWrite||busy||!validRoom||!validTeacher} onClick={()=>act(()=>db!.from('homeroom_assignments').insert({school_id:schoolId,classroom_id:validRoom,teacher_user_id:validTeacher}),'มอบหมายครูประจำชั้นสำเร็จ')} className="ui-primary rounded-xl bg-blue-800 px-4 text-white disabled:opacity-40">มอบหมาย</button>
       </div>
       <div className="mt-4 space-y-2">{homerooms.filter(h=>h.classroom_id===validRoom).map(h=><div key={h.id} className="flex justify-between rounded-xl bg-slate-50 p-3 text-sm"><span>{name(h.teacher_user_id)}</span><button disabled={!canWrite||busy} className="text-red-700 disabled:opacity-40" onClick={()=>act(()=>db!.from('homeroom_assignments').delete().eq('id',h.id).eq('school_id',schoolId),'ยกเลิกมอบหมายแล้ว')}>ยกเลิก</button></div>)}</div>
-      {teachers.length===0&&<p className="mt-4 text-sm text-amber-700">ยังไม่มีบัญชีที่ได้รับบทบาท teacher ในโรงเรียนนี้</p>}
+      {teachers.length===0&&<p className="mt-4 text-sm text-amber-700">ยังไม่มีครูผู้สอนในโรงเรียน</p>}
      </section>
-     <section className="rounded-2xl border bg-white p-6 shadow-sm">
+     <section className="ui-panel rounded-2xl border bg-white p-6 shadow-sm">
       <h2 className="text-xl font-bold">มอบหมายครูผู้สอนรายวิชา</h2>
-      <p className="mt-2 text-sm text-slate-500">เลือกปีและภาคเรียนด้านบน จากนั้นเลือกครู ห้องเรียน และรายวิชา กดบันทึกครั้งเดียว</p>
+      <p className="mt-2 text-sm text-slate-500">เลือกครู ห้องเรียน และรายวิชา</p>
       <details className="mt-5 rounded-xl border border-blue-100 bg-blue-50/30 p-4"><summary className="cursor-pointer font-semibold text-blue-800">+ มอบหมายครูผู้สอน</summary><div className="mt-4 space-y-4">
        <label className="block text-sm font-medium">ครูผู้สอน
         <select className="mt-2 w-full rounded-xl border p-3" value={validTeacher} onChange={e=>setTeacherId(e.target.value)}>
@@ -122,7 +123,7 @@ export default function TeachersPage(){
        <div className="rounded-xl bg-blue-50 p-3 text-sm text-blue-900">
         ห้อง {yearRooms.find(r=>r.id===validRoom)?roomName(yearRooms.find(r=>r.id===validRoom)!):'—'} · ปี {years.find(y=>y.id===yearId)?.year_be??'—'} · ภาคเรียน {yearTerms.find(t=>t.id===validTerm)?.term_no??'—'}
        </div>
-       <button disabled={!canWrite||busy||!validTeacher||!validRoom||!validTerm||!validSubject} onClick={()=>act(()=>db!.rpc('assign_teacher_to_subject',{p_school_id:schoolId,p_teacher_user_id:validTeacher,p_classroom_id:validRoom,p_subject_id:validSubject,p_term_id:validTerm}),'บันทึกมอบหมายครูผู้สอนเรียบร้อยแล้ว')} className="w-full rounded-xl bg-blue-800 px-4 py-3 font-semibold text-white disabled:opacity-40">
+       <button disabled={!canWrite||busy||!validTeacher||!validRoom||!validTerm||!validSubject} onClick={()=>act(()=>db!.rpc('assign_teacher_to_subject',{p_school_id:schoolId,p_teacher_user_id:validTeacher,p_classroom_id:validRoom,p_subject_id:validSubject,p_term_id:validTerm}),'บันทึกมอบหมายครูผู้สอนเรียบร้อยแล้ว')} className="ui-primary w-full rounded-xl bg-blue-800 px-4 py-3 font-semibold text-white disabled:opacity-40">
         {busy?'กำลังบันทึก...':'บันทึกการมอบหมาย'}
        </button>
        <p className="text-xs text-slate-500">หากวิชานี้ยังไม่เปิดสอน ระบบจะเปิดสอนและมอบหมายครูในรายการเดียว หากเคยมอบหมายครูคนเดิมแล้วจะไม่สร้างข้อมูลซ้ำ</p>

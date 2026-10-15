@@ -1,8 +1,9 @@
 'use client';
+import PageHeader from '@/components/page-header';
 import Link from 'next/link';
 import {useEffect,useState} from 'react';
 import {useRouter} from 'next/navigation';
-import {AcademicIcon,SchoolScene} from '@/components/academic-visuals';
+import {AcademicIcon} from '@/components/academic-visuals';
 import {getSupabaseBrowserClient} from '@/lib/supabase/browser';
 import {resolveYear,setYearSelection,YEAR_EVENT} from '@/lib/academic-year-selection';
 import {summarizeLevels,type SchoolRoom,type SchoolEnrollment,type SchoolOffering,type SchoolAssignment,type SchoolSubject,type SchoolCurriculumVersion} from '@/lib/school-readiness';
@@ -79,8 +80,8 @@ export default function AdminPage(){
  const visibleAlerts=showAll?alerts:alerts.slice(0,4);
  const canShow=current&&!error;
  function chooseYear(id:string){setYearId(id);setTermId('');setSelectedLevel('');setYearSelection(schoolId,id);}
- return <main className="academic-dashboard school-dashboard mx-auto px-4 pb-6 pt-4 sm:px-6">
-  <header className="academic-hero"><div className="relative z-10"><h1>จัดการสถานศึกษา</h1><p>ติดตามความพร้อมของแต่ละระดับชั้นและภาพรวมงานวิชาการของโรงเรียน</p><span>{schoolName||'Wichakan · ระบบบริหารจัดการสถานศึกษา'}</span></div><SchoolScene/></header>
+ return <main className="wichakan-page academic-dashboard school-dashboard mx-auto px-4 pb-6 pt-4 sm:px-6">
+  <PageHeader title="จัดการสถานศึกษา" context={schoolName}/>
   {error&&<div role="alert" className="mt-3 rounded-xl bg-red-50 p-4 text-sm text-red-800">{error}<button className="ml-3 font-bold underline" onClick={()=>schoolId?setRevision(x=>x+1):window.location.reload()}>ลองอีกครั้ง</button></div>}
   <div className="academic-filters school-filters" aria-busy={loading}>
    <label><AcademicIcon name="calendar"/><span>ปีการศึกษา</span><select disabled={!years.length} value={yearId} onChange={e=>chooseYear(e.target.value)}>{!years.length&&<option value="">ยังไม่มีปีการศึกษา</option>}{years.map(y=><option key={y.id} value={y.id}>{y.year_be}{y.is_active?' (ปัจจุบัน)':''}</option>)}</select></label>
@@ -101,7 +102,7 @@ export default function AdminPage(){
     </tbody></table></div>
     {(!canShow||loading)&&<p className="school-empty">{loading?'กำลังโหลดข้อมูล...':'ยังไม่สามารถแสดงข้อมูลได้'}</p>}
     {canShow&&!loading&&!shown.length&&<div className="school-empty"><p>{rows.length?'ไม่มีระดับชั้นในมุมมองนี้':'ยังไม่มีห้องเรียนในปีการศึกษาที่เลือก'}</p><Link href="/academic">ไปตั้งค่างานวิชาการ →</Link></div>}
-    <p className="school-table-note">จำนวนวิชาอิงรายวิชาที่ลงทะเบียนในรุ่นหลักสูตรล่าสุดที่มีผลในปีที่เลือก วิชาที่ขาดครูนับรวมวิชาที่ยังไม่เปิดสอน และต้องมีครูครบทุกห้องในภาคเรียนที่เลือก ยังไม่รวมผลการลงคะแนน</p>
+    <details className="school-table-note"><summary className="cursor-pointer text-blue-700">เกณฑ์ความพร้อม</summary><p className="mt-2">จำนวนวิชาอิงรายวิชาที่ลงทะเบียนในรุ่นหลักสูตรล่าสุดที่มีผลในปีที่เลือก วิชาที่ขาดครูนับรวมวิชาที่ยังไม่เปิดสอน และต้องมีครูครบทุกห้องในภาคเรียนที่เลือก ยังไม่รวมผลการลงคะแนน</p></details>
     <div className="school-footer-links"><Link href="/academic">ตั้งค่างานวิชาการ ↗</Link><Link href="/academic/teachers">มอบหมายครู ↗</Link><Link href="/students/history">จัดนักเรียนเข้าห้อง ↗</Link></div>
    </section>
    <aside className="school-aside">
