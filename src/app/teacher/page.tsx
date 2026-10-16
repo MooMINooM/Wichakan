@@ -49,7 +49,7 @@ export default function TeacherPage(){
      {!loading&&!error&&(!validTerm||!courses.length)&&<p className="teacher-empty">{!validTerm?'ยังไม่มีภาคเรียนในปีที่เลือก':'ยังไม่มีรายวิชาที่ได้รับมอบหมายในภาคเรียนนี้'}</p>}
     </section>
     <section className="ui-panel" id="homerooms" aria-labelledby="teacher-homerooms-heading"><div className="teacher-panel-heading"><h2 id="teacher-homerooms-heading"><AcademicIcon name="users"/>ห้องประจำชั้น</h2></div>
-     {ready&&homeRooms.map(r=><div className="teacher-homeroom-card" key={r.id}><AcademicIcon name="users"/><div><h3>{teacherRoomLabel(r)}</h3><p>นักเรียน {homeRoster(r.id).length} คน</p><span>ปีการศึกษา {data.years.find(y=>y.id===yearId)?.year_be??'—'}</span></div><button className="ui-secondary" onClick={()=>setRosterRoom(r.id)}><AcademicIcon name="users"/>ดูรายชื่อนักเรียน</button></div>)}
+     {ready&&homeRooms.map(r=><div className="teacher-homeroom-card" key={r.id}><AcademicIcon name="users"/><div><h3>{teacherRoomLabel(r)}</h3><p>นักเรียน {homeRoster(r.id).length} คน</p><span>ปีการศึกษา {data.years.find(y=>y.id===yearId)?.year_be??'—'}</span></div><Link className="ui-secondary" href="/teacher/pp6">ตรวจผล / ปพ.6</Link><button className="ui-secondary" onClick={()=>setRosterRoom(r.id)}><AcademicIcon name="users"/>ดูรายชื่อนักเรียน</button></div>)}
      {ready&&!homeRooms.length&&<p className="teacher-empty">ไม่มีห้องประจำชั้นในปีที่เลือก</p>}
     </section>
    </div>
