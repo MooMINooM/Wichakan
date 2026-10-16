@@ -36,7 +36,7 @@ export default function ScoreSettingsPage(){
  const t1=values.slice(0,3).reduce((a,v)=>a+(Number(v)||0),0),t2=values.slice(3).reduce((a,v)=>a+(Number(v)||0),0);
  const sum=values.reduce((a,v)=>a+(Number(v)||0),0);
  const complete=values.every(v=>v.trim()!==''&&Number.isInteger(Number(v))&&Number(v)>=0&&Number(v)<=100);
- const valid=complete&&(secondary?t1===100&&t2===100:sum===100);
+ const valid=complete&&(secondary?t1===100&&t2===100:t1===50&&t2===50);
  const existing=saved.some(s=>s.subject_id===subjectId);
  async function save(){
   if(!db||busy||!schoolId||!yearId||!subjectId||!valid)return;
@@ -50,7 +50,7 @@ export default function ScoreSettingsPage(){
  }
  return <main className="mx-auto max-w-6xl px-4 py-5 sm:px-6">
  <Link href="/academic" className="text-sm font-semibold text-blue-700">← ตั้งค่างานวิชาการ</Link>
- <header className="mt-4 rounded-2xl border border-blue-100 bg-gradient-to-r from-blue-50 to-sky-50 p-6"><h1 className="text-2xl font-bold text-blue-950">ตั้งค่าโครงสร้างคะแนน</h1><p className="mt-2 text-sm text-slate-600">Admin กำหนดคะแนนเต็มของแต่ละรายวิชา แยกสองภาคเรียน โดยประถมรวมทั้งปีต้องเท่ากับ 100 คะแนน และมัธยมแต่ละภาคเรียนต้องเท่ากับ 100 คะแนน</p></header>
+ <header className="mt-4 rounded-2xl border border-blue-100 bg-gradient-to-r from-blue-50 to-sky-50 p-6"><h1 className="text-2xl font-bold text-blue-950">ตั้งค่าโครงสร้างคะแนน</h1><p className="mt-2 text-sm text-slate-600">Admin กำหนดคะแนนเต็มของแต่ละรายวิชา แยกสองภาคเรียน โดยประถมภาคเรียนละ 50 รวมปี 100 คะแนน และมัธยมแต่ละภาคเรียนต้องเท่ากับ 100 คะแนน</p></header>
  {error&&<p role="alert" className="mt-4 rounded-xl bg-red-50 p-3 text-sm text-red-800">{error}</p>}
  {notice&&<p role="status" className="mt-4 rounded-xl bg-emerald-50 p-3 text-sm text-emerald-800">{notice}</p>}
  {loading?<p className="mt-5 text-sm">กำลังโหลด...</p>:<div className="mt-4 grid gap-4 lg:grid-cols-[minmax(260px,0.9fr)_minmax(0,1.4fr)]">
@@ -64,10 +64,10 @@ export default function ScoreSettingsPage(){
  <div className="mt-5 grid gap-5 sm:grid-cols-2">{[0,1].map(term=><div key={term} className="rounded-xl border border-blue-100 p-4"><h3 className="font-bold text-blue-900">ภาคเรียนที่ {term+1}</h3>
  {labels.map((label,i)=><label key={label} className="mt-4 block text-sm">{label}<span className="ml-1 text-xs text-slate-500">(คะแนนเต็ม)</span><input type="number" min="0" max="100" step="1" value={values[term*3+i]} onChange={e=>setValues(old=>old.map((x,j)=>j===term*3+i?e.target.value:x))} className="mt-1 w-full rounded-xl border p-3"/></label>)}
  <div className="mt-4 rounded-xl bg-blue-50 p-3 text-sm font-semibold text-blue-900">รวมภาคเรียน {term+1}: {term===0?t1:t2}/{secondary?100:'ตามสัดส่วนรายปี'} คะแนน</div></div>)}</div>
- <div className={`mt-5 flex flex-wrap items-center justify-between gap-2 rounded-xl p-4 ${valid?'bg-emerald-50 text-emerald-900':'bg-red-50 text-red-900'}`}><strong>{secondary?'คะแนนเต็มภาคเรียนละ 100':'คะแนนเต็มรวมทั้งปี'}</strong><strong className="text-2xl">{secondary?`${t1}/100 · ${t2}/100`:`${sum}/100`}</strong></div>
- {!valid&&<p role="alert" className="mt-3 text-sm font-medium text-red-700">{!complete?'กรุณากรอกคะแนนเต็มทั้ง 6 ช่อง เป็นจำนวนเต็มตั้งแต่ 0 ถึง 100':secondary?'ภาคเรียนที่ 1 และ 2 ต้องเต็มภาคเรียนละ 100 คะแนน':sum<100?`คะแนนยังขาด ${100-sum} คะแนน กรุณาปรับให้ครบ 100`:`คะแนนเกิน ${sum-100} คะแนน กรุณาปรับให้เหลือ 100`}</p>}
+ <div className={`mt-5 flex flex-wrap items-center justify-between gap-2 rounded-xl p-4 ${valid?'bg-emerald-50 text-emerald-900':'bg-red-50 text-red-900'}`}><strong>{secondary?'คะแนนเต็มภาคเรียนละ 100':'คะแนนเต็มภาคเรียนละ 50'}</strong><strong className="text-2xl">{secondary?`${t1}/100 · ${t2}/100`:`${t1}/50 · ${t2}/50`}</strong></div>
+ {!valid&&<p role="alert" className="mt-3 text-sm font-medium text-red-700">{!complete?'กรุณากรอกคะแนนเต็มทั้ง 6 ช่อง เป็นจำนวนเต็มตั้งแต่ 0 ถึง 100':secondary?'ภาคเรียนที่ 1 และ 2 ต้องเต็มภาคเรียนละ 100 คะแนน':t1!==50||t2!==50?'ประถมศึกษาต้องเต็มภาคเรียนละ 50 คะแนน':sum<100?`คะแนนยังขาด ${100-sum} คะแนน กรุณาปรับให้ครบ 100`:`คะแนนเกิน ${sum-100} คะแนน กรุณาปรับให้เหลือ 100`}</p>}
  <button type="button" disabled={!valid||busy} onClick={save} className="mt-4 w-full rounded-xl bg-blue-700 px-5 py-3 font-semibold text-white disabled:cursor-not-allowed disabled:opacity-40">{busy?'กำลังบันทึก...':'บันทึกโครงสร้างคะแนน'}</button>
- <p className="mt-3 text-xs text-slate-500">ระบบตรวจสอบซ้ำในฐานข้อมูล: ประถมรวมรายปี 100 / มัธยมแต่ละภาคเรียน 100</p>
+ <p className="mt-3 text-xs text-slate-500">ระบบตรวจสอบซ้ำในฐานข้อมูล: ประถมแต่ละภาคเรียน 50 / มัธยมแต่ละภาคเรียน 100</p>
  </>}</section></div>}
  </main>;
 }
