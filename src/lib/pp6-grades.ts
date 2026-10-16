@@ -20,3 +20,19 @@ export function pp6Matrix(subjects:Pp6Subject[],offerings:Pp6Offering[],terms:Pp
   return {subjectId:subject.id,grade:'—',score:result.term1,state:'inprogress'};
  });
 }
+
+export function provisionalGpa(subjects:Pp6Subject[],cells:Pp6Cell[],level:string,termNo:number){
+ if(level.startsWith('ป.')&&termNo===1)return null;
+ let weighted=0,units=0,hasGraded=false;
+ for(const s of subjects){
+  if(s.category!=='basic'&&s.category!=='additional')continue;
+  hasGraded=true;
+  const cell=cells.find(c=>c.subjectId===s.id);
+  const allowed=['0','1','1.5','2','2.5','3','3.5','4'];
+  if(!cell||cell.state!=='complete'||!allowed.includes(cell.grade))return null;
+  const weight=(s.learning_hours??0)/40;
+  if(weight<=0)return null;
+  units+=weight;weighted+=Number(cell.grade)*weight;
+ }
+ return hasGraded&&units>0?(weighted/units).toFixed(2):null;
+}

@@ -1,0 +1,1 @@
+create policy homeroom_teacher_score_select on public.student_course_scores for select to authenticated using (exists (select 1 from public.course_offerings o join public.homeroom_assignments h on h.classroom_id=o.classroom_id and h.school_id=o.school_id where o.id=student_course_scores.course_offering_id and h.teacher_user_id=auth.uid()));
