@@ -6,7 +6,7 @@ export const numericGrade=(total:number)=>total>=80?'4':total>=75?'3.5':total>=7
 export function settingCaps(setting?:ScoreSetting){return setting?SCORE_FIELDS.map(f=>setting[f]):[];}
 export type ScoreMode='annual'|'semester';
 export function scoreMode(level:string|null|undefined):ScoreMode{return level?.startsWith('ม.')?'semester':'annual';}
-export function validCaps(caps:number[],mode:ScoreMode='annual'){return caps.length===6&&caps.every(n=>Number.isInteger(n)&&n>=0&&n<=100)&&(mode==='annual'?caps.reduce((a,b)=>a+b,0)===100:caps.slice(0,3).reduce((a,b)=>a+b,0)===100&&caps.slice(3).reduce((a,b)=>a+b,0)===100);}
+export function validCaps(caps:number[],mode:ScoreMode='annual'){return caps.length===6&&caps.every(n=>Number.isInteger(n)&&n>=0&&n<=100)&&(mode==='annual'?caps.slice(0,3).reduce((a,b)=>a+b,0)===50&&caps.slice(3).reduce((a,b)=>a+b,0)===50:caps.slice(0,3).reduce((a,b)=>a+b,0)===100&&caps.slice(3).reduce((a,b)=>a+b,0)===100);}
 export function evaluateScore(values:string[],special:string,caps:number[],mode:ScoreMode='annual',termNo=2){
  const numbers=values.map(v=>v.trim()===''?null:Number(v));
  const invalid=numbers.map((v,i)=>v!==null&&(!Number.isInteger(v)||v<0||v>caps[i]));
