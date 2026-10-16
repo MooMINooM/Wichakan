@@ -9,7 +9,7 @@ begin
  if v_level like 'ม.%' then
   if v_total1<>100 or v_total2<>100 then raise exception 'มัธยมศึกษา: ภาคเรียนที่ 1 และ 2 ต้องเต็มภาคเรียนละ 100';end if;
  elsif v_level like 'ป.%' then
-  if v_total1+v_total2<>100 then raise exception 'ประถมศึกษา: คะแนนเต็มรวมทั้งปีต้องเท่ากับ 100';end if;
+  if v_total1<>50 or v_total2<>50 then raise exception 'ประถมศึกษา: ภาคเรียนที่ 1 และ 2 ต้องเต็มภาคเรียนละ 50';end if;
  else raise exception 'ระบบบันทึกเกรดนี้รองรับระดับ ป. และ ม. เท่านั้น';end if;
  return new;
 end $$;
@@ -31,7 +31,7 @@ begin
  if v_level like 'ม.%' then
   if v_t1<>100 or v_t2<>100 then raise exception 'มัธยมศึกษา: คะแนนเต็มแต่ละภาคเรียนต้องเท่ากับ 100';end if;
  elsif v_level like 'ป.%' then
-  if v_t1+v_t2<>100 then raise exception 'ประถมศึกษา: คะแนนเต็มสองภาคเรียนต้องรวมเท่ากับ 100';end if;
+  if v_t1<>50 or v_t2<>50 then raise exception 'ประถมศึกษา: คะแนนเต็มแต่ละภาคเรียนต้องเท่ากับ 50';end if;
  else raise exception 'ระดับชั้นนี้ไม่รองรับการตั้งค่าเกรด';end if;
  if exists(select 1 from public.student_course_scores s
  join public.course_offerings o on o.id=s.course_offering_id
