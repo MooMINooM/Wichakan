@@ -27,7 +27,7 @@ export default function TeachersPage(){
  const db=getSupabaseBrowserClient(),router=useRouter(),request=useRef(0);
  const [schoolId,setSchoolId]=useState(''),[canWrite,setCanWrite]=useState(false),[data,setData]=useState<Snapshot>(empty);
  const [yearId,setYearId]=useState(''),[termId,setTermId]=useState(''),[grade,setGrade]=useState(''),[roomId,setRoomId]=useState('');
- const [homeGrade,setHomeGrade]=useState(''),[homeRoom,setHomeRoom]=useState('');
+ const [homeRoom,setHomeRoom]=useState('');
  const [query,setQuery]=useState(''),[status,setStatus]=useState(''),[page,setPage]=useState(1);
  const [dialog,setDialog]=useState<{kind:'subject'|'homeroom';key:string}|null>(null),[teacherId,setTeacherId]=useState(''),[confirmRemove,setConfirmRemove]=useState('');
  const [error,setError]=useState(''),[loadError,setLoadError]=useState(''),[dialogError,setDialogError]=useState(''),[notice,setNotice]=useState(''),[loading,setLoading]=useState(true),[busy,setBusy]=useState(false);
@@ -70,7 +70,7 @@ export default function TeachersPage(){
  const validRoom=gradeRooms.some(r=>r.id===roomId)?roomId:'';
  const selectedRooms=gradeRooms.filter(r=>!validRoom||r.id===validRoom);
  const yearTerms=data.terms.filter(t=>t.academic_year_id===yearId),validTerm=yearTerms.some(t=>t.id===termId)?termId:yearTerms[0]?.id??'';
- const homeLevel=grades.includes(homeGrade)?homeGrade:validGrade,homeRooms=yearRooms.filter(r=>r.level_code===homeLevel);
+ const homeRooms=selectedRooms;
  const selectedHome=homeRooms.find(r=>r.id===homeRoom)??homeRooms.find(r=>r.id===validRoom)??homeRooms[0];
  const homeAssignments=data.homerooms.filter(h=>h.classroom_id===selectedHome?.id);
  const activeIds=new Set(data.members.filter(m=>m.role==='teacher').map(m=>m.user_id));
@@ -100,10 +100,10 @@ export default function TeachersPage(){
   {error&&<p role="alert" className="mb-4 rounded-xl bg-red-50 p-3 text-red-800">{error}</p>}
   {loadError&&<p role="alert" className="mb-4 rounded-xl bg-red-50 p-3 text-red-800">{loadError}<button className="ml-3 underline" onClick={()=>void load()}>ลองอีกครั้ง</button></p>}
   {notice&&<p role="status" className="mb-4 rounded-xl bg-green-50 p-3 text-green-800">{notice}</p>}
-  <section className="ui-panel assignment-filters" aria-label="กรองรายวิชา">
+  <section className="ui-panel assignment-filters" aria-label="กรองข้อมูลการมอบหมายครู">
    <label>ปีการศึกษา<select aria-label="ปีการศึกษารายวิชา" value={yearId} disabled={!ready||busy} onChange={e=>{setYearId(e.target.value);setTermId('');setRoomId('');setHomeRoom('');}}>{!data.years.length&&<option value="">ยังไม่มีปีการศึกษา</option>}{data.years.map(y=><option key={y.id} value={y.id}>{y.year_be}</option>)}</select></label>
    <label>ภาคเรียน<select aria-label="ภาคเรียนรายวิชา" value={validTerm} disabled={!ready||busy} onChange={e=>setTermId(e.target.value)}>{!yearTerms.length&&<option value="">ยังไม่มีภาคเรียน</option>}{yearTerms.map(t=><option key={t.id} value={t.id}>ภาคเรียนที่ {t.term_no}</option>)}</select></label>
-   <label>ระดับชั้น<select aria-label="ระดับชั้นรายวิชา" value={validGrade} disabled={!ready||busy} onChange={e=>{setGrade(e.target.value);setRoomId('');setHomeGrade(e.target.value);setHomeRoom('');}}>{!grades.length&&<option value="">ยังไม่มีห้องเรียน</option>}{grades.map(g=><option key={g}>{g}</option>)}</select></label>
+   <label>ระดับชั้น<select aria-label="ระดับชั้นรายวิชา" value={validGrade} disabled={!ready||busy} onChange={e=>{setGrade(e.target.value);setRoomId('');setHomeRoom('');}}>{!grades.length&&<option value="">ยังไม่มีห้องเรียน</option>}{grades.map(g=><option key={g}>{g}</option>)}</select></label>
    <label>ห้องเรียน<select aria-label="ห้องเรียนรายวิชา" value={validRoom} disabled={!ready||busy} onChange={e=>{setRoomId(e.target.value);setHomeRoom(e.target.value);}}><option value="">ทุกห้อง</option>{gradeRooms.map(r=><option key={r.id} value={r.id}>{roomName(r)}</option>)}</select></label>
    <button className="ui-primary" onClick={()=>void load()} disabled={!schoolId||loading||busy}><AcademicIcon name="search"/>แสดงข้อมูล</button>
   </section>
@@ -113,7 +113,6 @@ export default function TeachersPage(){
   {selectedRooms.length>1&&<p className="assignment-count-note">นับรายวิชาแยกตามห้องเรียน · {selectedRooms.length} ห้อง</p>}
   <section className="ui-panel assignment-homeroom" aria-labelledby="homeroom-heading">
    <div className="assignment-section-title"><i><AcademicIcon name="users"/></i><h2 id="homeroom-heading">มอบหมายครูประจำชั้น</h2></div>
-   <label>ระดับชั้น<select aria-label="ระดับชั้นครูประจำชั้น" value={homeLevel} disabled={!ready||busy} onChange={e=>{setHomeGrade(e.target.value);setHomeRoom('');}}>{!grades.length&&<option value="">ยังไม่มีห้องเรียน</option>}{grades.map(g=><option key={g}>{g}</option>)}</select></label>
    <label>ห้องเรียน<select aria-label="ห้องเรียนครูประจำชั้น" value={selectedHome?.id??''} disabled={!ready||busy} onChange={e=>setHomeRoom(e.target.value)}>{!homeRooms.length&&<option value="">ยังไม่มีห้องเรียน</option>}{homeRooms.map(r=><option key={r.id} value={r.id}>{roomName(r)}</option>)}</select></label>
    <div className={'assignment-current-home '+(homeAssignments.length?'assigned':'')}><AcademicIcon name="users"/><div><span>ครูประจำชั้น (ปัจจุบัน)</span><p>{!ready?'รอข้อมูล':homeAssignments.length?homeAssignments.map(h=>name(h.teacher_user_id)).join(', '):'ยังไม่มอบหมาย'}</p></div></div>
    <button className="ui-secondary" disabled={!canWrite||!ready||busy||!selectedHome} onClick={()=>selectedHome&&open('homeroom',selectedHome.id)}><AcademicIcon name="edit"/>{homeAssignments.length?'เปลี่ยนครูประจำชั้น':'มอบหมายครูประจำชั้น'}</button>
