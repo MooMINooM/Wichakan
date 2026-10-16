@@ -3,6 +3,7 @@ import Link from 'next/link';
 import {useEffect,useState} from 'react';
 import PageHeader from '@/components/page-header';
 import TeacherScoreGrid from '@/components/teacher-score-grid';
+import {scoreMode} from '@/lib/teacher-scores';
 import {resolveYear,setYearSelection} from '@/lib/academic-year-selection';
 import {useTeacherWorkspace,teacherRoomLabel,offeringRoster} from '@/lib/use-teacher-workspace';
 export default function TeacherScoresPage(){
@@ -49,7 +50,7 @@ export default function TeacherScoresPage(){
    <Link className="ui-secondary" href="/teacher#courses">← กลับหน้ารายวิชาที่สอน</Link>
   </section>
   {loading&&<p role="status" className="teacher-empty">กำลังโหลดรายวิชาและคะแนน...</p>}
-  {ready&&!linkError&&selected&&<TeacherScoreGrid key={selected.id} offeringId={selected.id} students={students} records={data.scores} setting={setting} onDirty={setDirty} onBusy={setBusy} onSaved={recordSaved}/>}
+  {ready&&!linkError&&selected&&<TeacherScoreGrid key={selected.id} offeringId={selected.id} students={students} records={data.scores} setting={setting} mode={scoreMode(data.subjects.find(s=>s.id===validSubject)?.grade_level)} termNo={data.terms.find(t=>t.id===validTerm)?.term_no??1} onDirty={setDirty} onBusy={setBusy} onSaved={recordSaved}/>}
   {ready&&!selected&&<p className="ui-panel teacher-empty">ไม่มีรายวิชาที่ได้รับมอบหมายในปีที่เลือก</p>}
  </main>;
 }
