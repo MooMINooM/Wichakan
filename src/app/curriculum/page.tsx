@@ -8,7 +8,7 @@ import {getSupabaseBrowserClient} from '@/lib/supabase/browser';
 type School={id:string;name_th:string};
 type Curriculum={id:string;name_th:string};
 type Version={id:string;curriculum_id:string;version_label:string;effective_year_be:number};
-type Subject={id:string;curriculum_version_id:string;subject_code:string;name_th:string;learning_hours:number;category:string;grade_level:string|null;hour_basis:'year'|'term'|null};
+type Subject={id:string;curriculum_version_id:string;subject_code:string;name_th:string;learning_hours:number;category:string;grade_level:string|null;hour_basis:'year'|'term'|null;semester_no:number|null};
 export default function CurriculumPage(){
  const router=useRouter();const db=getSupabaseBrowserClient();
  const [schools,setSchools]=useState<School[]>([]),[schoolId,setSchoolId]=useState('');
@@ -21,10 +21,12 @@ export default function CurriculumPage(){
  const [subjectQuery,setSubjectQuery]=useState(''),[subjectPage,setSubjectPage]=useState(1);
  const [gradeLevel,setGradeLevel]=useState('ป.1'),[filterGrade,setFilterGrade]=useState('ป.1');
  const gradeLevels=['ป.1','ป.2','ป.3','ป.4','ป.5','ป.6','ม.1','ม.2','ม.3','ม.4','ม.5','ม.6'];
+ const [semesterNo,setSemesterNo]=useState('1');
  const [hourBasis,setHourBasis]=useState<'year'|'term'>('year');
  const [subjectCode,setSubjectCode]=useState(''),[subjectName,setSubjectName]=useState(''),[hours,setHours]=useState('40'),[category,setCategory]=useState('basic');
  const [offerings,setOfferings]=useState<{id:string;subject_id:string;term_id:string;classroom_id:string}[]>([]),[assignedOfferingIds,setAssignedOfferingIds]=useState<string[]>([]),[cancelReason,setCancelReason]=useState(''),[cancelId,setCancelId]=useState('');
  const [editing,setEditing]=useState<Subject|null>(null),[usedSubjectIds,setUsedSubjectIds]=useState<string[]>([]);
+ const [editSemesterNo,setEditSemesterNo]=useState('1');
  const [editHourBasis,setEditHourBasis]=useState<'year'|'term'>('year');
  const [editCode,setEditCode]=useState(''),[editName,setEditName]=useState(''),[editGrade,setEditGrade]=useState('ป.1'),[editHours,setEditHours]=useState('40'),[editCategory,setEditCategory]=useState('basic');
  const [error,setError]=useState(''),[notice,setNotice]=useState(''),[busy,setBusy]=useState(false);
@@ -44,7 +46,7 @@ export default function CurriculumPage(){
   const [c,v,s,m,o,a]=await Promise.all([
    db.from('curricula').select('id,name_th').eq('school_id',schoolId).order('name_th'),
    db.from('curriculum_versions').select('id,curriculum_id,version_label,effective_year_be').eq('school_id',schoolId),
-   db.from('subjects').select('id,curriculum_version_id,subject_code,name_th,learning_hours,category,grade_level,hour_basis').eq('school_id',schoolId),
+   db.from('subjects').select('id,curriculum_version_id,subject_code,name_th,learning_hours,category,grade_level,hour_basis,semester_no').eq('school_id',schoolId),
    db.from('school_memberships').select('role').eq('school_id',schoolId).eq('user_id',user.id).eq('active',true),
    db.from('course_offerings').select('id,subject_id,term_id,classroom_id').eq('school_id',schoolId),
    db.from('teaching_assignments').select('course_offering_id').eq('school_id',schoolId)
@@ -63,7 +65,7 @@ export default function CurriculumPage(){
  function beginEdit(s:Subject){
   setFormOpen(true);
   setEditing(s);setEditCode(s.subject_code);setEditName(s.name_th);setEditGrade(s.grade_level??'ป.1');
-  setEditCategory(s.category);setEditHours(String(s.learning_hours));setEditHourBasis(s.hour_basis??(s.grade_level?.startsWith('ม.')?'term':'year'));setError('');setNotice('');
+  setEditSemesterNo(String(s.semester_no??1));setEditCategory(s.category);setEditHours(String(s.learning_hours));setEditHourBasis(s.hour_basis??(s.grade_level?.startsWith('ม.')?'term':'year'));setError('');setNotice('');
  }
  async function cancelOffering(){
   if(!db||!canEdit||busy||!cancelId||cancelReason.trim().length<5)return;
@@ -81,7 +83,7 @@ export default function CurriculumPage(){
   setBusy(true);setError('');setNotice('');
   try{
    const {error:e}=await db.rpc('edit_curriculum_subject_with_hours',{p_subject_id:editing.id,p_subject_code:editCode.trim(),p_name_th:editName.trim(),p_grade_level:editGrade,p_category:editCategory,p_learning_hours:Number(editHours),p_hour_basis:editHourBasis});
-   if(e)setError(e.message);else{setEditing(null);setFormOpen(false);setNotice('แก้ไขรายวิชาเรียบร้อยแล้ว');setFilterGrade(editGrade);}
+   if(e)setError(e.message);else{const semester=await db.rpc('set_subject_semester',{p_subject_id:editing.id,p_semester_no:editGrade.startsWith('ม.')?Number(editSemesterNo):null});if(semester.error)setError('แก้ไขข้อมูลรายวิชาแล้ว แต่กำหนดภาคเรียนไม่สำเร็จ: '+semester.error.message);else{setEditing(null);setFormOpen(false);setNotice('แก้ไขรายวิชาและภาคเรียนเรียบร้อยแล้ว');setFilterGrade(editGrade);}}
   }catch(e){setError(e instanceof Error?e.message:'แก้ไขรายวิชาไม่สำเร็จ');}
   finally{setBusy(false);}
  }
@@ -98,11 +100,11 @@ export default function CurriculumPage(){
  const categoryColor=(s:string)=>s==='basic'?'bg-blue-50 text-blue-700':s==='additional'?'bg-orange-50 text-orange-700':'bg-emerald-50 text-emerald-700';
  const total=(type:string,basis:'year'|'term')=>selectedSubjects.filter(s=>s.category===type&&s.hour_basis===basis).reduce((sum,s)=>sum+s.learning_hours,0);
  const createValid=!!canEdit&&!busy&&!!selectedVersion&&subjectCode.trim().length>1&&subjectName.trim().length>1&&hours.trim()!==''&&Number.isInteger(Number(hours))&&Number(hours)>=0&&Number(hours)<=2000;
- function openCreate(){setEditing(null);setCancelId('');setGradeLevel(filterGrade);setHourBasis(filterGrade.startsWith('ม.')?'term':'year');setFormOpen(true);}
+ function openCreate(){setEditing(null);setCancelId('');setGradeLevel(filterGrade);setHourBasis(filterGrade.startsWith('ม.')?'term':'year');setSemesterNo('1');setFormOpen(true);}
  function closeForm(){setFormOpen(false);setEditing(null);setCancelId('');setCancelReason('');}
  async function createSubject(){
   if(!db||!createValid)return;
-  await save(()=>db.from('subjects').insert({school_id:schoolId,curriculum_version_id:selectedVersion,subject_code:subjectCode.trim(),name_th:subjectName.trim(),learning_hours:Number(hours),hour_basis:hourBasis,category,grade_level:gradeLevel}),'เพิ่มรายวิชาแล้ว');
+  await save(()=>db.from('subjects').insert({school_id:schoolId,curriculum_version_id:selectedVersion,subject_code:subjectCode.trim(),name_th:subjectName.trim(),learning_hours:Number(hours),hour_basis:hourBasis,category,grade_level:gradeLevel,semester_no:gradeLevel.startsWith('ม.')?Number(semesterNo):null}),'เพิ่มรายวิชาแล้ว');
   // On success the data reloads through notice; the form remains visible until the user closes it.
  }
  return <main className="wichakan-page mx-auto max-w-7xl px-4 pb-5 pt-4 sm:px-6">
@@ -141,8 +143,8 @@ export default function CurriculumPage(){
       <button type="button" disabled={!canEdit} onClick={openCreate} className="ui-primary rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-40">+ เพิ่มรายวิชา</button>
      </div>
      <div className="mt-4 max-h-[min(55vh,600px)] overflow-auto rounded-xl border border-slate-100">
-      <table className="w-full min-w-[660px] text-left text-sm"><thead className="sticky top-0 z-10 bg-[#eff5fc] text-xs text-[#284b7d]"><tr><th className="px-3 py-3">รหัสวิชา</th><th className="px-3 py-3">ชื่อรายวิชา</th><th className="px-3 py-3">ประเภท</th><th className="px-3 py-3 text-right">ชั่วโมงเรียน</th><th className="px-3 py-3 text-right">หน่วยกิต</th><th className="px-3 py-3 text-right">จัดการ</th></tr></thead>
-       <tbody>{visibleSubjects.map(s=><tr key={s.id} className={`border-t border-slate-100 hover:bg-blue-50/40 ${editing?.id===s.id?'bg-blue-50':''}`}><td className="px-3 py-3 font-semibold text-blue-950">{s.subject_code}</td><td className="px-3 py-3">{s.name_th}</td><td className="px-3 py-3"><span className={`rounded-full px-2 py-1 text-xs ${categoryColor(s.category)}`}>{categoryText(s.category)}</span></td><td className="whitespace-nowrap px-3 py-3 text-right">{s.learning_hours} {unit(s)}</td><td className="px-3 py-3 text-right">{s.grade_level?.startsWith('ม.')&&s.category!=='activity'&&s.hour_basis?(s.learning_hours/40).toFixed(2):'—'}</td><td className="px-3 py-3 text-right"><button type="button" disabled={!canEdit} onClick={()=>beginEdit(s)} className="font-semibold text-blue-700 disabled:opacity-40">✎ แก้ไข</button></td></tr>)}</tbody>
+      <table className="w-full min-w-[660px] text-left text-sm"><thead className="sticky top-0 z-10 bg-[#eff5fc] text-xs text-[#284b7d]"><tr><th className="px-3 py-3">รหัสวิชา</th><th className="px-3 py-3">ชื่อรายวิชา</th><th className="px-3 py-3">ประเภท</th><th className="px-3 py-3">ภาคเรียน</th><th className="px-3 py-3 text-right">ชั่วโมงเรียน</th><th className="px-3 py-3 text-right">หน่วยกิต</th><th className="px-3 py-3 text-right">จัดการ</th></tr></thead>
+       <tbody>{visibleSubjects.map(s=><tr key={s.id} className={`border-t border-slate-100 hover:bg-blue-50/40 ${editing?.id===s.id?'bg-blue-50':''}`}><td className="px-3 py-3 font-semibold text-blue-950">{s.subject_code}</td><td className="px-3 py-3">{s.name_th}</td><td className="px-3 py-3"><span className={`rounded-full px-2 py-1 text-xs ${categoryColor(s.category)}`}>{categoryText(s.category)}</span></td><td className="px-3 py-3">{s.grade_level?.startsWith('ม.')?(s.semester_no?'ภาค '+s.semester_no:'ยังไม่กำหนด'):'รายปี'}</td><td className="whitespace-nowrap px-3 py-3 text-right">{s.learning_hours} {unit(s)}</td><td className="px-3 py-3 text-right">{s.grade_level?.startsWith('ม.')&&s.category!=='activity'&&s.hour_basis?(s.learning_hours/40).toFixed(2):'—'}</td><td className="px-3 py-3 text-right"><button type="button" disabled={!canEdit} onClick={()=>beginEdit(s)} className="font-semibold text-blue-700 disabled:opacity-40">✎ แก้ไข</button></td></tr>)}</tbody>
       </table>
       {!filteredSubjects.length&&<p className="px-4 py-10 text-center text-sm text-slate-400">ไม่พบรายวิชาสำหรับระดับชั้นนี้</p>}
      </div>
@@ -165,6 +167,7 @@ export default function CurriculumPage(){
          <label className="text-xs font-semibold text-slate-600">ชื่อรายวิชา<input className={inputClass} value={editing?editName:subjectName} onChange={e=>editing?setEditName(e.target.value):setSubjectName(e.target.value)}/></label>
          <label className="text-xs font-semibold text-slate-600">ระดับชั้น<select className={inputClass} value={editing?editGrade:gradeLevel} onChange={e=>{const g=e.target.value;if(editing){setEditGrade(g);setEditHourBasis(g.startsWith('ม.')?'term':'year');}else{setGradeLevel(g);setHourBasis(g.startsWith('ม.')?'term':'year');}}}>{gradeLevels.map(g=><option key={g}>{g}</option>)}</select></label>
          <label className="text-xs font-semibold text-slate-600">ประเภท<select className={inputClass} value={editing?editCategory:category} onChange={e=>editing?setEditCategory(e.target.value):setCategory(e.target.value)}><option value="basic">พื้นฐาน</option><option value="additional">เพิ่มเติม</option><option value="activity">กิจกรรม</option></select></label>
+         {(editing?editGrade:gradeLevel).startsWith('ม.')&&<label className="text-xs font-semibold text-slate-600">ภาคเรียนของรายวิชา<select className={inputClass} value={editing?editSemesterNo:semesterNo} onChange={e=>editing?setEditSemesterNo(e.target.value):setSemesterNo(e.target.value)}><option value="1">ภาคเรียนที่ 1</option><option value="2">ภาคเรียนที่ 2</option></select></label>}
          <label className="text-xs font-semibold text-slate-600">ช่วงเวลาเรียน<select className={inputClass} value={editing?editHourBasis:hourBasis} onChange={e=>editing?setEditHourBasis(e.target.value as 'year'|'term'):setHourBasis(e.target.value as 'year'|'term')}><option value="year">ชั่วโมง/ปี</option><option value="term">ชั่วโมง/ภาคเรียน</option></select></label>
          <label className="text-xs font-semibold text-slate-600">ชั่วโมงเรียน<input type="number" min="0" max="2000" className={inputClass} value={editing?editHours:hours} onChange={e=>editing?setEditHours(e.target.value):setHours(e.target.value)}/></label>
         </div>

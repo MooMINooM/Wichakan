@@ -47,7 +47,7 @@ export default function TeachersPage(){
     all<Member>((a,b)=>db.from('school_memberships').select('user_id,role').eq('school_id',schoolId).eq('active',true).order('id').range(a,b)),
     all<Homeroom>((a,b)=>db.from('homeroom_assignments').select('id,classroom_id,teacher_user_id').eq('school_id',schoolId).order('id').range(a,b)),
     all<Term>((a,b)=>db.from('terms').select('id,academic_year_id,term_no').eq('school_id',schoolId).order('id').range(a,b)),
-    all<AssignmentSubject>((a,b)=>db.from('subjects').select('id,curriculum_version_id,subject_code,name_th,grade_level').eq('school_id',schoolId).order('id').range(a,b)),
+    all<AssignmentSubject>((a,b)=>db.from('subjects').select('id,curriculum_version_id,subject_code,name_th,grade_level,semester_no').eq('school_id',schoolId).order('id').range(a,b)),
     all<SchoolCurriculumVersion>((a,b)=>db.from('curriculum_versions').select('id,curriculum_id,effective_year_be').eq('school_id',schoolId).order('id').range(a,b)),
     all<SchoolOffering>((a,b)=>db.from('course_offerings').select('id,term_id,classroom_id,subject_id').eq('school_id',schoolId).order('id').range(a,b)),
     all<TeachingAssignment>((a,b)=>db.from('teaching_assignments').select('id,course_offering_id,teacher_user_id').eq('school_id',schoolId).order('id').range(a,b)),
@@ -76,7 +76,7 @@ export default function TeachersPage(){
  const activeIds=new Set(data.members.filter(m=>m.role==='teacher').map(m=>m.user_id));
  const teachers=data.profiles.filter(p=>activeIds.has(p.user_id)).sort((a,b)=>a.display_name.localeCompare(b.display_name,'th'));
  const name=(id:string)=>data.profiles.find(t=>t.user_id===id)?.display_name||'ไม่พบชื่อครู';
- const rows=teacherAssignmentRows(selectedRooms,data.subjects,data.versions,data.offerings,data.assignments,data.years.find(y=>y.id===yearId)?.year_be??0,validTerm);
+ const rows=teacherAssignmentRows(selectedRooms,data.subjects,data.versions,data.offerings,data.assignments,data.years.find(y=>y.id===yearId)?.year_be??0,validTerm,yearTerms.find(t=>t.id===validTerm)?.term_no??0);
  const assigned=rows.filter(r=>r.assignments.length>0).length;
  const filtered=rows.filter(r=>(!status||(status==='assigned')===!!r.assignments.length)&&[r.subject?.name_th,r.subject?.subject_code,roomName(r.room),...r.teacherIds.map(name)].join(' ').toLocaleLowerCase().includes(query.trim().toLocaleLowerCase()));
  const currentPage=Math.min(page,Math.max(1,Math.ceil(filtered.length/PAGE_SIZE))),visible=filtered.slice((currentPage-1)*PAGE_SIZE,currentPage*PAGE_SIZE);
