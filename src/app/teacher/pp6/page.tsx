@@ -10,10 +10,10 @@ type Report={subjects:Pp6Subject[];offerings:Pp6Offering[];scores:ScoreRecord[];
 export default function HomeroomPp6(){
  const {data,loading,error}=useTeacherWorkspace();
  const [roomId,setRoomId]=useState(''),[termNo,setTermNo]=useState(1),[report,setReport]=useState<Report|null>(null),[fetchError,setFetchError]=useState(''),[fetching,setFetching]=useState(false),[query,setQuery]=useState(''),[printId,setPrintId]=useState('');
- const room=data.rooms.find(r=>r.id===roomId),year=data.years.find(y=>y.id===room?.academic_year_id);
+ const room=data.rooms.find(r=>r.id===roomId);
  const homeRooms=data.rooms.filter(r=>data.homerooms.some(h=>h.classroom_id===r.id));
  const actualRoom=homeRooms.find(r=>r.id===roomId)??homeRooms[0];
- const id=actualRoom?.id??'';
+ const id=actualRoom?.id??'',year=data.years.find(y=>y.id===actualRoom?.academic_year_id);
  useEffect(()=>{let active=true;(async()=>{
   setReport(null);setFetchError('');if(!id||!data.schoolId)return;
   const db=getSupabaseBrowserClient();if(!db)return;setFetching(true);
