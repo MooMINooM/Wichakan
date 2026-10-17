@@ -1,1 +1,3 @@
 PP6 review and print workflow: homeroom teachers review grade summaries before report generation.
+
+The teacher sidebar's ห้องประจำชั้น entry opens `/teacher/pp6` directly and remains active on that route. This is the single homeroom workspace for class grade review, assessments, comments and individual/class PP6 printing, including incomplete reports. Dashboard room cards pass `?room=<classroom ID>` to open that assigned room. Only rooms present in the teacher's homeroom assignments can be selected; an absent or unauthorized room parameter falls back to an assigned room in the selected academic year, then the first assigned room.

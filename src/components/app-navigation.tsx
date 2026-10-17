@@ -10,7 +10,7 @@ const adminItems=[
  ['/academic/teachers','มอบหมายครู','♙'],['/curriculum','หลักสูตรและรายวิชา','▤'],
  ['/personnel','บุคลากร','♧'],['/students/promote','เลื่อนชั้นนักเรียน','↗']
 ];
-const teacherItems=[['/teacher','แดชบอร์ดครู','⌂'],['/teacher#courses','รายวิชาที่สอน','▤'],['/teacher/scores','บันทึกคะแนน','▦'],['/teacher#homerooms','ห้องประจำชั้น','♧']];
+const teacherItems=[['/teacher','แดชบอร์ดครู','⌂'],['/teacher#courses','รายวิชาที่สอน','▤'],['/teacher/scores','บันทึกคะแนน','▦'],['/teacher/pp6','ห้องประจำชั้น','♧']];
 export default function AppNavigation(){
  const pathname=usePathname().replace(/\/+$/,'')||'/',router=useRouter();
  const [busy,setBusy]=useState(false),[open,setOpen]=useState(false);
