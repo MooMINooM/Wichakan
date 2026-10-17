@@ -166,7 +166,7 @@ export default function AcademicSetupPage() {
        </dl>
       </>:<div className="academic-empty"><AcademicIcon name="users"/><h3>{dataLoading?'กำลังโหลดข้อมูล':'ยังไม่มีห้องเรียนในปีนี้'}</h3><p>เพิ่มห้องเรียนเพื่อเริ่มจัดการข้อมูลงานวิชาการ</p><button disabled={!canManage||!selectedYear||dataLoading} type="button" onClick={()=>{setRoomFormOpen(true);openManager('rooms');}} className="academic-soft-button">+ เพิ่มห้องเรียน</button></div>}
       <div className="academic-quick"><h3>ϟ เมนูด่วน</h3><div>
-       {([{href:'/academic/teachers',label:'มอบหมายครู',icon:'book',color:'green'},{href:'/students/history',label:'จัดนักเรียนเข้าห้อง',icon:'users',color:'purple'},{href:'/curriculum',label:'หลักสูตรและรายวิชา',icon:'chart',color:'orange'},{href:'/students',label:'ทะเบียนนักเรียน',icon:'file',color:'blue'}] as const).map(item=><Link key={item.href} href={item.href} className={'academic-quick-link '+item.color}><AcademicIcon name={item.icon}/><span>{item.label}</span><b aria-hidden="true">›</b></Link>)}
+       {([{href:'/academic/teachers',label:'มอบหมายครู',icon:'book',color:'green'},{href:'/academic/timetable',label:'จัดตารางสอน',icon:'calendar',color:'blue'},{href:'/students/history',label:'จัดนักเรียนเข้าห้อง',icon:'users',color:'purple'},{href:'/curriculum',label:'หลักสูตรและรายวิชา',icon:'chart',color:'orange'},{href:'/students',label:'ทะเบียนนักเรียน',icon:'file',color:'blue'}] as const).map(item=><Link key={item.href} href={item.href} className={'academic-quick-link '+item.color}><AcademicIcon name={item.icon}/><span>{item.label}</span><b aria-hidden="true">›</b></Link>)}
       </div></div>
      </section>
      <section className="academic-panel" aria-labelledby="overview-heading">
