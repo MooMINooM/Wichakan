@@ -10,7 +10,7 @@ import {resolveYear,setYearSelection,YEAR_EVENT} from '@/lib/academic-year-selec
 
 type Year={id:string;year_be:number;is_active:boolean};
 type Room={id:string;academic_year_id:string;level_code:string;room_code:string};
-type Student={id:string;school_id:string;student_no:string;first_name_th:string;last_name_th:string};
+type Student={id:string;school_id:string;student_no:string;name_prefix_th:string|null;first_name_th:string;last_name_th:string};
 type Enrollment={id:string;student_id:string;academic_year_id:string;classroom_id:string;status:string;started_on:string|null};
 type Event={id:string;student_id:string;event_type:string;recorded_at:string;previous_status:string|null;new_status:string;previous_classroom_id:string|null;new_classroom_id:string|null;reason:string|null};
 type Membership={school_id:string;role:string;schools:{id:string;name_th:string}|null};
@@ -56,7 +56,7 @@ export default function StudentHistoryPage(){
   const [y,r,s,e,m]=await Promise.all([
    db.from('academic_years').select('id,year_be,is_active').eq('school_id',schoolId).order('year_be',{ascending:false}),
    db.from('classrooms').select('id,academic_year_id,level_code,room_code').eq('school_id',schoolId),
-   db.from('students').select('id,school_id,student_no,first_name_th,last_name_th').eq('school_id',schoolId).order('student_no'),
+   db.from('students').select('id,school_id,student_no,name_prefix_th,first_name_th,last_name_th').eq('school_id',schoolId).order('student_no'),
    db.from('enrollments').select('id,student_id,academic_year_id,classroom_id,status,started_on').eq('school_id',schoolId),
    db.from('school_memberships').select('role').eq('school_id',schoolId).eq('user_id',user.id).eq('active',true)
   ]);
@@ -115,7 +115,7 @@ export default function StudentHistoryPage(){
   {notice&&<p role="status" className="my-4 rounded-xl bg-green-50 p-4 text-green-800">{notice}</p>}
   {schoolId&&<div className="mt-7 grid gap-6 lg:grid-cols-[1fr_340px]">
    <section className="ui-panel rounded-2xl bg-white p-6 shadow-sm">
-    <label className="block text-sm font-medium">นักเรียน<select value={studentId} onChange={e=>setStudentId(e.target.value)} className="mt-2 w-full rounded-xl border p-3"><option value="">เลือกนักเรียน</option>{students.map(s=><option key={s.id} value={s.id}>{s.student_no} — {s.first_name_th} {s.last_name_th}</option>)}</select></label>
+    <label className="block text-sm font-medium">นักเรียน<select value={studentId} onChange={e=>setStudentId(e.target.value)} className="mt-2 w-full rounded-xl border p-3"><option value="">เลือกนักเรียน</option>{students.map(s=><option key={s.id} value={s.id}>{s.student_no} — {s.name_prefix_th??''}{s.first_name_th} {s.last_name_th}</option>)}</select></label>
     <h2 className="mt-7 text-lg font-bold">ประวัติรายปี</h2>
     <div className="mt-4 space-y-3">{selectedHistory.map(x=><div key={x.id} className="flex items-center justify-between rounded-xl border p-4"><div><strong>ปี {years.find(y=>y.id===x.academic_year_id)?.year_be??'?'}</strong><p className="mt-1 text-sm text-slate-500">ห้อง {roomName(x.classroom_id)}</p></div><span className="text-sm text-blue-700">{statusName(x.status)}</span></div>)}</div>
     {selectedHistory.length===0&&<p className="mt-4 text-sm text-slate-500">ยังไม่มีประวัติการลงทะเบียน</p>}
