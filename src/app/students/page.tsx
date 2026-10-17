@@ -97,7 +97,7 @@ export default function StudentsPage() {
   const studentRoom=new Map(currentEnrollments.map(e=>[e.student_id,e.classroom_id]));
   const roomLabel=(id:string)=>{const r=rooms.find(x=>x.id===id);return r?(r.room_code.startsWith(r.level_code+'/')?r.room_code:r.level_code+'/'+r.room_code):'ยังไม่ลงทะเบียนปีนี้';};
   const visible=useMemo(()=>students.filter(s=>{
-    const match=(s.student_no+' '+s.first_name_th+' '+s.last_name_th).toLocaleLowerCase().includes(search.toLocaleLowerCase());
+    const match=(s.student_no+' '+(s.name_prefix_th??'')+s.first_name_th+' '+s.last_name_th).toLocaleLowerCase().includes(search.toLocaleLowerCase());
     const assigned=studentRoom.get(s.id);
     return match&&(roomId==='all'||(roomId==='unassigned'?!assigned:assigned===roomId));
   }),[students,search,roomId,enrollments,yearId]);
@@ -164,14 +164,14 @@ export default function StudentsPage() {
       {info&&<p role="status" className="mb-4 rounded-xl bg-green-50 p-3 text-sm text-green-800">{info}</p>}
       {removing&&<div role="dialog" aria-modal="true" aria-label="ยืนยันลบนักเรียน" className="mb-4 rounded-2xl border-2 border-red-200 bg-red-50 p-5">
        <h2 className="font-bold text-red-900">ยืนยันลบนักเรียนที่เพิ่มผิด</h2>
-       <p className="mt-2 text-sm text-red-800">{removing.first_name_th} {removing.last_name_th} ({removing.student_no})</p>
+       <p className="mt-2 text-sm text-red-800">{removing.name_prefix_th??''}{removing.first_name_th} {removing.last_name_th} ({removing.student_no})</p>
        <p className="mt-2 text-xs text-red-700">ฝ่ายทะเบียนลบได้เฉพาะนักเรียนที่ไม่มีประวัติ ผู้ดูแลระบบสามารถยืนยันด้วยรหัสผ่านบัญชี Admin เพื่อสั่งลบพร้อมประวัติการลงทะเบียนและข้อมูลเชื่อมโยง โดยมีบันทึกการลบแยกต่างหาก</p>
        <label className="mt-3 block text-sm">พิมพ์รหัสนักเรียนเพื่อยืนยัน<input autoFocus value={confirmNo} onChange={e=>setConfirmNo(e.target.value)} className="mt-2 w-full max-w-xs rounded-xl border p-3" placeholder={removing.student_no}/></label>
        {isAdmin&&<label className="mt-3 block text-sm">รหัสผ่านบัญชี Admin<input type="password" autoComplete="current-password" value={adminPassword} onChange={e=>setAdminPassword(e.target.value)} className="mt-2 w-full max-w-xs rounded-xl border p-3" placeholder="ใส่รหัสผ่านเพื่อยืนยันสิทธิ์"/></label>}
        <div className="mt-3 flex gap-3"><button type="button" onClick={()=>{setRemoving(null);setConfirmNo('');setAdminPassword('');}} className="rounded-xl border px-4 py-2 text-sm">ยกเลิก</button><button type="button" disabled={saving||confirmNo!==removing.student_no||(isAdmin&&!adminPassword)} onClick={isAdmin?adminPurgeStudent:removeStudent} className="rounded-xl bg-red-700 px-4 py-2 text-sm font-semibold text-white disabled:opacity-40">{isAdmin?'ยืนยันลบโดย Admin':'ยืนยันลบถาวร'}</button></div>
       </div>}
       {changingStatus&&<div role="dialog" aria-modal="true" aria-label="เปลี่ยนสถานภาพนักเรียน" className="mb-4 rounded-2xl border border-amber-200 bg-amber-50 p-5">
-       <h2 className="font-bold">เปลี่ยนสถานภาพ: {changingStatus.first_name_th} {changingStatus.last_name_th}</h2>
+       <h2 className="font-bold">เปลี่ยนสถานภาพ: {changingStatus.name_prefix_th??''}{changingStatus.first_name_th} {changingStatus.last_name_th}</h2>
        <label className="mt-3 block text-sm">สถานภาพ<select value={nextStatus} onChange={e=>setNextStatus(e.target.value)} className="mt-2 w-full max-w-xs rounded-xl border p-3">{Object.entries(statusLabel).map(([key,label])=><option key={key} value={key}>{label}</option>)}</select></label>
        <p className="mt-2 text-xs text-slate-500">เปลี่ยนสถานภาพทะเบียนโดยเก็บประวัติการลงทะเบียนห้องเรียนเดิมไว้</p>
        <div className="mt-3 flex gap-3"><button type="button" onClick={()=>setChangingStatus(null)} className="rounded-xl border px-4 py-2 text-sm">ยกเลิก</button><button type="button" disabled={saving||nextStatus===changingStatus.status} onClick={updateStudentStatus} className="ui-primary rounded-xl bg-blue-700 px-4 py-2 text-sm text-white disabled:opacity-40">บันทึกสถานภาพ</button></div>
