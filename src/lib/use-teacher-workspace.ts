@@ -6,7 +6,7 @@ import type {ScoreRecord,ScoreSetting} from './teacher-scores';
 export type TeacherRoom={id:string;level_code:string;room_code:string;academic_year_id:string};
 export type TeacherOffering={id:string;classroom_id:string;subject_id:string;term_id:string};
 export type TeacherSubject={id:string;subject_code:string;name_th:string;grade_level:string|null};
-export type TeacherStudent={id:string;student_no:string;first_name_th:string;last_name_th:string};
+export type TeacherStudent={id:string;student_no:string;name_prefix_th:string|null;first_name_th:string;last_name_th:string};
 export type TeacherYear={id:string;year_be:number;is_active:boolean};
 export type TeacherTerm={id:string;academic_year_id:string;term_no:number};
 export type TeacherEnrollment={student_id:string;classroom_id:string;academic_year_id:string;status:string};
@@ -42,7 +42,7 @@ export function useTeacherWorkspace(){
     batches<ScoreRecord>(offerings.map(o=>o.id),(ids,a,b)=>db.from('student_course_scores').select('course_offering_id,student_id,term1_coursework,term1_midterm,term1_final,term2_coursework,term2_midterm,term2_final,special_result,is_complete').eq('school_id',schoolId).in('course_offering_id',ids).order('id').range(a,b)),
     batches<ScoreSetting>(subjectIds,(ids,a,b)=>db.from('subject_score_settings').select('subject_id,academic_year_id,term1_coursework,term1_midterm,term1_final,term2_coursework,term2_midterm,term2_final').eq('school_id',schoolId).in('subject_id',ids).order('id').range(a,b)),
    ]);
-   const students=await batches<TeacherStudent>(enrollments.map(e=>e.student_id),(ids,a,b)=>db.from('students').select('id,student_no,first_name_th,last_name_th').eq('school_id',schoolId).in('id',ids).order('id').range(a,b));
+   const students=await batches<TeacherStudent>(enrollments.map(e=>e.student_id),(ids,a,b)=>db.from('students').select('id,student_no,name_prefix_th,first_name_th,last_name_th').eq('school_id',schoolId).in('id',ids).order('id').range(a,b));
    if(rooms.length!==roomIds.length||subjects.length!==new Set(subjectIds).size||students.length!==new Set(enrollments.map(e=>e.student_id)).size)throw Error('อ่านรายละเอียดงานสอนหรือนักเรียนไม่ครบ กรุณาแจ้งผู้ดูแลตรวจสอบสิทธิ์');
    if(seq!==sequence.current)return;
    setData({schoolId,offerings,rooms,subjects,years:years.sort((a,b)=>b.year_be-a.year_be),terms:terms.sort((a,b)=>a.term_no-b.term_no),homerooms,enrollments,students:students.sort((a,b)=>a.student_no.localeCompare(b.student_no,'th',{numeric:true})),scores,settings,hiddenAssignments:new Set(assignments.map(a=>a.course_offering_id)).size-offerings.length});
