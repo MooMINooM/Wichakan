@@ -1,0 +1,1 @@
+alter table public.students add column if not exists name_prefix_th text; alter table public.students add constraint students_name_prefix_th_length check (name_prefix_th is null or char_length(name_prefix_th) <= 40);
