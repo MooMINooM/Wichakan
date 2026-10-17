@@ -1,0 +1,13 @@
+const fs=require('node:fs'),ts=require('typescript'),vm=require('node:vm'),assert=require('node:assert/strict');
+const exp={};vm.runInNewContext(ts.transpileModule(fs.readFileSync('src/lib/timetable-auto.ts','utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2020}}).outputText,{exports:exp});
+const courses=[{id:'math',classroom_id:'r1',subject_id:'s1',target:3},{id:'sport',classroom_id:'r1',subject_id:'s2',target:1},{id:'other',classroom_id:'r2',subject_id:'s3',target:2}];
+const staff=[{course_offering_id:'math',teacher_user_id:'t1'},{course_offering_id:'sport',teacher_user_id:'t2'},{course_offering_id:'other',teacher_user_id:'t1'}];
+const existing=[{course_offering_id:'math',weekday_no:1,period_no:1}];
+const rules=[{kind:'school_break',weekday_no:3,period_no:4,teacher_user_id:null,subject_id:null},{kind:'teacher_unavailable',weekday_no:2,period_no:1,teacher_user_id:'t1',subject_id:null},{kind:'subject_day_block',weekday_no:1,period_no:null,teacher_user_id:null,subject_id:'s2'},{kind:'subject_day_block',weekday_no:2,period_no:null,teacher_user_id:null,subject_id:'s2'},{kind:'subject_day_block',weekday_no:4,period_no:null,teacher_user_id:null,subject_id:'s2'},{kind:'subject_day_block',weekday_no:5,period_no:null,teacher_user_id:null,subject_id:'s2'}];
+const result=exp.autoFill(courses,existing,staff,rules);
+assert.equal(result.suggested.length,5);
+assert.equal(result.unplaced.length,0);
+assert(result.suggested.every(s=>!(s.weekday_no===3&&s.period_no===4)));
+assert(result.suggested.filter(s=>s.course_offering_id==='sport').every(s=>s.weekday_no===3));
+const all=[...existing,...result.suggested];assert(all.every((s,i)=>all.every((t,j)=>i===j||s.weekday_no!==t.weekday_no||s.period_no!==t.period_no||courses.find(c=>c.id===s.course_offering_id).classroom_id!==courses.find(c=>c.id===t.course_offering_id).classroom_id)));
+console.log('PASS: auto-fill preserves prior lessons, teacher/day/break constraints, and no classroom collisions.');

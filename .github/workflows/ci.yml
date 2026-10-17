@@ -20,6 +20,7 @@ jobs:
           node tests/school-readiness.cjs
           node tests/teacher-assignment-rows.cjs
           node tests/teacher-scores.cjs
+          node tests/timetable-auto.cjs
           node tests/pp6-print-summary.cjs
           node tests/pp6-student-prefix.cjs
       - name: Build
