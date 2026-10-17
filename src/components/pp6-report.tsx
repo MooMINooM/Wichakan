@@ -17,14 +17,15 @@ const rowYs=[187.657,...Array.from({length:16},(_,i)=>187.657+(i+1)*16.7355),...
 const fmt=(n:number|null)=>n===null?'—':n.toFixed(2);
 const base=process.env.NEXT_PUBLIC_BASE_PATH||'';
 export default function Pp6Report({student,room,year,termNo,subjects,cells,assessment,gpa,rosterCount}:Props){
+ const fullName=[(student.name_prefix_th??'').trim()+student.first_name_th.trim(),student.last_name_th.trim()].filter(Boolean).join(' ');
  const ordered=pp6PrintOrder(subjects),pages=Math.max(1,Math.ceil(ordered.length/24)),summary=pp6PrintSummary(subjects,cells);
  const shortComment=assessment?.comment?.trim()??'',extraComment=shortComment.length>180||shortComment.split("\n").length>3;
  const roomCode=room.room_code.startsWith(room.level_code+'/')?room.room_code.slice(room.level_code.length+1):room.room_code;
  return <>{Array.from({length:pages},(_,page)=>{
   const rows=ordered.slice(page*24,page*24+24);
   return <article className="pp6-student-page" key={page} aria-label={'ปพ.6 '+student.student_no+(pages>1?' หน้า '+(page+1):'')}>
-   <svg className="pp6-document" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 595.28 841.89" xmlSpace="preserve" role="img" aria-label={'แบบรายงานผลพัฒนาคุณภาพผู้เรียนรายบุคคล '+student.first_name_th+' '+student.last_name_th}>
-    <title>ปพ.6 {student.student_no} {student.first_name_th} {student.last_name_th}</title>
+   <svg className="pp6-document" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 595.28 841.89" xmlSpace="preserve" role="img" aria-label={'แบบรายงานผลพัฒนาคุณภาพผู้เรียนรายบุคคล '+fullName}>
+    <title>{'ปพ.6 '+student.student_no+' '+fullName}</title>
     <image href={base+'/pp6/school-emblem.png'} x="72.402" y="19.506" width="75" height="106.635" preserveAspectRatio="xMidYMid meet"/>
     <g fill="none" stroke="black" strokeWidth=".741"><rect x="533.469" y="14.548" width="33.09" height="15.15"/></g>
     <Text x="550.014" y="26.323" textAnchor="middle" fontSize="12">ปพ.6</Text>
@@ -36,7 +37,7 @@ export default function Pp6Report({student,room,year,termNo,subjects,cells,asses
     </g>
     <g fontWeight="700" fontSize="15">
      <Text x="42.52" y="144.453" maxWidth={149}>{'รหัสประจำตัวนักเรียน : '+student.student_no}</Text>
-     <Text x="196.753" y="144.453" maxWidth={245}>{'ชื่อ - นามสกุล : '+student.first_name_th+' '+student.last_name_th}</Text>
+     <Text x="196.753" y="144.453" maxWidth={245}>{'ชื่อ - นามสกุล : '+fullName}</Text>
      <Text x="448.563" y="144.453" maxWidth={55}>{'ชั้น   '+room.level_code}</Text>
      <Text x="508.198" y="144.453" maxWidth={57}>{'ห้อง   '+roomCode}</Text>
     </g>
@@ -76,5 +77,5 @@ export default function Pp6Report({student,room,year,termNo,subjects,cells,asses
     {pages>1&&<Text x="566.563" y="837" textAnchor="end" fontSize="10">{'หน้า '+(page+1)+' / '+pages}</Text>}
    </svg>
   </article>;
- })}{extraComment&&pp6CommentPages(shortComment).map((comment,index)=><article className="pp6-student-page pp6-comment-page" key={index}><h2>ความคิดเห็นครูประจำชั้น</h2><p>รหัสประจำตัวนักเรียน : {student.student_no}　{student.first_name_th} {student.last_name_th}</p><p>ปีการศึกษา {year??'—'} ภาคเรียนที่ {termNo}</p><div>{comment}</div></article>)}</>;
+ })}{extraComment&&pp6CommentPages(shortComment).map((comment,index)=><article className="pp6-student-page pp6-comment-page" key={index}><h2>ความคิดเห็นครูประจำชั้น</h2><p>รหัสประจำตัวนักเรียน : {student.student_no}　{fullName}</p><p>ปีการศึกษา {year??'—'} ภาคเรียนที่ {termNo}</p><div>{comment}</div></article>)}</>;
 }
