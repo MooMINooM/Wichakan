@@ -1,0 +1,14 @@
+const fs=require('node:fs'),ts=require('typescript'),vm=require('node:vm'),assert=require('node:assert/strict');
+const exportsForTest={};vm.runInNewContext(ts.transpileModule(fs.readFileSync('src/lib/pp6-print-summary.ts','utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2020}}).outputText,{exports:exportsForTest});
+const {pp6PrintSummary,pp6PrintOrder,pp6CommentPages}=exportsForTest;
+const subject=(id,category,hours,code=id)=>({id,category,learning_hours:hours,subject_code:code});
+const subjects=[subject('thai','basic',200,'ท11101'),subject('math','basic',200,'ค11101'),subject('eng','additional',80,'อ11201'),subject('activity','activity',40)];
+const cell=(subjectId,grade,state='complete')=>({subjectId,grade,state});
+let result=pp6PrintSummary(subjects,[cell('thai','4'),cell('math','0'),cell('eng','2')]);
+assert.equal(result.basic.studied,10);assert.equal(result.basic.earned,5);assert.equal(result.additional.earned,2);assert.equal(result.total.studied,12);assert.equal(result.total.earned,7,'activities do not enter credit totals');
+result=pp6PrintSummary(subjects,[cell('thai','4')]);assert.equal(result.basic.earned,null);assert.equal(result.total.earned,null,'missing results never become zero credits');
+result=pp6PrintSummary([subject('thai','basic',undefined)],[]);assert.equal(result.basic.studied,null);assert.equal(result.basic.earned,null);
+result=pp6PrintSummary(subjects,[cell('thai','ร','special'),cell('math','0'),cell('eng','2')]);assert.equal(result.basic.earned,null);
+assert.deepEqual(Array.from(pp6PrintOrder([subjects[3],subjects[2],subjects[1],subjects[0]]),s=>s.id),['thai','math','eng','activity']);
+const comment='บันทึกความคิดเห็นสำหรับทดสอบการขึ้นหน้าครบถ้วน '.repeat(20)+'\n'.repeat(45);const pages=pp6CommentPages(comment);assert(pages.length>1);assert(pages.every(p=>p.split('\n').length<=20));assert.equal(pages.join('\n').replace(/\n/g,''),comment.replace(/\n/g,''));
+console.log('PASS: PP6 credit totals, failed vs missing results, invalid weights, special results, activity exclusion, template subject order.');

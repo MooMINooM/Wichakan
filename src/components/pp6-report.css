@@ -1,0 +1,24 @@
+@font-face{font-family:'TH Sarabun PP6';src:url('../../public/pp6/THSarabunNew.woff2') format('woff2');font-weight:400;font-display:block}
+@font-face{font-family:'TH Sarabun PP6';src:url('../../public/pp6/THSarabunNew-Bold.woff2') format('woff2');font-weight:700;font-display:block}
+.pp6-print-modal{position:fixed;inset:0;z-index:100;overflow:auto;background:#0008;padding:16px}
+.pp6-print-sheet{width:max-content;margin:0 auto;max-width:none;background:white;box-shadow:0 6px 28px #0003}
+.pp6-print-toolbar{display:flex;position:sticky;top:0;z-index:1;align-items:center;justify-content:flex-end;gap:12px;padding:12px;background:#f5f8fc;border-bottom:1px solid #dce6f4;font-family:'Wichakan Thai',sans-serif}
+.pp6-print-toolbar span{margin-right:auto;color:#805311;font-size:12px}
+.pp6-student-page{display:block;position:relative;box-sizing:border-box;width:210mm;height:297mm;margin:0;padding:0;background:white;color:black;break-after:page;page-break-after:always;font-family:'TH Sarabun PP6',sans-serif}
+.pp6-student-page:last-child{break-after:auto;page-break-after:auto}
+.pp6-student-page+.pp6-student-page{border-top:1px solid #ddd}
+.pp6-document{display:block;width:100%;height:100%;font-family:'TH Sarabun PP6',sans-serif;fill:black;font-weight:400;line-height:normal}
+.pp6-document text{white-space:pre}
+.pp6-inline-comment{font-family:'TH Sarabun PP6',sans-serif;font-size:12px;line-height:14px;color:black;overflow-wrap:anywhere;white-space:pre-wrap}
+.pp6-comment-page{padding:20mm 15mm;font-size:16pt;line-height:1.5;overflow-wrap:anywhere}
+.pp6-comment-page h2{font-size:20pt;font-weight:700;color:black;margin:0 0 10mm}
+.pp6-comment-page p{margin:0 0 3mm}.pp6-comment-page>div{margin-top:8mm;white-space:pre-wrap}
+@page{size:A4 portrait;margin:0}
+@media print{
+ html,body{margin:0!important;padding:0!important;width:210mm!important;max-width:none!important;background:white!important;overflow:visible!important;print-color-adjust:exact;-webkit-print-color-adjust:exact}
+ body:has(.pp6-print-modal)>*:not(.pp6-print-modal){display:none!important}
+ .pp6-print-modal{display:block!important;position:static!important;inset:auto!important;width:210mm!important;margin:0!important;padding:0!important;overflow:visible!important;background:white!important}
+ .pp6-print-sheet{width:210mm!important;margin:0!important;padding:0!important;box-shadow:none!important}
+ .pp6-print-toolbar,.pp6-print-error{display:none!important}
+ .pp6-student-page{margin:0!important;border:0!important;break-inside:avoid;page-break-inside:avoid}
+}
