@@ -61,6 +61,6 @@ export default function TeacherPage(){
     {contextReady&&!tasks.length&&<p className="teacher-empty">{courses.length?'ลงคะแนนครบทุกวิชาแล้ว':'ยังไม่มีงานสอนในภาคเรียนนี้'}</p>}
    </aside>
   </div>
-  {selectedHome&&<AcademicDialog title={'รายชื่อนักเรียน '+teacherRoomLabel(selectedHome)} onClose={()=>setRosterRoom('')}><p className="mb-3 text-sm text-slate-500">ปีการศึกษา {data.years.find(y=>y.id===yearId)?.year_be??'—'} · {roster.length} คน</p><div className="teacher-table-scroll"><table className="w-full text-left"><thead><tr><th>เลขที่</th><th>รหัส</th><th>ชื่อ–นามสกุล</th></tr></thead><tbody>{roster.map((s,i)=><tr key={s.id}><td>{i+1}</td><td>{s.student_no}</td><td>{s.first_name_th} {s.last_name_th}</td></tr>)}</tbody></table></div>{!roster.length&&<p className="teacher-empty">ไม่มีนักเรียนลงทะเบียนในห้องนี้</p>}</AcademicDialog>}
+  {selectedHome&&<AcademicDialog title={'รายชื่อนักเรียน '+teacherRoomLabel(selectedHome)} onClose={()=>setRosterRoom('')}><p className="mb-3 text-sm text-slate-500">ปีการศึกษา {data.years.find(y=>y.id===yearId)?.year_be??'—'} · {roster.length} คน</p><div className="teacher-table-scroll"><table className="w-full text-left"><thead><tr><th>เลขที่</th><th>รหัส</th><th>ชื่อ–นามสกุล</th></tr></thead><tbody>{roster.map((s,i)=><tr key={s.id}><td>{i+1}</td><td>{s.student_no}</td><td>{s.name_prefix_th??''}{s.first_name_th} {s.last_name_th}</td></tr>)}</tbody></table></div>{!roster.length&&<p className="teacher-empty">ไม่มีนักเรียนลงทะเบียนในห้องนี้</p>}</AcademicDialog>}
  </main>;
 }
