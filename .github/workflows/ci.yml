@@ -20,5 +20,6 @@ jobs:
           node tests/school-readiness.cjs
           node tests/teacher-assignment-rows.cjs
           node tests/teacher-scores.cjs
+          node tests/pp6-print-summary.cjs
       - name: Build
         run: npm run build
