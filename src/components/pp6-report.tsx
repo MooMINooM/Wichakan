@@ -73,7 +73,7 @@ export default function Pp6Report({student,room,year,termNo,subjects,cells,asses
      {([618.337,680.54,740.965]).map((y,i)=><g key={y}><Text x="352.8" y={y}>ลงชื่อ..........................................................................................</Text><Text x="451.288" y={y+15.995} textAnchor="middle" fontWeight="700">{['ครูที่ปรึกษา','ผู้บริหารสถานศึกษา','ผู้ปกครอง'][i]}</Text></g>)}
     </g>
     {shortComment&&!extraComment&&<foreignObject x="42.89" y="783" width="523.673" height="46"><div className="pp6-inline-comment"><b>ความคิดเห็นครูประจำชั้น</b> {shortComment}</div></foreignObject>}
-    {pages>1&&<Text x="566.563" y="829" textAnchor="end" fontSize="10">{'หน้า '+(page+1)+' / '+pages}</Text>}
+    {pages>1&&<Text x="566.563" y="837" textAnchor="end" fontSize="10">{'หน้า '+(page+1)+' / '+pages}</Text>}
    </svg>
   </article>;
  })}{extraComment&&pp6CommentPages(shortComment).map((comment,index)=><article className="pp6-student-page pp6-comment-page" key={index}><h2>ความคิดเห็นครูประจำชั้น</h2><p>รหัสประจำตัวนักเรียน : {student.student_no}　{student.first_name_th} {student.last_name_th}</p><p>ปีการศึกษา {year??'—'} ภาคเรียนที่ {termNo}</p><div>{comment}</div></article>)}</>;
