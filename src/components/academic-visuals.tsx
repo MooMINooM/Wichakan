@@ -1,7 +1,8 @@
 import type {ReactNode} from 'react';
 
-export function AcademicIcon({name,className=''}:{name:'home'|'settings'|'promote'|'menu'|'switch'|'calendar'|'book'|'users'|'chart'|'check'|'edit'|'school'|'search'|'file'|'alert';className?:string}){
+export function AcademicIcon({name,className=''}:{name:'trash'|'home'|'settings'|'promote'|'menu'|'switch'|'calendar'|'book'|'users'|'chart'|'check'|'edit'|'school'|'search'|'file'|'alert';className?:string}){
  const paths:Record<typeof name,ReactNode>={
+  trash:<><path d="M3 6h18M9 6V3h6v3M5 6l1 15h12l1-15M10 10v7m4-7v7"/></>,
   home:<><path d="m3 10 9-7 9 7v11H3Z"/><path d="M9 21v-8h6v8"/></>,
   settings:<><path d="m9 3-1 3-3 1-2 4 2 2v4l4 3 3-1 3 1 4-3v-4l2-2-2-4-3-1-1-3Z"/><circle cx="12" cy="12" r="3"/></>,
   promote:<><path d="M5 19 19 5M5 5h14v14"/></>,

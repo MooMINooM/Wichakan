@@ -1,5 +1,6 @@
 'use client';
 import PageHeader from '@/components/page-header';
+import {AcademicIcon} from '@/components/academic-visuals';
 
 import Link from 'next/link';
 
@@ -185,16 +186,16 @@ export default function StudentsPage() {
        </div>
 
       </section>
-      <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
-        <section className="ui-panel rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+      <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_320px]">
+        <section className="ui-panel min-w-0 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
           <div className="mb-5 flex flex-wrap items-center justify-between gap-3"><h2 className="text-lg font-bold">รายชื่อนักเรียน ({visible.length})</h2><input aria-label="ค้นหานักเรียน" placeholder="ค้นหารหัส หรือชื่อ-สกุล" value={search} onChange={e=>{setSearch(e.target.value);setPage(1);}} className="rounded-xl border border-slate-300 px-3 py-2 text-sm"/></div>
-          <div className="max-h-[min(58vh,560px)] overflow-auto"><table className="w-full text-left text-sm"><thead><tr className="border-b text-slate-500"><th className="py-3">รหัส</th><th>ชื่อ-สกุล</th><th>ห้องเรียน</th><th>สถานภาพ</th><th>จัดการ</th></tr></thead>
-            <tbody>{paginated.map(s=><tr key={s.id} className="border-b border-slate-100"><td className="py-3">{s.student_no}</td><td>{s.name_prefix_th??''}{s.first_name_th} {s.last_name_th}</td><td className="whitespace-nowrap">{studentRoom.has(s.id)?roomLabel(studentRoom.get(s.id)!):<span className="text-amber-700">ยังไม่จัดห้อง</span>}</td><td>{statusLabel[s.status]??s.status}</td><td>{canWrite&&<div className="flex flex-wrap gap-2"><button className="text-blue-700" onClick={()=>{setEditingId(s.id);setForm({student_no:s.student_no,name_prefix_th:s.name_prefix_th??'',first_name_th:s.first_name_th,last_name_th:s.last_name_th});}}>แก้ไข</button><button type="button" className="text-amber-700" onClick={()=>{setChangingStatus(s);setNextStatus(s.status);}}>สถานภาพ</button><button type="button" className="text-red-700" onClick={()=>{setRemoving(s);setConfirmNo('');setAdminPassword('');}}>ลบ</button></div>}</td></tr>)}</tbody></table></div>
+          <div className="student-table-scroll max-h-[min(58vh,560px)] overflow-auto"><table className="student-register-table w-full text-left text-sm"><thead><tr className="border-b text-slate-500"><th className="py-3">รหัส</th><th>ชื่อ-สกุล</th><th>ห้องเรียน</th><th>สถานภาพ</th><th>จัดการ</th></tr></thead>
+            <tbody>{paginated.map(s=><tr key={s.id} className="border-b border-slate-100"><td className="py-3">{s.student_no}</td><td>{s.name_prefix_th??''}{s.first_name_th} {s.last_name_th}</td><td className="whitespace-nowrap">{studentRoom.has(s.id)?roomLabel(studentRoom.get(s.id)!):<span className="text-amber-700">ยังไม่จัดห้อง</span>}</td><td>{statusLabel[s.status]??s.status}</td><td>{canWrite&&<div className="student-row-actions"><button type="button" className="ui-row-action" onClick={()=>{setEditingId(s.id);setForm({student_no:s.student_no,name_prefix_th:s.name_prefix_th??'',first_name_th:s.first_name_th,last_name_th:s.last_name_th});}}><AcademicIcon name="edit"/>แก้ไข</button><button type="button" className="ui-row-action" onClick={()=>{setChangingStatus(s);setNextStatus(s.status);}}><AcademicIcon name="users"/>สถานภาพ</button><button type="button" className="ui-row-action danger" onClick={()=>{setRemoving(s);setConfirmNo('');setAdminPassword('');}}><AcademicIcon name="trash"/>ลบ</button></div>}</td></tr>)}</tbody></table></div>
           {visible.length===0&&<p className="py-8 text-center text-sm text-slate-500">ไม่พบข้อมูลนักเรียน</p>}
           <PageControls total={visible.length} page={Math.min(page,Math.max(1,Math.ceil(visible.length/PAGE_SIZE)))} onChange={setPage}/>
           <Link href="/students/history" className="mt-3 inline-block text-sm font-medium text-blue-700">จัดการลงทะเบียนและย้ายห้อง →</Link>
         </section>
-        <aside className="ui-panel rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+        <aside className="ui-panel min-w-0 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
           <h2 className="mb-4 text-lg font-bold">{editingId?'แก้ไขข้อมูลนักเรียน':'เพิ่มนักเรียน'}</h2>
           {!canWrite?<p className="text-sm text-slate-500">บัญชีนี้ดูข้อมูลได้ แต่ไม่มีสิทธิ์เพิ่มหรือแก้ไข</p>:<form onSubmit={save} className="space-y-4">
             <label className="block text-sm font-medium">คำนำหน้าชื่อ<select value={form.name_prefix_th} onChange={e=>setForm(prev=>({...prev,name_prefix_th:e.target.value}))} className="mt-2 w-full rounded-xl border border-slate-300 p-3"><option value="">ยังไม่ระบุ</option>{['เด็กชาย','เด็กหญิง','นาย','นางสาว','นาง'].map(v=><option key={v} value={v}>{v}</option>)}</select></label>

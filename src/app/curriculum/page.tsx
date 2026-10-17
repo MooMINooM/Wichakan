@@ -1,6 +1,6 @@
 'use client';
 import PageHeader from '@/components/page-header';
-import Link from 'next/link';
+import {AcademicIcon} from '@/components/academic-visuals';
 import PageControls,{PAGE_SIZE} from '@/components/page-controls';
 import {useEffect,useState} from 'react';
 import {useRouter} from 'next/navigation';
@@ -15,7 +15,6 @@ export default function CurriculumPage(){
  const [canEdit,setCanEdit]=useState(false),[loading,setLoading]=useState(true);
  const [curricula,setCurricula]=useState<Curriculum[]>([]),[versions,setVersions]=useState<Version[]>([]),[subjects,setSubjects]=useState<Subject[]>([]);
  const [curriculumId,setCurriculumId]=useState(''),[versionId,setVersionId]=useState('');
- const [step,setStep]=useState<1|2|3>(1);
  const [formOpen,setFormOpen]=useState(false);
  const [name,setName]=useState(''),[versionName,setVersionName]=useState(''),[effectiveYear,setEffectiveYear]=useState('2569');
  const [subjectQuery,setSubjectQuery]=useState(''),[subjectPage,setSubjectPage]=useState(1);
@@ -55,8 +54,12 @@ export default function CurriculumPage(){
   if(e){setError(e.message);return;}
   setCurricula(c.data??[]);setVersions(v.data??[]);setSubjects(s.data??[]);setOfferings(o.data??[]);setUsedSubjectIds([...(new Set((o.data??[]).map(x=>x.subject_id)))]);setAssignedOfferingIds((a.data??[]).map(x=>x.course_offering_id));
   setCanEdit((m.data??[]).some(x=>['school_admin','academic'].includes(x.role)));
-  setCurriculumId(old=>(c.data??[]).some(x=>x.id===old)?old:'');
+  setCurriculumId(old=>(c.data??[]).some(x=>x.id===old)?old:c.data?.[0]?.id??'');
  })();return()=>{mounted=false;};},[db,schoolId,notice]);
+ useEffect(()=>{
+  const available=versions.filter(v=>v.curriculum_id===curriculumId).sort((a,b)=>b.effective_year_be-a.effective_year_be||b.version_label.localeCompare(a.version_label,'th',{numeric:true}));
+  setVersionId(old=>available.some(v=>v.id===old)?old:available[0]?.id??'');
+ },[versions,curriculumId]);
  const filteredVersions=versions.filter(v=>v.curriculum_id===curriculumId);
  const selectedVersion=filteredVersions.some(v=>v.id===versionId)?versionId:'';
  const selectedSubjects=subjects.filter(s=>s.curriculum_version_id===selectedVersion&&s.grade_level===filterGrade);
@@ -107,44 +110,44 @@ export default function CurriculumPage(){
   await save(()=>db.from('subjects').insert({school_id:schoolId,curriculum_version_id:selectedVersion,subject_code:subjectCode.trim(),name_th:subjectName.trim(),learning_hours:Number(hours),hour_basis:hourBasis,category,grade_level:gradeLevel,semester_no:gradeLevel.startsWith('ม.')?Number(semesterNo):null}),'เพิ่มรายวิชาแล้ว');
   // On success the data reloads through notice; the form remains visible until the user closes it.
  }
- return <main className="wichakan-page mx-auto max-w-7xl px-4 pb-5 pt-4 sm:px-6">
+ return <main className="wichakan-page curriculum-page mx-auto max-w-7xl px-4 pb-5 pt-4 sm:px-6">
   <PageHeader title="หลักสูตรและรายวิชา" context={schools.find(s=>s.id===schoolId)?.name_th}/>
   {loading&&<p className="mt-4 text-sm text-slate-500">กำลังตรวจสอบสิทธิ์และโหลดข้อมูล...</p>}
-  {schools.length>1&&<label className="mt-3 block text-sm">โรงเรียน <select className="ml-2 rounded-lg border p-2" value={schoolId} onChange={e=>{setSchoolId(e.target.value);setCurriculumId('');setVersionId('');setStep(1);closeForm();}}>{schools.map(s=><option key={s.id} value={s.id}>{s.name_th}</option>)}</select></label>}
+  {schools.length>1&&<label className="mt-3 block text-sm">โรงเรียน <select className="ml-2 rounded-lg border p-2" value={schoolId} onChange={e=>{setSchoolId(e.target.value);setCurriculumId('');setVersionId('');closeForm();}}>{schools.map(s=><option key={s.id} value={s.id}>{s.name_th}</option>)}</select></label>}
   {error&&<p role="alert" className="mt-3 rounded-xl bg-red-50 p-3 text-sm text-red-800">{error}</p>}
   {notice&&<p role="status" className="mt-3 rounded-xl bg-emerald-50 p-3 text-sm text-emerald-800">{notice}</p>}
   {schoolId&&<>
-   <nav className="mt-4 flex gap-2 overflow-x-auto" aria-label="ขั้นตอนหลักสูตร">
-    {([{id:1,label:'หลักสูตร',icon:'▤'},{id:2,label:'ฉบับหลักสูตร',icon:'▣'},{id:3,label:'รายวิชา',icon:'▥'}] as const).map(s=><button key={s.id} type="button" disabled={s.id===2&&!curriculumId||s.id===3&&!selectedVersion} onClick={()=>{setStep(s.id);closeForm();}}
-      aria-current={step===s.id?'step':undefined} className={`min-w-32 shrink-0 rounded-t-xl border border-b-2 px-5 py-3 text-sm font-bold transition disabled:cursor-not-allowed disabled:opacity-40 ${step===s.id?'border-blue-300 border-b-blue-600 bg-blue-50 text-blue-700':'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'}`}>
-      <span aria-hidden="true" className="mr-2">{s.icon}</span>{s.id}. {s.label}
-    </button>)}
-   </nav>
-   {step===1&&<section className="ui-panel mt-0 rounded-2xl border border-slate-100 bg-white p-5 shadow-sm sm:p-7">
-    <div className="flex flex-wrap items-center justify-between gap-3"><div><h2 className="text-xl font-bold text-blue-950">เลือกหลักสูตรสถานศึกษา</h2></div><span className="rounded-full bg-blue-50 px-3 py-1 text-xs text-blue-700">ขั้นที่ 1 จาก 3</span></div>
-    <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">{curricula.map(item=><button key={item.id} type="button" onClick={()=>{setCurriculumId(item.id);setVersionId('');closeForm();setSubjectPage(1);}} className={`rounded-2xl border p-5 text-left transition ${curriculumId===item.id?'border-blue-500 bg-blue-50 shadow-sm':'border-slate-200 bg-slate-50/40 hover:border-blue-300'}`}>
-     <span className="text-xl text-blue-700">▤</span><span className="mt-3 block font-bold text-slate-900">{item.name_th}</span><span className="mt-1 block text-xs text-slate-500">{versions.filter(v=>v.curriculum_id===item.id).length} ฉบับหลักสูตร</span></button>)}
-    {!curricula.length&&<p className="text-sm text-slate-500">ยังไม่มีหลักสูตร กรุณาเพิ่มหลักสูตรก่อน</p>}</div>
-    {canEdit&&<details className="mt-5 rounded-xl border border-blue-100 p-4"><summary className="cursor-pointer text-sm font-semibold text-blue-700">+ เพิ่มหลักสูตรใหม่</summary><div className="mt-3 flex flex-wrap gap-2"><input aria-label="ชื่อหลักสูตร" className="min-w-52 flex-1 rounded-xl border p-3 text-sm" value={name} onChange={e=>setName(e.target.value)} placeholder="ชื่อหลักสูตรสถานศึกษา"/><button disabled={busy||!name.trim()} onClick={()=>save(()=>db!.from('curricula').insert({school_id:schoolId,name_th:name.trim()}),'เพิ่มหลักสูตรแล้ว')} className="ui-primary rounded-xl bg-blue-700 px-5 py-2 text-sm font-semibold text-white disabled:opacity-40">บันทึกหลักสูตร</button></div></details>}
-    <div className="mt-6 flex justify-end"><button type="button" disabled={!curriculumId} onClick={()=>setStep(2)} className="ui-primary rounded-xl bg-blue-700 px-5 py-3 text-sm font-semibold text-white disabled:opacity-40">ถัดไป: ฉบับหลักสูตร →</button></div>
-   </section>}
-   {step===2&&curriculumId&&<section className="ui-panel rounded-2xl border border-slate-100 bg-white p-5 shadow-sm sm:p-7">
-    <div className="flex flex-wrap items-center justify-between gap-3"><div><h2 className="text-xl font-bold text-blue-950">เลือกฉบับหลักสูตร</h2><p className="mt-1 text-sm text-slate-500">{curricula.find(x=>x.id===curriculumId)?.name_th}</p></div><span className="rounded-full bg-blue-50 px-3 py-1 text-xs text-blue-700">ขั้นที่ 2 จาก 3</span></div>
-    <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">{filteredVersions.map(v=><button key={v.id} type="button" onClick={()=>{setVersionId(v.id);closeForm();setSubjectPage(1);}} className={`rounded-2xl border p-5 text-left ${selectedVersion===v.id?'border-blue-500 bg-blue-50':'border-slate-200 bg-slate-50/40 hover:border-blue-300'}`}><span className="text-xl text-blue-700">▣</span><span className="mt-3 block font-bold">{v.version_label}</span><span className="mt-1 block text-xs text-slate-500">เริ่มใช้ พ.ศ. {v.effective_year_be}</span></button>)}{!filteredVersions.length&&<p className="text-sm text-slate-500">ยังไม่มีฉบับหลักสูตร</p>}</div>
-    {canEdit&&<details className="mt-5 rounded-xl border border-blue-100 p-4"><summary className="cursor-pointer text-sm font-semibold text-blue-700">+ เพิ่มฉบับหลักสูตร</summary><div className="mt-3 grid gap-3 sm:grid-cols-[1fr_140px_auto]"><input aria-label="ชื่อฉบับ" className="rounded-xl border p-3 text-sm" placeholder="ชื่อฉบับหลักสูตร" value={versionName} onChange={e=>setVersionName(e.target.value)}/><input aria-label="ปีเริ่มใช้" type="number" className="rounded-xl border p-3 text-sm" value={effectiveYear} onChange={e=>setEffectiveYear(e.target.value)}/><button disabled={busy||!versionName.trim()||Number(effectiveYear)<2500||Number(effectiveYear)>2800} onClick={()=>save(()=>db!.from('curriculum_versions').insert({school_id:schoolId,curriculum_id:curriculumId,version_label:versionName.trim(),effective_year_be:Number(effectiveYear)}),'เพิ่มฉบับหลักสูตรแล้ว')} className="ui-primary rounded-xl bg-blue-700 px-5 py-2 text-sm font-semibold text-white disabled:opacity-40">บันทึกฉบับ</button></div></details>}
-    <div className="mt-6 flex justify-between gap-3"><button onClick={()=>setStep(1)} className="rounded-xl border px-5 py-3 text-sm">← หลักสูตร</button><button disabled={!selectedVersion} onClick={()=>setStep(3)} className="ui-primary rounded-xl bg-blue-700 px-5 py-3 text-sm font-semibold text-white disabled:opacity-40">ถัดไป: รายวิชา →</button></div>
-   </section>}
-   {step===3&&curriculumId&&selectedVersion&&<div className="grid min-h-0 gap-4 xl:grid-cols-[minmax(0,1.95fr)_minmax(320px,1fr)]">
+   <section className="ui-panel curriculum-selection" aria-label="เลือกหลักสูตรและฉบับหลักสูตร">
+    <h2 className="curriculum-heading"><AcademicIcon name="book"/>หลักสูตรสถานศึกษา</h2>
+    <div className="curriculum-selectors">
+     <div className="min-w-0">
+      <label htmlFor="curriculum-select">หลักสูตร</label>
+      <select id="curriculum-select" className={inputClass} value={curriculumId} disabled={!curricula.length} onChange={e=>{setCurriculumId(e.target.value);setVersionId('');closeForm();setSubjectPage(1);setSubjectQuery('');}}>
+       {!curricula.length&&<option value="">ยังไม่มีหลักสูตร</option>}{curricula.map(c=><option key={c.id} value={c.id}>{c.name_th}</option>)}
+      </select>
+      {canEdit&&<details className="curriculum-create"><summary>เพิ่มหลักสูตร</summary><div className="curriculum-create-fields"><label>ชื่อหลักสูตร<input className={inputClass} value={name} onChange={e=>setName(e.target.value)} placeholder="ชื่อหลักสูตรสถานศึกษา"/></label><button type="button" disabled={busy||!name.trim()} onClick={()=>save(()=>db!.from('curricula').insert({school_id:schoolId,name_th:name.trim()}),'เพิ่มหลักสูตรแล้ว')} className="ui-primary">บันทึกหลักสูตร</button></div></details>}
+     </div>
+     <div className="min-w-0">
+      <label htmlFor="curriculum-version-select">ฉบับหลักสูตร</label>
+      <select id="curriculum-version-select" className={inputClass} value={selectedVersion} disabled={!filteredVersions.length} onChange={e=>{setVersionId(e.target.value);closeForm();setSubjectPage(1);setSubjectQuery('');}}>
+       {!filteredVersions.length&&<option value="">{curriculumId?'ยังไม่มีฉบับหลักสูตร':'เลือกหลักสูตรก่อน'}</option>}{filteredVersions.map(v=><option key={v.id} value={v.id}>{v.version_label} · เริ่มใช้ พ.ศ. {v.effective_year_be}</option>)}
+      </select>
+      {canEdit&&curriculumId&&<details className="curriculum-create"><summary>เพิ่มฉบับหลักสูตร</summary><div className="curriculum-create-fields"><label>ชื่อฉบับ<input className={inputClass} value={versionName} onChange={e=>setVersionName(e.target.value)} placeholder="ชื่อฉบับหลักสูตร"/></label><label>ปีเริ่มใช้<input type="number" min="2500" max="2800" className={inputClass} value={effectiveYear} onChange={e=>setEffectiveYear(e.target.value)}/></label><button type="button" disabled={busy||!versionName.trim()||!Number.isInteger(Number(effectiveYear))||Number(effectiveYear)<2500||Number(effectiveYear)>2800} onClick={()=>save(()=>db!.from('curriculum_versions').insert({school_id:schoolId,curriculum_id:curriculumId,version_label:versionName.trim(),effective_year_be:Number(effectiveYear)}),'เพิ่มฉบับหลักสูตรแล้ว')} className="ui-primary">บันทึกฉบับ</button></div></details>}
+     </div>
+    </div>
+   </section>
+   {!selectedVersion&&<section className="ui-panel curriculum-empty"><AcademicIcon name="book"/><h2>{curriculumId?'ยังไม่มีฉบับหลักสูตร':'ยังไม่มีหลักสูตร'}</h2><p>{canEdit?'เพิ่มข้อมูลด้านบนเพื่อเริ่มจัดการรายวิชา':'ติดต่อผู้ดูแลเพื่อเพิ่มข้อมูลหลักสูตร'}</p></section>}
+   {curriculumId&&selectedVersion&&<div className="curriculum-content">
     <section className="ui-panel min-w-0 rounded-2xl border border-slate-100 bg-white p-4 shadow-sm sm:p-5">
-     <div className="flex flex-wrap justify-between gap-2"><div><h2 className="text-lg font-bold text-blue-950">รายการรายวิชา</h2><p className="mt-1 text-xs text-slate-500">{curricula.find(x=>x.id===curriculumId)?.name_th} / {filteredVersions.find(v=>v.id===selectedVersion)?.version_label}</p></div><button type="button" onClick={()=>{setStep(2);closeForm();}} className="text-xs font-semibold text-blue-700">เปลี่ยนฉบับ →</button></div>
+     <div className="curriculum-section-heading"><h2 className="curriculum-heading"><AcademicIcon name="book"/>รายการรายวิชา</h2><span>{filteredSubjects.length} รายวิชา</span></div>
      <div className="mt-4 grid gap-2 rounded-xl bg-slate-50 p-3 sm:grid-cols-[minmax(0,1fr)_125px_auto]">
-      <input className="min-w-0 rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm" aria-label="ค้นหารายวิชา" placeholder="⌕ ค้นหารหัสหรือชื่อรายวิชา" value={subjectQuery} onChange={e=>{setSubjectQuery(e.target.value);setSubjectPage(1);}}/>
+      <input className="min-w-0 rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm" aria-label="ค้นหารายวิชา" placeholder="ค้นหารหัสหรือชื่อรายวิชา" value={subjectQuery} onChange={e=>{setSubjectQuery(e.target.value);setSubjectPage(1);}}/>
       <select aria-label="ระดับชั้น" className="min-w-0 rounded-lg border border-slate-200 bg-white px-2 py-2.5 text-sm" value={filterGrade} onChange={e=>{setFilterGrade(e.target.value);setSubjectPage(1);}}>{gradeLevels.map(g=><option key={g}>{g}</option>)}</select>
       <button type="button" disabled={!canEdit} onClick={openCreate} className="ui-primary rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-40">+ เพิ่มรายวิชา</button>
      </div>
      <div className="mt-4 max-h-[min(55vh,600px)] overflow-auto rounded-xl border border-slate-100">
-      <table className="w-full min-w-[660px] text-left text-sm"><thead className="sticky top-0 z-10 bg-[#eff5fc] text-xs text-[#284b7d]"><tr><th className="px-3 py-3">รหัสวิชา</th><th className="px-3 py-3">ชื่อรายวิชา</th><th className="px-3 py-3">ประเภท</th><th className="px-3 py-3">ภาคเรียน</th><th className="px-3 py-3 text-right">ชั่วโมงเรียน</th><th className="px-3 py-3 text-right">หน่วยกิต</th><th className="px-3 py-3 text-right">จัดการ</th></tr></thead>
-       <tbody>{visibleSubjects.map(s=><tr key={s.id} className={`border-t border-slate-100 hover:bg-blue-50/40 ${editing?.id===s.id?'bg-blue-50':''}`}><td className="px-3 py-3 font-semibold text-blue-950">{s.subject_code}</td><td className="px-3 py-3">{s.name_th}</td><td className="px-3 py-3"><span className={`rounded-full px-2 py-1 text-xs ${categoryColor(s.category)}`}>{categoryText(s.category)}</span></td><td className="px-3 py-3">{s.grade_level?.startsWith('ม.')?(s.semester_no?'ภาค '+s.semester_no:'ยังไม่กำหนด'):'รายปี'}</td><td className="whitespace-nowrap px-3 py-3 text-right">{s.learning_hours} {unit(s)}</td><td className="px-3 py-3 text-right">{s.grade_level?.startsWith('ม.')&&s.category!=='activity'&&s.hour_basis?(s.learning_hours/40).toFixed(2):'—'}</td><td className="px-3 py-3 text-right"><button type="button" disabled={!canEdit} onClick={()=>beginEdit(s)} className="font-semibold text-blue-700 disabled:opacity-40">✎ แก้ไข</button></td></tr>)}</tbody>
+      <table className="curriculum-table w-full min-w-[660px] text-left text-sm"><thead className="sticky top-0 z-10 bg-[#eff5fc] text-xs text-[#284b7d]"><tr><th className="px-3 py-3">รหัสวิชา</th><th className="px-3 py-3">ชื่อรายวิชา</th><th className="px-3 py-3">ประเภท</th><th className="px-3 py-3">ภาคเรียน</th><th className="px-3 py-3 text-right">ชั่วโมงเรียน</th><th className="px-3 py-3 text-right">หน่วยกิต</th><th className="px-3 py-3 text-right">จัดการ</th></tr></thead>
+       <tbody>{visibleSubjects.map(s=><tr key={s.id} className={`border-t border-slate-100 hover:bg-blue-50/40 ${editing?.id===s.id?'bg-blue-50':''}`}><td className="px-3 py-3 font-semibold text-blue-950">{s.subject_code}</td><td className="px-3 py-3">{s.name_th}</td><td className="px-3 py-3"><span className={`rounded-full px-2 py-1 text-xs ${categoryColor(s.category)}`}>{categoryText(s.category)}</span></td><td className="px-3 py-3">{s.grade_level?.startsWith('ม.')?(s.semester_no?'ภาค '+s.semester_no:'ยังไม่กำหนด'):'รายปี'}</td><td className="whitespace-nowrap px-3 py-3 text-right">{s.learning_hours} {unit(s)}</td><td className="px-3 py-3 text-right">{s.grade_level?.startsWith('ม.')&&s.category!=='activity'&&s.hour_basis?(s.learning_hours/40).toFixed(2):'—'}</td><td className="px-3 py-3 text-right"><button type="button" disabled={!canEdit} onClick={()=>beginEdit(s)} className="ui-row-action"><AcademicIcon name="edit"/>แก้ไข</button></td></tr>)}</tbody>
       </table>
       {!filteredSubjects.length&&<p className="px-4 py-10 text-center text-sm text-slate-400">ไม่พบรายวิชาสำหรับระดับชั้นนี้</p>}
      </div>
@@ -152,14 +155,13 @@ export default function CurriculumPage(){
     </section>
     <div className="min-w-0 space-y-4">
      <section className="ui-panel rounded-2xl border border-slate-100 bg-white p-4 shadow-sm sm:p-5" aria-label="สรุปโครงสร้างเวลาเรียน">
-      <h2 className="text-lg font-bold text-blue-950">▥ สรุปโครงสร้างเวลาเรียน</h2><p className="mt-1 text-xs text-slate-500">ระดับชั้น {filterGrade} · เฉพาะฉบับหลักสูตรที่เลือก</p>
+      <h2 className="curriculum-heading"><AcademicIcon name="chart"/>โครงสร้างเวลาเรียน</h2><p className="mt-1 text-xs text-slate-500">ระดับชั้น {filterGrade}</p>
       <div className="mt-3 overflow-x-auto rounded-lg border border-blue-50"><table className="w-full min-w-[300px] text-xs"><thead className="bg-blue-50 text-blue-800"><tr><th className="p-3 text-left">ประเภท</th><th className="p-3 text-right">ชม./ปี</th><th className="p-3 text-right">ชม./ภาค</th></tr></thead><tbody>{([['basic','รายวิชาพื้นฐาน'],['additional','รายวิชาเพิ่มเติม'],['activity','กิจกรรมพัฒนาผู้เรียน']] as const).map(([type,label])=><tr key={type} className="border-t"><td className="p-3"><span className={`mr-1 inline-block h-2 w-2 rounded-full ${type==='basic'?'bg-blue-500':type==='additional'?'bg-orange-500':'bg-emerald-500'}`}/>{label}</td><td className="p-3 text-right tabular-nums">{total(type,'year')}</td><td className="p-3 text-right tabular-nums">{total(type,'term')}</td></tr>)}</tbody></table></div>
       {selectedSubjects.some(s=>!s.hour_basis)&&<p className="mt-2 rounded-lg bg-amber-50 p-2 text-xs text-amber-800">มี {selectedSubjects.filter(s=>!s.hour_basis).length} วิชาที่ยังไม่ระบุหน่วยเวลา จึงไม่รวมในผลรวม</p>}
       <p className="mt-3 rounded-lg bg-blue-50 p-3 text-xs leading-5 text-blue-800">ชั่วโมง/ปี และ ชั่วโมง/ภาคเรียนเป็นคนละหน่วย จึงไม่บวกรวมกัน</p>
      </section>
-     <section className="ui-panel rounded-2xl border border-slate-100 bg-white p-4 shadow-sm sm:p-5">
+     {formOpen&&<section className="ui-panel rounded-2xl border border-slate-100 bg-white p-4 shadow-sm sm:p-5">
       <div className="flex items-center justify-between gap-2"><h2 className="text-lg font-bold text-blue-950">{editing?'แก้ไขรายวิชา':'เพิ่มรายวิชา'}</h2>{formOpen&&<button type="button" onClick={closeForm} aria-label="ปิดแบบฟอร์ม" className="rounded-lg px-2 py-1 text-xl text-slate-400 hover:bg-slate-100">×</button>}</div>
-      {!formOpen?<div className="mt-3"><button type="button" disabled={!canEdit} onClick={openCreate} className="mt-4 rounded-xl border border-blue-200 px-4 py-2 text-sm font-semibold text-blue-700 disabled:opacity-40">+ เพิ่มรายวิชา</button></div>:
        <div className="mt-3 max-h-[min(45vh,480px)] space-y-3 overflow-y-auto pr-1">
         {editing&&usedSubjectIds.includes(editing.id)&&<div role="alert" className="rounded-lg bg-amber-50 p-3 text-xs text-amber-900">รายวิชานี้มีประวัติเปิดสอน จึงแก้ไขไม่ได้จนกว่าจะยกเลิกการเปิดสอนที่ไม่มีครูผู้สอน หากมีประวัติการสอนจริงให้สร้างฉบับหลักสูตรใหม่</div>}
         <div className="grid grid-cols-2 gap-3">
@@ -173,9 +175,9 @@ export default function CurriculumPage(){
         </div>
         <p className="text-xs text-slate-500">หน่วยกิตมัธยม (ยกเว้นกิจกรรม): {((editing?editGrade:gradeLevel).startsWith('ม.')&&(editing?editCategory:category)!=='activity')?((Number(editing?editHours:hours)||0)/40).toFixed(2):'—'}</p>
         {editing&&usedSubjectIds.includes(editing.id)&&<div className="space-y-2 rounded-lg border p-3"><h3 className="text-sm font-semibold">รายการเปิดสอนที่เกี่ยวข้อง</h3>{offerings.filter(o=>o.subject_id===editing.id).map(o=><div key={o.id} className="flex items-center justify-between gap-2 border-t pt-2 text-xs"><span>{o.id.slice(0,8)} · {assignedOfferingIds.includes(o.id)?'มีครูสอน':'ไม่มีครูสอน'}</span><button type="button" disabled={busy||assignedOfferingIds.includes(o.id)} onClick={()=>{setCancelId(o.id);setCancelReason('');}} className="text-amber-700 disabled:opacity-40">ยกเลิกการเปิดสอน</button></div>)}{cancelId&&<div className="space-y-2"><input className={inputClass} placeholder="ระบุเหตุผลอย่างน้อย 5 ตัวอักษร" value={cancelReason} onChange={e=>setCancelReason(e.target.value)}/><button type="button" disabled={busy||cancelReason.trim().length<5} onClick={cancelOffering} className="rounded-lg bg-amber-700 px-3 py-2 text-xs text-white disabled:opacity-40">ยืนยันยกเลิก</button></div>}</div>}
-        <div className="flex justify-end gap-2 border-t pt-3"><button type="button" onClick={closeForm} className="rounded-xl border px-4 py-2 text-sm">ยกเลิก</button><button type="button" disabled={editing?(!canEdit||busy||usedSubjectIds.includes(editing.id)):!createValid} onClick={editing?saveEdit:createSubject} className="ui-primary rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-40">{busy?'กำลังบันทึก...':'บันทึกรายวิชา'}</button></div>
-       </div>}
-     </section>
+        <div className="flex justify-end gap-2 border-t pt-3"><button type="button" onClick={closeForm} className="ui-secondary">ยกเลิก</button><button type="button" disabled={editing?(!canEdit||busy||usedSubjectIds.includes(editing.id)):!createValid} onClick={editing?saveEdit:createSubject} className="ui-primary rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-40">{busy?'กำลังบันทึก...':'บันทึกรายวิชา'}</button></div>
+       </div>
+     </section>}
     </div>
    </div>}
   </>}
