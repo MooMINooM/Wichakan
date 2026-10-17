@@ -77,6 +77,34 @@ const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('n
  assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
  assert.equal(await actions.locator('button').first().evaluate(n=>n.getBoundingClientRect().height>=44),true);
  await page.screenshot({path:'/tmp/balance-students-mobile.png',fullPage:true});
+ // Keep the header/sidebar seam intact at every scroll position and breakpoint.
+ for(const width of [1440,1024,768,360]){
+  await page.setViewportSize({width,height:600});
+  await page.evaluate(()=>window.scrollTo({top:0,behavior:'instant'}));
+  const initial=await page.locator('.app-topbar').boundingBox();
+  assert.equal(initial.y,0,'header starts at viewport top');
+  assert((await page.locator('.ui-header').boundingBox()).y>=initial.height,'page title clears header');
+  for(const top of [120,480,10000]){
+   await page.evaluate(top=>window.scrollTo({top,behavior:'instant'}),top);
+   assert(await page.evaluate(()=>window.scrollY>0),'fixture must scroll');
+   const header=await page.locator('.app-topbar').boundingBox();
+   assert.equal(header.y,0,'header stays visible at '+width+' / '+top);
+   assert.equal(header.height,width<=600?64:72);
+   const logo=await page.locator('.app-topbar .brand-mark').boundingBox();
+   assert(logo.y>=0&&logo.y+logo.height<=header.height,'logo stays inside header');
+   if(width>=1024){const sidebar=await page.locator('.app-sidebar').boundingBox();assert.equal(sidebar.y,header.height,'sidebar joins header');}
+  }
+  if(width===1440)await page.screenshot({path:'/tmp/scroll-desktop.png'});
+  if(width===360){
+   await page.getByRole('button',{name:'เปิดหรือปิดเมนู'}).click();
+   const sidebar=await page.locator('.app-sidebar').boundingBox();
+   assert.equal(sidebar.y,64,'mobile drawer joins header while scrolled');
+   assert.equal(await page.getByRole('button',{name:'เปิดหรือปิดเมนู'}).getAttribute('aria-expanded'),'true');
+   await page.screenshot({path:'/tmp/scroll-mobile-menu.png'});
+   await page.getByRole('button',{name:'เปิดหรือปิดเมนู'}).click();
+  }
+ }
+ await page.evaluate(()=>window.scrollTo({top:0,behavior:'instant'}));
  const routes=[['admin','จัดการสถานศึกษา'],['academic','ตั้งค่างานวิชาการ'],['academic/teachers','มอบหมายครูผู้สอนรายวิชา'],['personnel','จัดการบุคลากร'],['curriculum','หลักสูตรและรายวิชา'],['students','ทะเบียนนักเรียน'],['students/history','ประวัติการศึกษา'],['students/import','นำเข้านักเรียนจาก DMC'],['students/promote','เลื่อนชั้นนักเรียน'],['academic/score-settings','ตั้งค่าโครงสร้างคะแนน'],['teacher','แดชบอร์ดครู'],['teacher/scores/?offering=math','บันทึกคะแนนรายวิชา'],['teacher/pp6','ห้องประจำชั้น'],['director','ภาพรวมผู้บริหาร'],['workspace','เลือกพื้นที่ทำงาน']];
  for(const [route,title] of routes){await page.setViewportSize({width:1440,height:1000});await page.goto('http://127.0.0.1:3000/Wichakan/'+route);await page.getByRole('heading',{name:title,exact:true}).first().waitFor();await page.evaluate(async()=>{await document.fonts.ready});await page.waitForTimeout(100);
  const styles=await page.locator('.ui-header h1').evaluate(el=>({size:getComputedStyle(el).fontSize,color:getComputedStyle(el).color,body:getComputedStyle(document.body).backgroundColor,font:getComputedStyle(el).fontFamily,primary:getComputedStyle(document.documentElement).getPropertyValue('--ui-primary').trim()}));assert.equal(styles.size,'24px',route);assert.match(styles.font,/Wichakan Thai/,route);assert.equal(await page.evaluate(()=>document.fonts.check('600 24px "Wichakan Thai"')),true,route);assert.equal(styles.body,'rgb(248, 250, 252)',route);assert.equal(styles.primary,'#2563eb',route);assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false,'desktop overflow '+route);
@@ -84,5 +112,5 @@ const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('n
  await page.setViewportSize({width:360,height:900});await page.waitForTimeout(100);assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false,'mobile overflow '+route);if(['teacher','academic/teachers','teacher/scores/?offering=math'].includes(route))await page.screenshot({path:'/tmp/brand-mobile-'+route.split('/')[0]+(route.includes('scores')?'-scores':route.includes('teachers')?'-assignments':'')+'.png',fullPage:true});
  }
  await page.goto('http://127.0.0.1:3000/Wichakan/teacher/');await page.getByRole('button',{name:'เปิดหรือปิดเมนู'}).click();await page.getByRole('link',{name:'ห้องประจำชั้น',exact:true}).click();await page.getByRole('heading',{name:'ห้องประจำชั้น',exact:true}).waitFor();await page.waitForFunction(()=>document.querySelector('a[href="/Wichakan/teacher/pp6/"]')?.getAttribute('aria-current')==='page'||Array.from(document.querySelectorAll('a')).some(a=>a.textContent==='ห้องประจำชั้น'&&a.getAttribute('aria-current')==='page'));assert.equal(await page.getByRole('link',{name:'ห้องประจำชั้น',exact:true}).getAttribute('aria-current'),'page');
- await page.goto('http://127.0.0.1:3000/Wichakan/login/');await page.getByRole('heading',{name:'เข้าสู่ระบบ',exact:true}).waitFor();assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);await page.screenshot({path:'/tmp/brand-login-mobile.png',fullPage:true});assert.equal(await page.locator('.brand-mark').count(),1);assert.deepEqual(errors,[]);assert.equal(writes.length,0);console.log('PASS: unified curriculum/version selection and empty states, subject editor, aligned student status actions; 15 workspace routes, uniform 24px titles/palette, desktop/mobile overflow, shared Sarabun font, SVG navigation/mobile drawer, homeroom link/active state and login. Mocked reads only.');await browser.close();server.close();
+ await page.goto('http://127.0.0.1:3000/Wichakan/login/');await page.getByRole('heading',{name:'เข้าสู่ระบบ',exact:true}).waitFor();assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);await page.screenshot({path:'/tmp/brand-login-mobile.png',fullPage:true});assert.equal(await page.locator('.brand-mark').count(),1);assert.deepEqual(errors,[]);assert.equal(writes.length,0);console.log('PASS: pinned header/sidebar seam and mobile drawer at four breakpoints while scrolled; unified curriculum/version selection and empty states, subject editor, aligned student status actions; 15 workspace routes, uniform 24px titles/palette, desktop/mobile overflow, shared Sarabun font, SVG navigation/mobile drawer, homeroom link/active state and login. Mocked reads only.');await browser.close();server.close();
 })().catch(async e=>{console.error(e);if(globalThis.testPage){console.log((await globalThis.testPage.locator('body').innerText()).slice(0,1000));await globalThis.testPage.screenshot({path:'/tmp/brand-failure.png',fullPage:true});}process.exit(1)});
