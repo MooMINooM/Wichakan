@@ -1,5 +1,7 @@
 @import 'tailwindcss';
-@font-face{font-family:'Wichakan Thai';src:url('../../public/fonts/NotoSansThai.ttf') format('truetype');font-weight:100 900;font-style:normal;font-display:swap}
+@font-face{font-family:'Wichakan Thai';src:url('../../public/fonts/sarabun/Sarabun-Regular.woff2') format('woff2');font-weight:400;font-style:normal;font-display:swap}
+@font-face{font-family:'Wichakan Thai';src:url('../../public/fonts/sarabun/Sarabun-SemiBold.woff2') format('woff2');font-weight:600;font-style:normal;font-display:swap}
+@font-face{font-family:'Wichakan Thai';src:url('../../public/fonts/sarabun/Sarabun-Bold.woff2') format('woff2');font-weight:700;font-style:normal;font-display:swap}
 :root{color-scheme:light}
 body{margin:0;font-family:'Wichakan Thai',Arial,sans-serif;background:#f4f7fb;color:#152746}
 :focus-visible{outline:3px solid #2563eb;outline-offset:3px}
@@ -181,7 +183,7 @@ body:has(.personnel-dashboard) .app-topbar>div:nth-child(2){visibility:visible}
 @media(min-width:1024px){.personnel-aside{display:flex}}
 
 /* Shared Wichakan workspace system. Keep route-specific rules above for layout only. */
-:root{--ui-primary:#087fff;--ui-primary-hover:#006cde;--ui-ink:#162b68;--ui-muted:#65799e;--ui-border:#dfE9f7;--ui-canvas:#f3f8fe;--ui-surface:#fff;--ui-radius:16px;--ui-control-radius:9px;--ui-space:16px}
+:root{--ui-primary:#2563eb;--ui-primary-hover:#1d4ed8;--ui-ink:#0f172a;--ui-muted:#64748b;--ui-border:#e2e8f0;--ui-canvas:#f8fafc;--ui-surface:#fff;--ui-radius:12px;--ui-control-radius:10px;--ui-space:16px;--ui-pale:#dbeafe;--ui-success:#16a34a;--ui-warning:#d97706;--ui-danger:#dc2626;--ui-shadow:0 4px 16px rgba(0,0,0,.08)}
 body{background:var(--ui-canvas);color:var(--ui-ink);font-size:14px;line-height:1.6}
 .wichakan-page{max-width:1440px;margin:0 auto;padding:16px 20px 28px;min-height:calc(100dvh - 76px);background:var(--ui-canvas)}
 .wichakan-page h1{font-size:30px;font-weight:800;line-height:1.4;letter-spacing:-.4px;color:var(--ui-ink)}
@@ -280,3 +282,85 @@ body:has(.wichakan-page) .app-topbar>div:nth-child(2){visibility:visible}
 @media(max-width:600px){.teacher-metrics{gap:10px}.teacher-metric{min-height:105px;padding:12px;gap:10px}.teacher-metric>i{width:36px;height:36px;border-radius:11px}.teacher-metric>i svg{width:24px;height:24px}.teacher-metric strong{font-size:24px}.teacher-metric p{font-size:11px}.teacher-metric span{font-size:10px}.teacher-filters,.score-selection{gap:12px}.teacher-filters label:nth-child(3){grid-column:1/-1}.teacher-filters .ui-secondary,.score-selection .ui-secondary{grid-column:1/-1;justify-self:stretch}.teacher-homeroom-card .ui-secondary{margin-left:0;width:100%;justify-content:center}.score-caps{width:100%}.score-caps span{font-size:10px}.score-caps strong{font-size:11px}.score-panel-toolbar h2{font-size:18px}.score-table .score-name{position:static}.score-footer{padding:12px}.score-footer>div{width:100%}.score-footer>div>button{flex:1;white-space:nowrap;font-size:12px}.teacher-metric small{font-size:12px}.score-table-scroll{max-height:65dvh}}
 .teacher-dashboard button:disabled,.teacher-score-page button:disabled{opacity:.45;cursor:default}.teacher-score-page .score-table :is(input,select):disabled{background:#f5f7fb;color:#8491ab}
 .wichakan-page.teacher-score-page .score-table input[type=number]{height:34px;min-height:34px;padding:4px;border-radius:6px}.wichakan-page.teacher-score-page .score-table .score-note select{height:34px;min-height:34px;padding:3px 5px;border-radius:6px}
+
+/* Visual Brand Direction: Quietly Professional. Shared tokens govern every screen. */
+.app-topbar{height:72px;background:#fff;border-color:var(--ui-border);box-shadow:0 1px 4px #0f172a05;padding:0 24px}
+.app-brand-link{display:inline-flex;align-items:center;flex-shrink:0;color:var(--ui-primary);text-decoration:none}
+.brand-lockup{display:inline-flex;align-items:center;gap:10px;white-space:nowrap}
+.brand-mark,.app-topbar .brand-mark{width:34px;height:36px;flex-shrink:0;color:var(--ui-primary)}
+.brand-wordmark{display:flex;flex-direction:column;gap:1px}.brand-wordmark strong{font-family:'Wichakan Thai',sans-serif;font-size:20px;line-height:1.2;letter-spacing:.35px;font-weight:700;color:#0f2857}.brand-wordmark>span{font-size:10px;line-height:1.4;letter-spacing:.15px;color:var(--ui-muted)}
+.app-sidebar,body:has(.wichakan-page) .app-sidebar{top:72px;background:#fff;border-right:1px solid var(--ui-border);padding:24px 12px}
+.app-sidebar>div:first-child{font-size:12px;letter-spacing:0;color:var(--ui-muted);font-weight:600;margin-bottom:16px}
+.app-nav-link{display:flex;align-items:center;gap:12px;min-height:44px;padding:10px 12px;border:1px solid transparent;border-radius:10px;font-size:14px;line-height:1.5;font-weight:400;color:#475569;transition:background .15s,color .15s,box-shadow .15s}
+.app-nav-link svg{width:20px;height:20px;flex-shrink:0;stroke-width:1.7}.app-nav-link:hover{background:#eff6ff;color:var(--ui-primary-hover)}
+.app-nav-link.is-active{background:var(--ui-primary);color:white;border-color:var(--ui-primary);box-shadow:0 3px 8px #2563eb26;font-weight:600}.app-nav-link.is-active:hover{background:var(--ui-primary-hover)}
+.app-role-switch{display:inline-flex;align-items:center;gap:8px;min-height:36px;padding:7px 12px;border:1px solid var(--ui-border);border-radius:10px;background:white;color:#475569;font-size:13px;font-weight:600}.app-role-switch:hover{color:var(--ui-primary);background:#eff6ff}.app-role-switch svg{width:18px;height:18px}
+.app-topbar button{white-space:nowrap;flex-shrink:0;border-color:var(--ui-border);border-radius:10px}.app-topbar button:hover{background:#f1f5f9}
+.wichakan-page{padding:24px;min-height:calc(100dvh - 72px);color:var(--ui-ink);background:var(--ui-canvas)}
+.wichakan-page h1{font-size:24px;line-height:1.4;font-weight:600;letter-spacing:0;color:var(--ui-ink)}
+.wichakan-page h2{font-size:18px;line-height:1.5;font-weight:600;color:var(--ui-ink)}
+.wichakan-page h3{font-size:16px;line-height:1.5;font-weight:600;color:var(--ui-ink)}
+.wichakan-page label{font-size:14px;color:#334155}.wichakan-page small{font-size:12px}
+.ui-header{min-height:96px;padding:24px;margin-bottom:24px;border:1px solid var(--ui-border);border-radius:12px;background:white;box-shadow:0 2px 8px #0f172a03}
+.ui-header .academic-school-scene{width:210px;height:88px;opacity:.12;right:12px}.ui-header-copy{max-width:calc(100% - 160px)}
+.ui-header .ui-header-context{margin-top:8px;font-size:12px;color:var(--ui-muted)}
+.ui-panel,.wichakan-page .academic-panel{border-color:var(--ui-border);border-radius:12px;box-shadow:var(--ui-shadow);padding:24px;background:white}
+.wichakan-page .ui-primary,.wichakan-page .academic-primary{background:var(--ui-primary);border-color:var(--ui-primary);border-radius:10px;font-size:14px;font-weight:600;min-height:40px;padding:8px 16px;transition:background .15s,box-shadow .15s}
+.wichakan-page .ui-primary:hover:not(:disabled),.wichakan-page .academic-primary:hover:not(:disabled){background:var(--ui-primary-hover);border-color:var(--ui-primary-hover);box-shadow:0 3px 8px #2563eb20}
+.ui-secondary,.academic-soft-button{background:white;border:1px solid var(--ui-border);border-radius:10px;min-height:40px;padding:8px 16px;color:var(--ui-primary-hover);font-size:14px;font-weight:600;cursor:pointer}.ui-secondary:hover,.academic-soft-button:hover{background:#eff6ff;border-color:#bfdbfe}
+.wichakan-page :is(button,input,select,textarea):disabled{opacity:.55;cursor:not-allowed}
+.wichakan-page :is(input:not([type=checkbox]):not([type=radio]):not([type=file]),select,textarea){font-size:14px;border:1px solid var(--ui-border);border-radius:10px;background:white;color:var(--ui-ink);box-shadow:none}
+.wichakan-page :is(input,textarea)::placeholder{color:#94a3b8}.wichakan-page :is(input,select,textarea):focus-visible{outline:2px solid var(--ui-primary);outline-offset:2px}
+.wichakan-page .academic-filters,.wichakan-page .personnel-toolbar{border-radius:12px;border-color:var(--ui-border);padding:16px;gap:16px;background:white}
+.wichakan-page .personnel-search input{border:0;padding:0;min-height:0;height:auto;background:none}.wichakan-page .assignment-search input{border:0;background:none;padding:0;min-height:0;height:auto}
+.wichakan-page :is(.assignment-metrics,.school-metrics){background:none;padding:0;gap:16px}
+.wichakan-page :is(.academic-stat,.teacher-metric){background:white;border:1px solid var(--ui-border);border-radius:12px;box-shadow:var(--ui-shadow);padding:16px;gap:16px;min-height:112px;color:var(--ui-primary)}
+.wichakan-page :is(.academic-stat,.teacher-metric) :is(p,span){color:var(--ui-muted);font-size:12px;font-weight:400}
+.wichakan-page :is(.academic-stat,.teacher-metric) strong{font-size:32px;line-height:1.2;font-weight:700;color:#0f2857}
+.wichakan-page :is(.academic-stat,.teacher-metric) small{font-size:14px;font-weight:400;color:var(--ui-muted)}
+.wichakan-page :is(.academic-stat,.teacher-metric)>i{width:48px;height:48px;border-radius:50%;background:#eff6ff;color:var(--ui-primary)}
+.wichakan-page :is(.academic-stat,.teacher-metric)>i svg{width:27px;height:27px;stroke-width:1.8}
+.wichakan-page :is(.academic-stat,.teacher-metric).green>i{background:#f0fdf4;color:var(--ui-success)}
+.wichakan-page :is(.academic-stat,.teacher-metric).orange>i{background:#fffbeb;color:var(--ui-warning)}
+.wichakan-page :is(.academic-stat,.teacher-metric).purple>i{background:#f5f3ff;color:#7c3aed}
+.wichakan-page :is(.academic-stat,.teacher-metric).red>i{background:#fef2f2;color:var(--ui-danger)}
+.wichakan-page :is(.academic-panel-heading,.teacher-panel-heading,.score-panel-toolbar) h2{font-size:18px;font-weight:600;color:var(--ui-ink)}
+.wichakan-page :is(.academic-panel-heading,.teacher-panel-heading,.score-panel-toolbar) h2 svg{width:22px;height:22px;color:var(--ui-primary)}
+.wichakan-page table{font-size:14px;line-height:1.5;color:var(--ui-ink);border-color:var(--ui-border)}
+.wichakan-page table :is(th,td){border-color:var(--ui-border)}
+.wichakan-page table thead th{background:#f1f5f9;color:#334155;font-size:13px;font-weight:600}
+.wichakan-page table tbody th{background:white;color:var(--ui-ink);font-size:14px;font-weight:600}
+.wichakan-page :is(.school-table,.teacher-course-table,.personnel-table,.assignment-table) :is(th,td){padding:12px}
+.wichakan-page :is(.school-table,.teacher-course-table,.personnel-table,.assignment-table) tbody tr:hover>*{background:#f8fafc}
+.wichakan-page .assignment-missing{background:#fffbeb}.wichakan-page .assignment-missing>th{background:transparent}
+.wichakan-page .assignment-section-title>i{background:#eff6ff;color:var(--ui-primary);border-radius:10px}
+.wichakan-page :is(.teacher-state,.assignment-status){border:1px solid var(--ui-border);border-radius:8px;font-size:12px;font-weight:600;line-height:1.5;background:#f8fafc;color:#475569}
+.wichakan-page :is(.teacher-state.complete,.assignment-status.assigned){background:#f0fdf4;border-color:#bbf7d0;color:#15803d}
+.wichakan-page .teacher-state.progress{background:#eff6ff;border-color:#bfdbfe;color:var(--ui-primary-hover)}
+.wichakan-page :is(.teacher-state.empty,.teacher-state.configuration,.assignment-status.missing){background:#fffbeb;border-color:#fde68a;color:#92400e}
+.wichakan-page .assignment-status.assigned b{background:var(--ui-success)}.wichakan-page .assignment-status.missing b{background:var(--ui-warning)}
+.wichakan-page .teacher-error{color:#b91c1c;background:#fef2f2;border:1px solid #fecaca}.wichakan-page .teacher-warning{color:#92400e;background:#fffbeb;border:1px solid #fde68a}.wichakan-page .teacher-success{color:#15803d;background:#f0fdf4;border:1px solid #bbf7d0}
+.wichakan-page .academic-readiness .ready{background:#f0fdf4;color:#15803d}.wichakan-page .academic-readiness .pending{background:#fffbeb;color:#92400e}
+.wichakan-page .teacher-tasks-heading{background:#f1f5f9;color:var(--ui-ink);border-radius:10px}.wichakan-page .teacher-tasks-heading svg{color:var(--ui-primary)}
+.wichakan-page .teacher-homeroom-card,.wichakan-page .academic-room-summary{background:#f8fafc;border:1px solid var(--ui-border);border-radius:12px}
+.wichakan-page .teacher-homeroom-card h3{font-size:18px}.wichakan-page .teacher-homeroom-card>svg{color:var(--ui-primary)}
+.wichakan-page .score-table thead th{background:#f1f5f9;color:#334155;font-size:12px;font-weight:600;padding:8px 4px}
+.wichakan-page .score-table thead :is(.score-term-one,.score-term-two){background:#dbeafe;color:#1e40af;font-size:14px}
+.wichakan-page .score-table tbody th{font-size:13px;font-weight:400}
+.wichakan-page.teacher-score-page .score-table :is(input[type=number],.score-note select){height:34px;min-height:34px;padding:4px;border-radius:8px;font-size:13px}
+.wichakan-page .score-output{border-radius:8px;color:var(--ui-ink)}.wichakan-page .score-output.pass{background:#f0fdf4;color:#15803d}.wichakan-page .score-output.special-r{background:#fef2f2;color:#b91c1c}.wichakan-page .score-output.special-ms{background:#fff7ed;color:#9a3412}
+.wichakan-page .score-footer{background:#f8fafc;border:1px solid var(--ui-border);border-radius:12px}
+.academic-dialog{border:1px solid var(--ui-border);border-radius:12px;box-shadow:0 16px 48px #0f172a29;color:var(--ui-ink);font-size:14px}.academic-dialog::backdrop{background:#0f172a55;backdrop-filter:blur(2px)}.academic-dialog h2{font-size:18px;font-weight:600;color:var(--ui-ink)}
+.wichakan-auth{padding-top:64px}.wichakan-auth .ui-panel{padding:32px}.wichakan-auth .brand-wordmark strong{font-size:24px}.wichakan-auth .brand-mark{width:40px;height:42px}
+@media(min-width:1024px){body:has(.app-sidebar) .wichakan-page{padding-left:24px;padding-right:24px}}
+@media(max-width:1100px){.wichakan-page :is(.academic-stat,.teacher-metric){gap:12px}.wichakan-page :is(.academic-stat,.teacher-metric)>i{width:40px;height:40px}}
+@media(max-width:600px){
+ .app-topbar{height:64px;padding:0 12px;gap:8px}.app-topbar>div:first-child{gap:8px}.app-topbar button{padding-left:8px;padding-right:8px}.app-topbar>div:last-child{flex-shrink:0}.app-sidebar,body:has(.wichakan-page) .app-sidebar{top:64px}.app-topbar .brand-mark{width:28px;height:30px}.app-topbar .brand-wordmark strong{font-size:16px}.app-topbar .brand-wordmark>span{display:none}.app-topbar .brand-lockup{gap:6px}.app-role-switch{padding:7px 9px;gap:4px;font-size:12px}.app-role-switch svg{width:16px;height:16px}
+ .wichakan-page{padding:16px;min-height:calc(100dvh - 64px)}.ui-header{min-height:88px;padding:16px;margin-bottom:16px}.ui-header-copy{max-width:100%}.ui-header .academic-school-scene{display:none}.wichakan-page h1{font-size:24px}.wichakan-page h2{font-size:18px}
+ .ui-panel,.wichakan-page .academic-panel{padding:16px}.wichakan-page :is(.academic-stat,.teacher-metric){padding:12px;gap:8px;min-height:112px}.wichakan-page :is(.academic-stat,.teacher-metric) strong{font-size:32px}.wichakan-page :is(.academic-stat,.teacher-metric)>i{width:36px;height:36px}.wichakan-page :is(.academic-stat,.teacher-metric)>i svg{width:22px;height:22px}.wichakan-page :is(.academic-stat,.teacher-metric) p{font-size:12px;line-height:1.4}
+ .wichakan-page :is(.ui-primary,.ui-secondary,.academic-primary){min-height:44px}.wichakan-page .score-footer :is(.ui-primary,.ui-secondary){font-size:13px}.wichakan-auth{padding-top:32px}
+}
+@media(prefers-reduced-motion:reduce){.app-nav-link,.wichakan-page .ui-primary{transition:none}}
+
+.wichakan-page :is(.teacher-filters,.score-selection,.assignment-filters,.school-grid,.academic-panels,.personnel-layout,.teacher-dashboard-grid){gap:16px}
+.wichakan-page .score-caps span:nth-child(2){background:#eff6ff;color:#1d4ed8}.wichakan-page .score-output.term-two{background:#eff6ff}.wichakan-page .score-output.total{background:#dbeafe;color:#1e40af}

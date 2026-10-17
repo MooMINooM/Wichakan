@@ -1,5 +1,6 @@
 'use client';
 import Link from 'next/link';
+import PageHeader from '@/components/page-header';
 import {useEffect,useMemo,useState} from 'react';
 import {useRouter} from 'next/navigation';
 import {getSupabaseBrowserClient} from '@/lib/supabase/browser';
@@ -48,17 +49,17 @@ export default function ScoreSettingsPage(){
   }
   setBusy(false);
  }
- return <main className="mx-auto max-w-6xl px-4 py-5 sm:px-6">
+ return <main className="wichakan-page mx-auto max-w-6xl px-4 py-5 sm:px-6">
  <Link href="/academic" className="text-sm font-semibold text-blue-700">← ตั้งค่างานวิชาการ</Link>
- <header className="mt-4 rounded-2xl border border-blue-100 bg-gradient-to-r from-blue-50 to-sky-50 p-6"><h1 className="text-2xl font-bold text-blue-950">ตั้งค่าโครงสร้างคะแนน</h1><p className="mt-2 text-sm text-slate-600">Admin กำหนดคะแนนเต็มของแต่ละรายวิชา แยกสองภาคเรียน โดยประถมภาคเรียนละ 50 รวมปี 100 คะแนน และมัธยมแต่ละภาคเรียนต้องเท่ากับ 100 คะแนน</p></header>
+ <PageHeader title="ตั้งค่าโครงสร้างคะแนน" context="ประถม 50 คะแนนต่อภาคเรียน · มัธยม 100 คะแนนต่อภาคเรียน"/>
  {error&&<p role="alert" className="mt-4 rounded-xl bg-red-50 p-3 text-sm text-red-800">{error}</p>}
  {notice&&<p role="status" className="mt-4 rounded-xl bg-emerald-50 p-3 text-sm text-emerald-800">{notice}</p>}
  {loading?<p className="mt-5 text-sm">กำลังโหลด...</p>:<div className="mt-4 grid gap-4 lg:grid-cols-[minmax(260px,0.9fr)_minmax(0,1.4fr)]">
- <section className="rounded-2xl border bg-white p-4 shadow-sm"><label className="block text-sm font-semibold">ปีการศึกษา<select value={yearId} onChange={e=>{setYearId(e.target.value);setSubjectId('');}} className="mt-2 w-full rounded-xl border p-3"><option value="">เลือกปี</option>{years.map(y=><option key={y.id} value={y.id}>{y.year_be}</option>)}</select></label>
+ <section className="ui-panel"><label className="block text-sm font-semibold">ปีการศึกษา<select value={yearId} onChange={e=>{setYearId(e.target.value);setSubjectId('');}} className="mt-2 w-full rounded-xl border p-3"><option value="">เลือกปี</option>{years.map(y=><option key={y.id} value={y.id}>{y.year_be}</option>)}</select></label>
  <h2 className="mt-5 font-bold">เลือกรายวิชา</h2>
  <input aria-label="ค้นหารายวิชา" value={query} onChange={e=>setQuery(e.target.value)} placeholder="ค้นหารหัส ชื่อวิชา หรือชั้นเรียน" className="mt-2 w-full rounded-xl border p-3 text-sm"/>
  <div className="mt-3 max-h-[55vh] space-y-2 overflow-y-auto">{filtered.map(s=><button key={s.id} type="button" onClick={()=>setSubjectId(s.id)} className={`flex w-full justify-between gap-3 rounded-xl border p-3 text-left text-sm ${subjectId===s.id?'border-blue-500 bg-blue-50':'hover:bg-slate-50'}`}><span><strong>{s.subject_code}</strong> {s.name_th}<small className="mt-1 block text-slate-500">{s.grade_level??'ไม่ระบุระดับชั้น'}</small></span><span className={saved.some(x=>x.subject_id===s.id)?'text-emerald-700':'text-amber-700'}>{saved.some(x=>x.subject_id===s.id)?'ตั้งแล้ว':'ยังไม่ตั้ง'}</span></button>)}{!filtered.length&&<p className="text-sm text-slate-500">ไม่พบรายวิชา</p>}</div></section>
- <section className="rounded-2xl border bg-white p-5 shadow-sm">
+ <section className="ui-panel">
  {!subjectId?<p className="py-16 text-center text-slate-500">เลือกรายวิชาทางซ้ายเพื่อกำหนดคะแนนเต็ม</p>:<>
  <h2 className="text-lg font-bold text-blue-950">{subjects.find(s=>s.id===subjectId)?.name_th}</h2><p className="mt-1 text-xs text-slate-500">{existing?'แก้ไขโครงสร้างคะแนนเดิม':'ยังไม่ได้ตั้งค่า จะใช้ค่าเริ่มต้นตามระดับชั้น'}</p>
  <div className="mt-5 grid gap-5 sm:grid-cols-2">{[0,1].map(term=><div key={term} className="rounded-xl border border-blue-100 p-4"><h3 className="font-bold text-blue-900">ภาคเรียนที่ {term+1}</h3>
@@ -66,7 +67,7 @@ export default function ScoreSettingsPage(){
  <div className="mt-4 rounded-xl bg-blue-50 p-3 text-sm font-semibold text-blue-900">รวมภาคเรียน {term+1}: {term===0?t1:t2}/{secondary?100:'ตามสัดส่วนรายปี'} คะแนน</div></div>)}</div>
  <div className={`mt-5 flex flex-wrap items-center justify-between gap-2 rounded-xl p-4 ${valid?'bg-emerald-50 text-emerald-900':'bg-red-50 text-red-900'}`}><strong>{secondary?'คะแนนเต็มภาคเรียนละ 100':'คะแนนเต็มภาคเรียนละ 50'}</strong><strong className="text-2xl">{secondary?`${t1}/100 · ${t2}/100`:`${t1}/50 · ${t2}/50`}</strong></div>
  {!valid&&<p role="alert" className="mt-3 text-sm font-medium text-red-700">{!complete?'กรุณากรอกคะแนนเต็มทั้ง 6 ช่อง เป็นจำนวนเต็มตั้งแต่ 0 ถึง 100':secondary?'ภาคเรียนที่ 1 และ 2 ต้องเต็มภาคเรียนละ 100 คะแนน':t1!==50||t2!==50?'ประถมศึกษาต้องเต็มภาคเรียนละ 50 คะแนน':sum<100?`คะแนนยังขาด ${100-sum} คะแนน กรุณาปรับให้ครบ 100`:`คะแนนเกิน ${sum-100} คะแนน กรุณาปรับให้เหลือ 100`}</p>}
- <button type="button" disabled={!valid||busy} onClick={save} className="mt-4 w-full rounded-xl bg-blue-700 px-5 py-3 font-semibold text-white disabled:cursor-not-allowed disabled:opacity-40">{busy?'กำลังบันทึก...':'บันทึกโครงสร้างคะแนน'}</button>
+ <button type="button" disabled={!valid||busy} onClick={save} className="ui-primary mt-4 w-full rounded-xl bg-blue-700 px-5 py-3 font-semibold text-white disabled:cursor-not-allowed disabled:opacity-40">{busy?'กำลังบันทึก...':'บันทึกโครงสร้างคะแนน'}</button>
  <p className="mt-3 text-xs text-slate-500">ระบบตรวจสอบซ้ำในฐานข้อมูล: ประถมแต่ละภาคเรียน 50 / มัธยมแต่ละภาคเรียน 100</p>
  </>}</section></div>}
  </main>;
