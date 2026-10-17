@@ -1,16 +1,17 @@
 'use client';
 import Link from 'next/link';
+import WichakanBrand from '@/components/wichakan-brand';
 import {AcademicIcon} from '@/components/academic-visuals';
 import {usePathname,useRouter} from 'next/navigation';
 import {useEffect,useState} from 'react';
 import {getYearSelection,resolveYear,setYearSelection,YEAR_EVENT} from '@/lib/academic-year-selection';
 import {getSupabaseBrowserClient} from '@/lib/supabase/browser';
 const adminItems=[
- ['/admin','จัดการสถานศึกษา','⌂'],['/students','ทะเบียนนักเรียน','◉'],['/academic','ตั้งค่างานวิชาการ','▦'],
- ['/academic/teachers','มอบหมายครู','♙'],['/curriculum','หลักสูตรและรายวิชา','▤'],
- ['/personnel','บุคลากร','♧'],['/students/promote','เลื่อนชั้นนักเรียน','↗']
-];
-const teacherItems=[['/teacher','แดชบอร์ดครู','⌂'],['/teacher#courses','รายวิชาที่สอน','▤'],['/teacher/scores','บันทึกคะแนน','▦'],['/teacher/pp6','ห้องประจำชั้น','♧']];
+ ['/admin','จัดการสถานศึกษา','home'],['/students','ทะเบียนนักเรียน','users'],['/academic','ตั้งค่างานวิชาการ','settings'],
+ ['/academic/teachers','มอบหมายครู','users'],['/curriculum','หลักสูตรและรายวิชา','book'],
+ ['/personnel','บุคลากร','users'],['/students/promote','เลื่อนชั้นนักเรียน','promote']
+] as const;
+const teacherItems=[['/teacher','แดชบอร์ดครู','home'],['/teacher#courses','รายวิชาที่สอน','book'],['/teacher/scores','บันทึกคะแนน','chart'],['/teacher/pp6','ห้องประจำชั้น','home']] as const;
 export default function AppNavigation(){
  const pathname=usePathname().replace(/\/+$/,'')||'/',router=useRouter();
  const [busy,setBusy]=useState(false),[open,setOpen]=useState(false);
@@ -45,24 +46,21 @@ export default function AppNavigation(){
  }
  if(pathname==='/'||pathname==='/login')return null;
  const nav=<div className="space-y-1">
-  {items.map(([url,label,symbol])=><Link key={url} href={url} onClick={()=>setOpen(false)}
+  {items.map(([url,label,icon])=><Link key={url} href={url} onClick={()=>setOpen(false)}
    aria-current={activeUrl===url?'page':undefined}
-   className={`flex min-h-11 items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium transition ${activeUrl===url?'bg-blue-600 text-white shadow-sm':'text-slate-600 hover:bg-blue-50 hover:text-blue-800'}`}>
-   <span aria-hidden="true" className="w-5 text-center text-lg leading-none">{symbol}</span>{label}</Link>)}
+   className={'app-nav-link '+(activeUrl===url?'is-active':'')}>
+   <AcademicIcon name={icon}/><span>{label}</span></Link>)}
  </div>;
  return <div className="app-shell">
   <header className="app-topbar">
    <div className="flex min-w-0 items-center gap-3">
-    {items.length>0&&<button onClick={()=>setOpen(x=>!x)} aria-expanded={open} aria-label="เปิดหรือปิดเมนู" className="rounded-lg border border-slate-200 px-3 py-2 text-lg lg:hidden">☰</button>}
-    <Link href="/workspace" className="flex items-center gap-3">
-     <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-800 text-xl font-bold text-white"><AcademicIcon name="school"/></div>
-     <div><div className="text-lg font-extrabold leading-tight tracking-tight text-blue-950">Wichakan</div><div className="hidden text-xs text-slate-500 sm:block">ระบบบริหารจัดการสถานศึกษา</div></div>
-    </Link>
+    {items.length>0&&<button onClick={()=>setOpen(x=>!x)} aria-expanded={open} aria-label="เปิดหรือปิดเมนู" className="rounded-lg border border-slate-200 px-3 py-2 text-lg lg:hidden"><AcademicIcon name="menu"/></button>}
+    <Link href="/workspace" className="app-brand-link" aria-label="Wichakan เลือกพื้นที่ทำงาน"><WichakanBrand/></Link>
    </div>
    {pathname==='/personnel'?<label className="hidden items-center gap-2 rounded-xl border border-blue-100 bg-white px-3 py-2 text-sm font-semibold text-blue-900 md:flex"><AcademicIcon name="calendar"/><select aria-label="ปีการศึกษาสรุปบุคลากร" className="bg-transparent outline-none" value={currentYear} disabled={!years.length} onChange={e=>{setCurrentYear(e.target.value);setYearSelection(schoolId,e.target.value);}}>{!years.length&&<option value="">ยังไม่มีปีการศึกษา</option>}{years.map(y=><option key={y.id} value={y.id}>ปีการศึกษา {y.year_be}</option>)}</select></label>:null}
 
    <div className="flex items-center gap-2">
-    <Link href="/workspace" className="rounded-xl border border-blue-100 bg-blue-50 px-3 py-2 text-xs font-semibold text-blue-800 sm:text-sm">⇄ <span className="hidden sm:inline">สลับบทบาท</span><span className="sm:hidden">บทบาท</span></Link>
+    <Link href="/workspace" className="app-role-switch"><AcademicIcon name="switch"/> <span className="hidden sm:inline">สลับบทบาท</span><span className="sm:hidden">บทบาท</span></Link>
     <button onClick={signOut} disabled={busy} className="rounded-xl border border-slate-200 px-3 py-2 text-xs font-medium text-slate-600 hover:bg-slate-50 disabled:opacity-40">{busy?'กำลังออก...':'ออกจากระบบ'}</button>
    </div>
   </header>

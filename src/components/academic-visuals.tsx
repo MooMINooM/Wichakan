@@ -1,7 +1,12 @@
 import type {ReactNode} from 'react';
 
-export function AcademicIcon({name,className=''}:{name:'calendar'|'book'|'users'|'chart'|'check'|'edit'|'school'|'search'|'file'|'alert';className?:string}){
+export function AcademicIcon({name,className=''}:{name:'home'|'settings'|'promote'|'menu'|'switch'|'calendar'|'book'|'users'|'chart'|'check'|'edit'|'school'|'search'|'file'|'alert';className?:string}){
  const paths:Record<typeof name,ReactNode>={
+  home:<><path d="m3 10 9-7 9 7v11H3Z"/><path d="M9 21v-8h6v8"/></>,
+  settings:<><path d="m9 3-1 3-3 1-2 4 2 2v4l4 3 3-1 3 1 4-3v-4l2-2-2-4-3-1-1-3Z"/><circle cx="12" cy="12" r="3"/></>,
+  promote:<><path d="M5 19 19 5M5 5h14v14"/></>,
+  menu:<><path d="M4 6h16M4 12h16M4 18h16"/></>,
+  switch:<><path d="M3 7h17l-4-4M21 17H4l4 4M20 7l-4 4M4 17l4-4"/></>,
   alert:<><path d="m12 3 10 18H2Z"/><path d="M12 9v5m0 3h.01"/></>,
   calendar:<><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M7 3v4m10-4v4M3 11h18M7 15h2m4 0h4m-10 3h2"/></>,
   book:<><path d="M12 5C8 2 4 3 2 4v15c4-2 7-1 10 1 3-2 6-3 10-1V4c-4-2-7-1-10 1Zm0 0v15"/><path d="M6 8h2m8 0h2M6 12h2m8 0h2"/></>,
