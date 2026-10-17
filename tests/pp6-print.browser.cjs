@@ -23,6 +23,10 @@ const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('n
  tables.subject_score_settings=tables.subjects.map(s=>({subject_id:s.id,school_id:school,academic_year_id:'y69',...Object.fromEntries(fields.map((f,i)=>[f,[50,0,0,50,0,0][i]]))}));
  tables.student_course_scores=tables.course_offerings.slice(0,12).map((o,i)=>({id:'rec'+i,school_id:school,course_offering_id:o.id,student_id:'st0',...Object.fromEntries(fields.map((f,j)=>[f,[23,0,0,null,null,null][j]])),special_result:null,is_complete:false}));
  tables.pp6_student_assessments=[{classroom_id:'r2',academic_year_id:'y69',student_id:'st0',term_no:1,desirable_traits:'ดีเยี่ยม',reading_thinking_writing:'ดีเยี่ยม',learner_activities:'ผ่าน',comment:null}];
+ const coTeacher='44444444-4444-4444-8444-444444444444';
+ tables.profiles=[{user_id:actor,display_name:'นายครูคนแรก ทดสอบ'},{user_id:coTeacher,display_name:'นางสาวครูคนที่สอง ทดสอบ'}];
+ tables.school_memberships.push({id:'co-member',school_id:school,user_id:coTeacher,role:'teacher',active:true});
+ tables.homeroom_assignments.push({id:'co-homeroom',school_id:school,teacher_user_id:coTeacher,classroom_id:'r2'});
  let failStudent='',loadFail=false;const writes=[],scoreOffsets=[];
  await context.route('https://ux-test.supabase.co/**',async route=>{
   const req=route.request(),u=new URL(req.url()),table=u.pathname.split('/').pop();if(u.pathname==='/auth/v1/user')return route.fulfill({json:user});
@@ -40,12 +44,21 @@ const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('n
  const page=await context.newPage(),errors=[];globalThis.testPage=page;page.on('pageerror',e=>errors.push(e.message));
  await page.goto('http://127.0.0.1:3000/Wichakan/teacher/pp6/?room=r2');
  await page.getByRole('button',{name:'พิมพ์ ปพ.6 ทั้งห้อง',exact:true}).waitFor();await page.getByRole('button',{name:'พิมพ์ ปพ.6',exact:true}).first().click();await page.locator('.pp6-document').waitFor();await page.evaluate(async()=>{await document.fonts.ready});await page.waitForTimeout(100);
- assert.equal(await page.locator('.pp6-student-page').count(),1);assert.match(await page.locator('.pp6-document').textContent(),/ชื่อ - นามสกุล : เด็กชายศุภลักษณ์ คำลา/);assert.equal(await page.locator('.pp6-document image').count(),1);assert.equal(await page.evaluate(()=>document.fonts.check('13px "TH Sarabun PP6"')),true);
+ assert.equal(await page.locator('.pp6-student-page').count(),1);assert.match(await page.locator('.pp6-document').textContent(),/ชื่อ - นามสกุล : เด็กชายศุภลักษณ์ คำลา/);assert.match(await page.locator('.pp6-document').textContent(),/นายครูคนแรก ทดสอบ/);assert.doesNotMatch(await page.locator('.pp6-document').textContent(),/นางสาวครูคนที่สอง/);assert.equal(await page.locator('.pp6-document image').count(),1);assert.equal(await page.evaluate(()=>document.fonts.check('13px "TH Sarabun PP6"')),true);
  const paper=page.locator('.pp6-student-page').first();await paper.screenshot({path:'/tmp/pp6-template-preview.png'});await page.pdf({path:'/tmp/pp6-template-test.pdf',preferCSSPageSize:true,printBackground:true,displayHeaderFooter:false});
  await page.getByRole('button',{name:'ปิดตัวอย่าง',exact:true}).click();await page.getByRole('button',{name:'พิมพ์ ปพ.6 ทั้งห้อง',exact:true}).click();assert.equal(await page.locator('.pp6-student-page').count(),7);assert.match(await page.locator('.pp6-student-page').nth(1).textContent(),/เด็กหญิงณัฐธิดา ทรงดี/);await page.pdf({path:'/tmp/pp6-class-test.pdf',preferCSSPageSize:true,printBackground:true,displayHeaderFooter:false});await page.getByRole('button',{name:'ปิดตัวอย่าง',exact:true}).click();
  await page.getByLabel('ค้นหานักเรียน').fill('2615');await page.getByRole('button',{name:'พิมพ์ ปพ.6 ทั้งห้อง',exact:true}).click();assert.equal(await page.locator('.pp6-student-page').count(),7,'class print must include students hidden by search');await page.getByRole('button',{name:'ปิดตัวอย่าง',exact:true}).click();await page.getByLabel('ค้นหานักเรียน').fill('');
  for(let i=16;i<27;i++){tables.subjects.push({...tables.subjects[0],id:'sub'+i,subject_code:'ท'+i,name_th:'ทดสอบรายวิชาเพิ่มเติมชื่อยาวมากเพื่อทดสอบขนาดตัวอักษรและการขึ้นหน้าใหม่ '+i});tables.course_offerings.push({id:'off'+i,school_id:school,subject_id:'sub'+i,classroom_id:'r2',term_id:'t1'});}
  tables.pp6_student_assessments[0].comment='ความคิดเห็นสำหรับทดสอบการขึ้นหน้าใหม่และไม่ตัดข้อความ '.repeat(15);
  await page.reload();await page.getByRole('button',{name:'พิมพ์ ปพ.6',exact:true}).first().click();await page.locator('.pp6-comment-page').waitFor();await page.evaluate(async()=>{await document.fonts.ready});assert.equal(await page.locator('.pp6-document').count(),2);assert.equal(await page.locator('.pp6-comment-page').count(),1);assert.match(await page.locator('.pp6-comment-page').textContent(),/เด็กชายศุภลักษณ์ คำลา/);await page.pdf({path:'/tmp/pp6-overflow-test.pdf',preferCSSPageSize:true,printBackground:true,displayHeaderFooter:false});
+ // The same room must print the authenticated teacher's name, not the first assignment.
+ user.id=coTeacher;await page.reload();
+ await page.getByRole('button',{name:'พิมพ์ ปพ.6',exact:true}).first().click();
+ await page.locator('.pp6-document').first().waitFor();
+ assert.match(await page.locator('.pp6-document').first().textContent(),/นางสาวครูคนที่สอง ทดสอบ/);
+ assert.doesNotMatch(await page.locator('.pp6-document').first().textContent(),/นายครูคนแรก/);
+ tables.profiles=[];await page.reload();
+ await page.getByRole('alert').filter({hasText:'ไม่พบชื่อครูในบัญชีผู้พิมพ์'}).waitFor();
+ assert.equal(await page.getByRole('button',{name:'พิมพ์ ปพ.6',exact:true}).first().isDisabled(),true);
  assert.deepEqual(errors,[]);assert.equal(writes.length,0);console.log('PASS: exact A4 preview, embedded fonts/emblem, individual and whole-class print, hidden search rows, overflow subjects and full comments; no writes.');await browser.close();server.close();
 })().catch(e=>{console.error(e);process.exit(1)});

@@ -115,7 +115,7 @@ export default function AcademicSetupPage() {
   const selected=years.find(y=>y.id===selectedYear);
   const yearTerms=terms.filter(t=>t.academic_year_id===selectedYear).sort((a,b)=>a.term_no-b.term_no);
   const yearRooms=rooms.filter(r=>r.academic_year_id===selectedYear);
-  const teacherName=(r:Classroom)=>{const teacher=homerooms.find(h=>h.classroom_id===r.id);return teacher?(profiles.find(p=>p.user_id===teacher.teacher_user_id)?.display_name??'ไม่พบชื่อครู'):'ยังไม่มอบหมาย';};
+  const teacherName=(r:Classroom)=>{const ids=[...new Set(homerooms.filter(h=>h.classroom_id===r.id).map(h=>h.teacher_user_id))];return ids.length?ids.map(id=>profiles.find(p=>p.user_id===id)?.display_name?.trim()||'ไม่พบชื่อครู').join(' · '):'ยังไม่มอบหมาย';};
   const countStudents=(r:Classroom)=>new Set(enrollments.filter(e=>e.classroom_id===r.id&&e.status==='active').map(e=>e.student_id)).size;
   const filteredRooms=yearRooms.filter(r=>(!levelFilter||r.level_code===levelFilter)&&(r.level_code+'/'+r.room_code+' '+teacherName(r)).toLocaleLowerCase().includes(roomQuery.toLocaleLowerCase()));
   const visibleRooms=filteredRooms.slice((roomPage-1)*PAGE_SIZE,roomPage*PAGE_SIZE);
@@ -143,7 +143,7 @@ export default function AcademicSetupPage() {
    {error&&<p role="alert" className="mt-3 rounded-xl bg-red-50 p-3 text-sm text-red-800">{error}</p>}
    {message&&<p role="status" className="mt-3 rounded-xl bg-emerald-50 p-3 text-sm text-emerald-800">{message}</p>}
    {schoolId&&<>
-    {canManage&&<div className="mt-3 flex justify-end"><Link href="/academic/score-settings" className="rounded-xl border border-blue-200 bg-white px-4 py-2.5 text-sm font-semibold text-blue-700 hover:bg-blue-50">ตั้งค่าโครงสร้างคะแนนรายวิชา →</Link></div>}
+
     <div className="academic-filters" aria-busy={dataLoading}>
      <label><AcademicIcon name="calendar"/><span>ปีการศึกษา</span><select value={selectedYear} disabled={dataLoading||!years.length} onChange={e=>{setSelectedYear(e.target.value);setSelectedTerm('');setSelectedRoom('');setRoomPage(1);}}>{!years.length&&<option value="">ยังไม่มีปีการศึกษา</option>}{years.map(y=><option key={y.id} value={y.id}>{y.year_be}{y.is_active?' (ปัจจุบัน)':''}</option>)}</select></label>
      <label><AcademicIcon name="book"/><span>ภาคเรียน</span><select value={activeTerm?.id??''} disabled={dataLoading||!yearTerms.length} onChange={e=>setSelectedTerm(e.target.value)}>{!yearTerms.length&&<option value="">ยังไม่มีภาคเรียน</option>}{yearTerms.map(t=><option key={t.id} value={t.id}>ภาคเรียนที่ {t.term_no}</option>)}</select></label>
