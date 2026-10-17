@@ -7,7 +7,9 @@ body{margin:0;font-family:'Wichakan Thai',Arial,sans-serif;background:#f4f7fb;co
 :focus-visible{outline:3px solid #2563eb;outline-offset:3px}
 button,a,select,input{touch-action:manipulation}
 html{scroll-behavior:smooth}
-.app-topbar{position:sticky;top:0;z-index:40;height:76px;display:flex;align-items:center;justify-content:space-between;gap:24px;padding:0 24px;background:rgba(255,255,255,.97);border-bottom:1px solid #e5ebf3;box-shadow:0 1px 6px #1e3a5f08;backdrop-filter:blur(12px)}
+/* Keep the navigation wrapper sticky: the header alone is bounded by this short wrapper. */
+.app-shell{position:sticky;top:0;z-index:40}
+.app-topbar{position:relative;top:0;z-index:40;height:76px;display:flex;align-items:center;justify-content:space-between;gap:24px;padding:0 24px;background:rgba(255,255,255,.97);border-bottom:1px solid #e5ebf3;box-shadow:0 1px 6px #1e3a5f08;backdrop-filter:blur(12px)}
 .app-sidebar{position:fixed;left:0;top:76px;bottom:0;width:250px;padding:22px 14px;background:#fff;border-right:1px solid #e5ebf3;overflow-y:auto;z-index:35}
 @media(min-width:1024px){
  body:has(.app-sidebar) main{margin-left:250px!important;max-width:none!important;padding-left:32px;padding-right:32px}
