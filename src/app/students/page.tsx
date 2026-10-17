@@ -9,13 +9,13 @@ import { getSupabaseBrowserClient } from '@/lib/supabase/browser';
 import {resolveYear,YEAR_EVENT,setYearSelection} from '@/lib/academic-year-selection';
 import PageControls,{PAGE_SIZE} from '@/components/page-controls';
 
-type Student = { id: string; student_no: string; first_name_th: string; last_name_th: string; status: string; school_id: string };
+type Student = { id: string; student_no: string; name_prefix_th:string|null; first_name_th: string; last_name_th: string; status: string; school_id: string };
 type School = { id: string; name_th: string };
 type Year={id:string;year_be:number;is_active:boolean};
 type Room={id:string;academic_year_id:string;level_code:string;room_code:string};
 type Enrollment={student_id:string;academic_year_id:string;classroom_id:string;status:string};
 const statusLabel: Record<string,string> = {active:'กำลังศึกษา', transferred:'ย้ายออก', graduated:'จบการศึกษา', inactive:'พ้นสภาพ'};
-const blank = { student_no:'', first_name_th:'', last_name_th:'' };
+const blank = { student_no:'', name_prefix_th:'', first_name_th:'', last_name_th:'' };
 
 export default function StudentsPage() {
   const router = useRouter();
@@ -66,7 +66,7 @@ export default function StudentsPage() {
       if(!db)return;
       setError('');
       const [{data,error:queryError},{data:{user}},y,r,en]=await Promise.all([
-        db.from('students').select('id,student_no,first_name_th,last_name_th,status,school_id').eq('school_id',schoolId).order('student_no'),
+        db.from('students').select('id,student_no,name_prefix_th,first_name_th,last_name_th,status,school_id').eq('school_id',schoolId).order('student_no'),
         db.auth.getUser(),
         db.from('academic_years').select('id,year_be,is_active').eq('school_id',schoolId).order('year_be',{ascending:false}),
         db.from('classrooms').select('id,academic_year_id,level_code,room_code').eq('school_id',schoolId),
@@ -108,12 +108,12 @@ export default function StudentsPage() {
     e.preventDefault();if(!canWrite||!schoolId)return;
     const db=getSupabaseBrowserClient();if(!db)return;
     setSaving(true);setError('');setInfo('');
-    const payload={...form,student_no:form.student_no.trim(),first_name_th:form.first_name_th.trim(),last_name_th:form.last_name_th.trim()};
+    const payload={...form,name_prefix_th:form.name_prefix_th.trim()||null,student_no:form.student_no.trim(),first_name_th:form.first_name_th.trim(),last_name_th:form.last_name_th.trim()};
     const operation=editingId ? db.from('students').update(payload).eq('id',editingId).eq('school_id',schoolId) : db.from('students').insert({...payload,school_id:schoolId});
     const {error:writeError}=await operation;
     if(writeError){setError(writeError.message);}else{
       setForm(blank);setEditingId(null);setInfo(editingId?'แก้ไขข้อมูลสำเร็จ':'เพิ่มนักเรียนสำเร็จ');
-      const {data,error:reloadError}=await db.from('students').select('id,student_no,first_name_th,last_name_th,status,school_id').eq('school_id',schoolId).order('student_no');
+      const {data,error:reloadError}=await db.from('students').select('id,student_no,name_prefix_th,first_name_th,last_name_th,status,school_id').eq('school_id',schoolId).order('student_no');
       if(reloadError)setError(reloadError.message);else setStudents((data??[]) as Student[]);
     }
     setSaving(false);
@@ -189,7 +189,7 @@ export default function StudentsPage() {
         <section className="ui-panel rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
           <div className="mb-5 flex flex-wrap items-center justify-between gap-3"><h2 className="text-lg font-bold">รายชื่อนักเรียน ({visible.length})</h2><input aria-label="ค้นหานักเรียน" placeholder="ค้นหารหัส หรือชื่อ-สกุล" value={search} onChange={e=>{setSearch(e.target.value);setPage(1);}} className="rounded-xl border border-slate-300 px-3 py-2 text-sm"/></div>
           <div className="max-h-[min(58vh,560px)] overflow-auto"><table className="w-full text-left text-sm"><thead><tr className="border-b text-slate-500"><th className="py-3">รหัส</th><th>ชื่อ-สกุล</th><th>ห้องเรียน</th><th>สถานภาพ</th><th>จัดการ</th></tr></thead>
-            <tbody>{paginated.map(s=><tr key={s.id} className="border-b border-slate-100"><td className="py-3">{s.student_no}</td><td>{s.first_name_th} {s.last_name_th}</td><td className="whitespace-nowrap">{studentRoom.has(s.id)?roomLabel(studentRoom.get(s.id)!):<span className="text-amber-700">ยังไม่จัดห้อง</span>}</td><td>{statusLabel[s.status]??s.status}</td><td>{canWrite&&<div className="flex flex-wrap gap-2"><button className="text-blue-700" onClick={()=>{setEditingId(s.id);setForm({student_no:s.student_no,first_name_th:s.first_name_th,last_name_th:s.last_name_th});}}>แก้ไข</button><button type="button" className="text-amber-700" onClick={()=>{setChangingStatus(s);setNextStatus(s.status);}}>สถานภาพ</button><button type="button" className="text-red-700" onClick={()=>{setRemoving(s);setConfirmNo('');setAdminPassword('');}}>ลบ</button></div>}</td></tr>)}</tbody></table></div>
+            <tbody>{paginated.map(s=><tr key={s.id} className="border-b border-slate-100"><td className="py-3">{s.student_no}</td><td>{s.name_prefix_th??''}{s.first_name_th} {s.last_name_th}</td><td className="whitespace-nowrap">{studentRoom.has(s.id)?roomLabel(studentRoom.get(s.id)!):<span className="text-amber-700">ยังไม่จัดห้อง</span>}</td><td>{statusLabel[s.status]??s.status}</td><td>{canWrite&&<div className="flex flex-wrap gap-2"><button className="text-blue-700" onClick={()=>{setEditingId(s.id);setForm({student_no:s.student_no,name_prefix_th:s.name_prefix_th??'',first_name_th:s.first_name_th,last_name_th:s.last_name_th});}}>แก้ไข</button><button type="button" className="text-amber-700" onClick={()=>{setChangingStatus(s);setNextStatus(s.status);}}>สถานภาพ</button><button type="button" className="text-red-700" onClick={()=>{setRemoving(s);setConfirmNo('');setAdminPassword('');}}>ลบ</button></div>}</td></tr>)}</tbody></table></div>
           {visible.length===0&&<p className="py-8 text-center text-sm text-slate-500">ไม่พบข้อมูลนักเรียน</p>}
           <PageControls total={visible.length} page={Math.min(page,Math.max(1,Math.ceil(visible.length/PAGE_SIZE)))} onChange={setPage}/>
           <Link href="/students/history" className="mt-3 inline-block text-sm font-medium text-blue-700">จัดการลงทะเบียนและย้ายห้อง →</Link>
@@ -197,6 +197,7 @@ export default function StudentsPage() {
         <aside className="ui-panel rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
           <h2 className="mb-4 text-lg font-bold">{editingId?'แก้ไขข้อมูลนักเรียน':'เพิ่มนักเรียน'}</h2>
           {!canWrite?<p className="text-sm text-slate-500">บัญชีนี้ดูข้อมูลได้ แต่ไม่มีสิทธิ์เพิ่มหรือแก้ไข</p>:<form onSubmit={save} className="space-y-4">
+            <label className="block text-sm font-medium">คำนำหน้าชื่อ<select value={form.name_prefix_th} onChange={e=>setForm(prev=>({...prev,name_prefix_th:e.target.value}))} className="mt-2 w-full rounded-xl border border-slate-300 p-3"><option value="">ยังไม่ระบุ</option>{['เด็กชาย','เด็กหญิง','นาย','นางสาว','นาง'].map(v=><option key={v} value={v}>{v}</option>)}</select></label>
             {([{field:'student_no',label:'รหัสนักเรียน'},{field:'first_name_th',label:'ชื่อ'},{field:'last_name_th',label:'นามสกุล'}] as const).map(({field,label})=><label key={field} className="block text-sm font-medium">{label}<input required maxLength={120} value={form[field]} onChange={e=>setForm(f=>({...f,[field]:e.target.value}))} className="mt-2 w-full rounded-xl border border-slate-300 p-3"/></label>)}
             <button disabled={saving} className="ui-primary w-full rounded-xl bg-blue-800 p-3 font-medium text-white disabled:opacity-50">{saving?'กำลังบันทึก...':editingId?'บันทึกการแก้ไข':'เพิ่มนักเรียน'}</button>
             {editingId&&<button type="button" className="w-full text-sm text-slate-500" onClick={()=>{setEditingId(null);setForm(blank);}}>ยกเลิกการแก้ไข</button>}
