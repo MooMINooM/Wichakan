@@ -29,4 +29,9 @@ const fixed=[{course_offering_id:'primary',weekday_no:1,period_no:1},{course_off
 const rescheduled=exp.autoFill(sharedCourses,fixed,sharedStaff,[]);
 assert.equal(rescheduled.suggested.length,8);
 assert(rescheduled.suggested.every(s=>!(s.weekday_no===1&&(s.period_no===1||s.period_no===2))),'Previously assigned lessons remain untouched');
+const shortDay=exp.autoFill([{id:'short',classroom_id:'r-short',subject_id:'short',target:4}],[],[],[],3);
+assert.equal(shortDay.suggested.length,4);
+assert(shortDay.suggested.every(s=>s.period_no<=3));
+const onlyWed=exp.autoFill([{id:'pe',classroom_id:'r-pe',subject_id:'physical',target:2}],[],[],[1,2,4,5].map(d=>({kind:'subject_day_block',weekday_no:d,period_no:null,subject_id:'physical',teacher_user_id:null})),5);
+assert(onlyWed.suggested.every(s=>s.weekday_no===3));
 console.log('PASS: auto-fill preserves prior lessons, teacher/day/break constraints, and no classroom collisions.');
