@@ -15,7 +15,7 @@ begin
   (1,7,'ป.1','ง11101'),
   (2,2,'ป.5','ส15201'),(2,6,'ป.3','ง13101'),(2,7,'ป.2','ง12101'),
   (4,1,'ป.4','ง14101'),(4,3,'ม.1','ว21103'),(4,5,'ป.6','ส16201'),(4,6,'ป.5','ง15101'),
-  (5,1,'ป.4','พ14101'),(5,6,'ป.6','ง16101'),(5,7,'ม.2','ว22103')
+  (5,1,'ป.4','พ14101'),(5,6,'ป.6','ง16101')
  ) as x(day_no,period_no,grade,code) loop
    select o.id,o.classroom_id into v_offering,v_room from public.course_offerings o join public.classrooms c on c.id=o.classroom_id join public.subjects s on s.id=o.subject_id where o.term_id=v_term and c.level_code=v_row.grade and c.room_code='1' and s.subject_code=v_row.code;
    if v_offering is null then raise exception 'Missing offering % at %',v_row.code,v_row.grade;end if;
@@ -26,7 +26,7 @@ begin
    insert into public.timetable_slots(school_id,term_id,course_offering_id,weekday_no,period_no,locked,updated_by) values(v_school,v_term,v_offering,v_row.day_no,v_row.period_no,true,v_actor) on conflict(term_id,course_offering_id,weekday_no,period_no) do nothing;
    v_count:=v_count+1;
  end loop;
- if v_count<>13 then raise exception 'Expected 13 graded-course timetable slots';end if;
+ if v_count<>12 then raise exception 'Expected 12 graded-course timetable slots';end if;
  -- Primary computing lessons, shown independently in teacher and classroom
  -- timetables, but never registered as graded course offerings.
  for v_row in select * from (values
