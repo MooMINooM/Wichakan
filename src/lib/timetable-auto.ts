@@ -1,5 +1,5 @@
 export type Lesson={course_offering_id:string;weekday_no:number;period_no:number};
-export type Course={id:string;classroom_id:string;subject_id:string;target:number};
+export type Course={id:string;classroom_id:string;subject_id:string;target:number;double_period?:boolean};
 export type Rule={kind:string;weekday_no:number;period_no:number|null;teacher_user_id:string|null;subject_id:string|null};
 export type Teacher={course_offering_id:string;teacher_user_id:string};
 export function autoFill(courses:Course[],existing:Lesson[],teachers:Teacher[],rules:Rule[]){
@@ -16,12 +16,21 @@ export function autoFill(courses:Course[],existing:Lesson[],teachers:Teacher[],r
  for(const c of queue){
   let need=Math.max(0,c.target-taken.filter(x=>x.course_offering_id===c.id).length);
   while(need>0){
+   const desiredPair=!!c.double_period&&need>=2;
    const possible=[] as {d:number;p:number;daily:number}[];
-   for(let d=1;d<=5;d++)for(let p=1;p<=10;p++)if(!blocked(c,d,p))possible.push({d,p,daily:taken.filter(x=>x.course_offering_id===c.id&&x.weekday_no===d).length});
+   for(let d=1;d<=5;d++)for(let p=1;p<=10;p++){
+    if(blocked(c,d,p))continue;
+    if(desiredPair&&(p===10||blocked(c,d,p+1)))continue;
+    possible.push({d,p,daily:taken.filter(x=>x.course_offering_id===c.id&&x.weekday_no===d).length});
+   }
    possible.sort((a,b)=>a.daily-b.daily||a.p-b.p||a.d-b.d);
    if(!possible.length)break;
-   const next={course_offering_id:c.id,weekday_no:possible[0].d,period_no:possible[0].p};
-   taken.push(next);suggested.push(next);need--;
+   const length=desiredPair?2:1;
+   for(let offset=0;offset<length;offset++){
+    const next={course_offering_id:c.id,weekday_no:possible[0].d,period_no:possible[0].p+offset};
+    taken.push(next);suggested.push(next);
+   }
+   need-=length;
   }
  }
  return {suggested,unplaced:queue.map(c=>({id:c.id,remaining:Math.max(0,c.target-taken.filter(x=>x.course_offering_id===c.id).length)})).filter(x=>x.remaining>0)};
