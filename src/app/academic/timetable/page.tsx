@@ -101,7 +101,7 @@ export default function TimetablePage(){
  <p className="mb-4 text-sm text-slate-500">จัดด้วยตนเอง ตรวจคาบชน และล็อกคาบ · ระบบจัดอัตโนมัติอยู่ในแผนระยะถัดไป</p>
  <div className="mb-4 flex flex-wrap gap-3"><Link className="ui-primary" href="/academic/timetable/rules">ตั้งค่าเงื่อนไขและคาบพัก</Link><Link href="/academic/teachers" className="ui-secondary">มอบหมายครูผู้สอน</Link><Link href="/academic" className="ui-secondary">ตั้งค่าปีและภาคเรียน</Link></div>
  {error&&<p role="alert" className="mb-3 rounded-lg bg-red-50 p-3 text-sm text-red-700">{error}</p>}{notice&&<p role="status" className="mb-3 rounded-lg bg-green-50 p-3 text-sm text-green-800">{notice}</p>}
- {loading?<p>กำลังโหลดตารางสอน...</p>:<div className="grid min-w-0 gap-4 xl:grid-cols-[minmax(0,1fr)_340px]"><section className="ui-panel p-4">
+ {loading?<p>กำลังโหลดตารางสอน...</p>:<><div className="grid min-w-0 gap-4 xl:grid-cols-[minmax(0,1fr)_340px]"><section className="ui-panel p-4">
  <div className="mb-4 flex flex-wrap gap-3"><label className="text-sm">ภาคเรียน<select className="ml-2 rounded-lg border p-2" value={termId} onChange={e=>{setTermId(e.target.value);setSelectedSlot('');setOfferingId('');setRoomId('');setHasSelection(false);}}>{terms.map(t=><option key={t.id} value={t.id}>{years.find(y=>y.id===t.academic_year_id)?.year_be} / {t.term_no}</option>)}</select></label><label className="text-sm">ห้องเรียน<select className="ml-2 rounded-lg border p-2" value={room?.id??''} onChange={e=>{setRoomId(e.target.value);setSelectedSlot('');setOfferingId('');setHasSelection(false);}}>{usedRooms.map(r=><option key={r.id} value={r.id}>{r.level_code}/{r.room_code}</option>)}</select></label></div>
  <p className="mb-2 text-xs text-slate-500">จำนวนคาบเรียนต่อวัน: {periodsPerDay} คาบ · เปลี่ยนได้ที่หน้าเงื่อนไขตารางสอน</p>
  <div className="mb-3 flex flex-wrap gap-2"><button type="button" className="ui-secondary" disabled={!canWrite||busy||!available.length} onClick={propose}>เสนอจัดคาบที่ยังขาด</button>{proposal.length>0&&<button type="button" className="ui-primary" disabled={busy} onClick={()=>void applyProposal()}>ยืนยันบันทึก {proposal.length} คาบ</button>}{proposal.length>0&&<button type="button" className="ui-secondary" disabled={busy} onClick={()=>{setProposal([]);setUnplaced([]);}}>ยกเลิกข้อเสนอ</button>}</div>
@@ -134,5 +134,5 @@ export default function TimetablePage(){
  })}</tbody></table></div>
  <p className="mt-4 text-xs text-slate-500">ประถม: ชั่วโมงรายปี ÷ 40 สัปดาห์ · มัธยม: ชั่วโมงรายภาคเรียน ÷ 20 สัปดาห์</p>
  </section></div>
- }</main>;
+ </>}</main>;
 }
