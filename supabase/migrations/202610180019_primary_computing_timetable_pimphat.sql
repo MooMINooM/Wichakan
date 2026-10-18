@@ -11,7 +11,7 @@ begin
  select user_id into v_actor from public.school_memberships where school_id=v_school and active and role='school_admin' order by user_id limit 1;
  if v_school is null or v_term is null or v_teacher is null or v_actor is null then raise exception 'Missing teacher, school, term or administrator'; end if;
  for v_row in select * from (values
-  (1,2,'ม.3','ว23103'),(1,3,'ม.1','ว21103'),
+  (1,2,'ม.3','ว23103'),(1,3,'ป.1','ง11101'),
   (1,7,'ป.1','ง11101'),
   (2,2,'ป.5','ส15201'),(2,6,'ป.3','ง13101'),(2,7,'ป.2','ง12101'),
   (4,1,'ป.4','ง14101'),(4,3,'ม.1','ว21103'),(4,5,'ป.6','ส16201'),(4,6,'ป.5','ง15101'),
