@@ -6,12 +6,30 @@ import {usePathname,useRouter} from 'next/navigation';
 import {useEffect,useState} from 'react';
 import {getYearSelection,resolveYear,setYearSelection,YEAR_EVENT} from '@/lib/academic-year-selection';
 import {getSupabaseBrowserClient} from '@/lib/supabase/browser';
-const adminItems=[
- ['/admin','จัดการสถานศึกษา','home'],['/students','ทะเบียนนักเรียน','users'],['/academic','ตั้งค่างานวิชาการ','settings'],
- ['/academic/teachers','มอบหมายครู','users'],['/curriculum','หลักสูตรและรายวิชา','book'],
- ['/personnel','บุคลากร','users'],['/students/promote','เลื่อนชั้นนักเรียน','promote']
-] as const;
-const teacherItems=[['/teacher','แดชบอร์ดครู','home'],['/teacher#courses','รายวิชาที่สอน','book'],['/teacher/scores','บันทึกคะแนน','chart'],['/teacher/pp6','ห้องประจำชั้น','home']] as const;
+type NavItem={href:string;label:string;icon:Parameters<typeof AcademicIcon>[0]['name'];match?:string};
+type NavSection={title:string;items:NavItem[]};
+const adminSections:NavSection[]=[
+ {title:'ภาพรวม',items:[{href:'/admin',label:'ภาพรวมสถานศึกษา',icon:'home'}]},
+ {title:'งานวิชาการ',items:[
+  {href:'/academic',label:'ปีการศึกษาและห้องเรียน',icon:'calendar',match:'/academic'},
+  {href:'/curriculum',label:'หลักสูตรและรายวิชา',icon:'book'},
+  {href:'/academic/teachers',label:'มอบหมายครูผู้สอน',icon:'users'},
+  {href:'/academic/timetable',label:'จัดตารางสอน',icon:'calendar'}
+ ]},
+ {title:'ทะเบียนนักเรียน',items:[
+  {href:'/students',label:'ข้อมูลนักเรียน',icon:'users'},
+  {href:'/students/promote',label:'เลื่อนชั้นนักเรียน',icon:'promote'}
+ ]},
+ {title:'บุคลากร',items:[{href:'/personnel',label:'ข้อมูลบุคลากร',icon:'users'}]}
+];
+const teacherSections:NavSection[]=[
+ {title:'ภาพรวม',items:[{href:'/teacher',label:'หน้าหลักครู',icon:'home'}]},
+ {title:'การจัดการเรียนรู้',items:[
+  {href:'/teacher#courses',label:'รายวิชาที่สอน',icon:'book'},
+  {href:'/teacher/scores',label:'บันทึกคะแนน',icon:'chart'}
+ ]},
+ {title:'งานประจำชั้น',items:[{href:'/teacher/pp6',label:'ห้องประจำชั้นและ ปพ.6',icon:'users'}]}
+];
 export default function AppNavigation(){
  const pathname=usePathname().replace(/\/+$/,'')||'/',router=useRouter();
  const [busy,setBusy]=useState(false),[open,setOpen]=useState(false);
@@ -36,8 +54,9 @@ export default function AppNavigation(){
  },[schoolId]);
  const isTeacher=pathname.startsWith('/teacher');
  const isAdmin=['/admin','/personnel','/academic','/curriculum','/students'].some(x=>pathname.startsWith(x));
- const items=isTeacher?teacherItems:isAdmin?adminItems:[];
- const activeUrl=items.filter(([url])=>pathname===url||pathname.startsWith(url+'/')).sort((a,b)=>b[0].length-a[0].length)[0]?.[0];
+ const sections=isTeacher?teacherSections:isAdmin?adminSections:[];
+ const items=sections.flatMap(group=>group.items);
+ const activeUrl=items.filter(item=>pathname===item.href.split('#')[0]||pathname.startsWith(item.href.split('#')[0]+'/')).sort((a,b)=>b.href.split('#')[0].length-a.href.split('#')[0].length)[0]?.href;
  async function signOut(){
   if(!window.dispatchEvent(new Event('wichakan:before-leave',{cancelable:true})))return;
   const db=getSupabaseBrowserClient();if(!db)return;
@@ -45,12 +64,15 @@ export default function AppNavigation(){
   if(!error)router.replace('/login');
  }
  if(pathname==='/'||pathname==='/login')return null;
- const nav=<div className="space-y-1">
-  {items.map(([url,label,icon])=><Link key={url} href={url} onClick={()=>setOpen(false)}
-   aria-current={activeUrl===url?'page':undefined}
-   className={'app-nav-link '+(activeUrl===url?'is-active':'')}>
-   <AcademicIcon name={icon}/><span>{label}</span></Link>)}
- </div>;
+ const nav=<nav className="space-y-5" aria-label="หมวดเมนูหลัก">
+  {sections.map(group=><section key={group.title}>
+   <h2 className="mb-2 px-4 text-[11px] font-bold tracking-wide text-slate-400">{group.title}</h2>
+   <div className="space-y-1">{group.items.map(item=><Link key={item.href} href={item.href} onClick={()=>setOpen(false)}
+    aria-current={activeUrl===item.href?'page':undefined}
+    className={'app-nav-link '+(activeUrl===item.href?'is-active':'')}>
+    <AcademicIcon name={item.icon}/><span>{item.label}</span></Link>)}</div>
+  </section>)}
+ </nav>;
  return <div className="app-shell">
   <header className="app-topbar">
    <div className="flex min-w-0 items-center gap-3">
