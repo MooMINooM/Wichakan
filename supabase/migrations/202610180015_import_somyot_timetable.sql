@@ -1,6 +1,6 @@
 -- Source: teacher timetable page 1, term 1/2569 (คุณครูสมยศ บุญประคม).
 -- Period numbering follows the seven displayed non-lunch periods:
--- 1 = 08:30 homeroom, 2 = 09:00, 3 = 10:00, 4 = 11:00,
+-- 1 = 09:00, 2 = 10:00, 3 = 11:00, 4 = lunch (blocked),
 -- 5 = 13:00, 6 = 14:00, 7 = 15:00. Homeroom is not a course slot.
 do $$
 declare
@@ -21,11 +21,11 @@ begin
  -- Verified printed lessons; no duplicated homeroom or lunch.
  for v_target in
  select * from (values
- (1,2,'ป.2','ค12101'),(2,3,'ป.2','ค12101'),
- (3,2,'ม.3','ง23201'),(3,3,'ม.1','พลศึกษา'),(3,4,'ม.2','พลศึกษา'),
+ (1,1,'ป.2','ค12101'),(2,2,'ป.2','ค12101'),
+ (3,1,'ม.3','ง23201'),(3,2,'ม.1','พลศึกษา'),(3,3,'ม.2','พลศึกษา'),
  (3,5,'ป.2','ค12101'),(3,6,'ม.3','พลศึกษา'),
- (4,2,'ม.2','ง22201'),(4,5,'ป.2','ค12101'),
- (5,3,'ป.2','ค12101'),(5,4,'ม.1','ง21201')
+ (4,1,'ม.2','ง22201'),(4,5,'ป.2','ค12101'),
+ (5,2,'ป.2','ค12101'),(5,3,'ม.1','ง21201')
  ) as x(day_no,period_no,level_code,subject_key)
  loop
    select o.id into v_offering
