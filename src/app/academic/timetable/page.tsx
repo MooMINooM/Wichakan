@@ -99,7 +99,7 @@ export default function TimetablePage(){
  return <main className="wichakan-page mx-auto max-w-[1500px] px-5 py-6">
  <PageHeader title="จัดตารางสอน"/>
  <p className="mb-4 text-sm text-slate-500">เลือกวิชาในคลังทางซ้าย → คลิกช่องตาราง → บันทึกทางขวา · วิชาบูรณาการและการตรวจคาบอยู่ในแท็บคลังวิชา</p>
- <div className="mb-4 flex flex-wrap gap-3"><Link className="ui-primary" href="/academic/timetable/rules">ตั้งค่าเงื่อนไขและคาบพัก</Link><Link href="/academic/teachers" className="ui-secondary">มอบหมายครูผู้สอน</Link><Link href="/academic" className="ui-secondary">ตั้งค่าปีและภาคเรียน</Link></div>
+ <div className="mb-4 flex flex-wrap gap-3"><Link className="ui-secondary" href="/academic/timetable/activities">จัดตารางกิจกรรม</Link><Link className="ui-primary" href="/academic/timetable/rules">ตั้งค่าเงื่อนไขและคาบพัก</Link><Link href="/academic/teachers" className="ui-secondary">มอบหมายครูผู้สอน</Link><Link href="/academic" className="ui-secondary">ตั้งค่าปีและภาคเรียน</Link></div>
  {error&&<p role="alert" className="mb-3 rounded-lg bg-red-50 p-3 text-sm text-red-700">{error}</p>}{notice&&<p role="status" className="mb-3 rounded-lg bg-green-50 p-3 text-sm text-green-800">{notice}</p>}
  {loading?<p>กำลังโหลดตารางสอน...</p>:<><div className="grid min-w-0 items-start gap-3 lg:grid-cols-[minmax(0,1fr)_260px] 2xl:grid-cols-[300px_minmax(0,1fr)_270px]">
  <aside className="ui-panel order-2 min-w-0 p-3 lg:col-start-2 lg:row-start-1 lg:sticky lg:top-4 2xl:col-start-3" aria-label="เครื่องมือจัดตาราง">

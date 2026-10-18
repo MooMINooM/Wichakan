@@ -16,6 +16,7 @@ const adminSections:NavSection[]=[
   {href:'/academic/teachers',label:'มอบหมายครูผู้สอน',icon:'users'},
   {href:'/academic/timetable',label:'จัดตารางสอน',icon:'calendar'},
   {href:'/academic/timetable/rules',label:'เงื่อนไขตารางสอน',icon:'settings'},
+  {href:'/academic/timetable/activities',label:'ตารางกิจกรรม',icon:'calendar'},
   {href:'/academic/templates',label:'เตรียมปีการศึกษาใหม่',icon:'promote'}
  ]},
  {title:'ทะเบียนนักเรียน',items:[
@@ -29,7 +30,8 @@ const teacherSections:NavSection[]=[
  {title:'ภาพรวม',items:[{href:'/teacher',label:'หน้าหลักครู',icon:'home'}]},
  {title:'การจัดการเรียนรู้',items:[
   {href:'/teacher#courses',label:'รายวิชาที่สอน',icon:'book'},
-  {href:'/teacher/scores',label:'บันทึกคะแนน',icon:'chart'}
+  {href:'/teacher/scores',label:'บันทึกคะแนน',icon:'chart'},
+  {href:'/teacher/activities',label:'บันทึกกิจกรรม',icon:'check'}
  ]},
  {title:'งานประจำชั้น',items:[{href:'/teacher/pp6',label:'ห้องประจำชั้นและ ปพ.6',icon:'users'}]}
 ];
