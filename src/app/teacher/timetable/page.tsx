@@ -16,7 +16,7 @@ type Activity={id:string;term_id:string;classroom_id:string;activity_type:string
 type Period={period_no:number;starts_at:string;ends_at:string};
 type Lesson={key:string;day:number;period:number;name:string;room:string;kind:'course'|'activity'};
 const DAYS=['จันทร์','อังคาร','พุธ','พฤหัสบดี','ศุกร์'];
-const ACTIVITY:Record<string,string>={sss:'สสส.',guidance:'แนะแนว',ethics:'อบรมคุณธรรม',club:'ชุมนุม',scout:'ลูกเสือ–เนตรนารี'};
+const ACTIVITY:Record<string,string>={computing:'วิทยาการคำนวณ (รวมผลการเรียนวิทยาศาสตร์)',sss:'สสส.',guidance:'แนะแนว',ethics:'อบรมคุณธรรม',club:'ชุมนุม',scout:'ลูกเสือ–เนตรนารี'};
 const roomName=(r:Room|undefined)=>r?r.level_code+'/'+r.room_code:'—';
 export default function TeacherTimetablePage(){
  const db=getSupabaseBrowserClient();
