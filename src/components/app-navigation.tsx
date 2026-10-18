@@ -14,10 +14,13 @@ const adminSections:NavSection[]=[
   {href:'/academic',label:'ปีการศึกษาและห้องเรียน',icon:'calendar',match:'/academic'},
   {href:'/curriculum',label:'หลักสูตรและรายวิชา',icon:'book'},
   {href:'/academic/teachers',label:'มอบหมายครูผู้สอน',icon:'users'},
-  {href:'/academic/timetable',label:'จัดตารางสอน',icon:'calendar'}
+  {href:'/academic/timetable',label:'จัดตารางสอน',icon:'calendar'},
+  {href:'/academic/timetable/rules',label:'เงื่อนไขตารางสอน',icon:'settings'},
+  {href:'/academic/templates',label:'เตรียมปีการศึกษาใหม่',icon:'promote'}
  ]},
  {title:'ทะเบียนนักเรียน',items:[
   {href:'/students',label:'ข้อมูลนักเรียน',icon:'users'},
+  {href:'/students/history',label:'จัดนักเรียนเข้าห้อง',icon:'school'},
   {href:'/students/promote',label:'เลื่อนชั้นนักเรียน',icon:'promote'}
  ]},
  {title:'บุคลากร',items:[{href:'/personnel',label:'ข้อมูลบุคลากร',icon:'users'}]}
