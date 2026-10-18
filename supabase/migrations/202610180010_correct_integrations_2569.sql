@@ -16,7 +16,7 @@ begin
  join public.course_offerings host on host.classroom_id=child.classroom_id and host.term_id=child.term_id
  join public.subjects hs on hs.id=host.subject_id
  where child.term_id=v_term and child.school_id=v_school and (
-  (cs.subject_code in ('ค21201','ค22201','ค23201') and hs.subject_code=replace(cs.subject_code,'2','1')) 
+  (cs.subject_code in ('ค21201','ค22201','ค23201') and hs.subject_code=case cs.subject_code when 'ค21201' then 'ค21101' when 'ค22201' then 'ค22101' when 'ค23201' then 'ค23101' end) 
   or (cs.name_th like 'หน้าที่พลเมือง%' and hs.name_th like 'การป้องกันการทุจริต%')
  );
  get diagnostics v_count=row_count;
