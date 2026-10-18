@@ -2,7 +2,7 @@ export type Lesson={course_offering_id:string;weekday_no:number;period_no:number
 export type Course={id:string;classroom_id:string;subject_id:string;target:number;double_period?:boolean};
 export type Rule={kind:string;weekday_no:number;period_no:number|null;teacher_user_id:string|null;subject_id:string|null};
 export type Teacher={course_offering_id:string;teacher_user_id:string};
-export function autoFill(courses:Course[],existing:Lesson[],teachers:Teacher[],rules:Rule[]){
+export function autoFill(courses:Course[],existing:Lesson[],teachers:Teacher[],rules:Rule[],periodsPerDay=8){
  const taken=[...existing],suggested:Lesson[]=[];
  const teaching=(id:string)=>teachers.filter(a=>a.course_offering_id===id).map(a=>a.teacher_user_id);
  const blocked=(c:Course,d:number,p:number)=>{
@@ -29,9 +29,9 @@ export function autoFill(courses:Course[],existing:Lesson[],teachers:Teacher[],r
     // Sum-of-squares is minimized by distributing periods as evenly as possible.
     return total+2*length*counts[d-1]+length*length;
    },0);
-   for(let d=1;d<=5;d++)for(let p=1;p<=10;p++){
+   for(let d=1;d<=5;d++)for(let p=1;p<=periodsPerDay;p++){
     if(blocked(c,d,p))continue;
-    if(desiredPair&&(p===10||blocked(c,d,p+1)))continue;
+    if(desiredPair&&(p===periodsPerDay||blocked(c,d,p+1)))continue;
     possible.push({d,p,daily:taken.filter(x=>x.course_offering_id===c.id&&x.weekday_no===d).length,balance:balanceDelta(d),roomLoad:roomDaily(c.classroom_id,d)});
    }
    possible.sort((a,b)=>a.balance-b.balance||a.daily-b.daily||a.roomLoad-b.roomLoad||a.p-b.p||a.d-b.d);
