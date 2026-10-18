@@ -21,11 +21,11 @@ begin
  -- Verified printed lessons; no duplicated homeroom or lunch.
  for v_target in
  select * from (values
- (1,2,'ป.2','ง12101'),(2,3,'ป.2','ง12101'),
+ (1,2,'ป.2','ค12101'),(2,3,'ป.2','ค12101'),
  (3,2,'ม.3','ง23201'),(3,3,'ม.1','พลศึกษา'),(3,4,'ม.2','พลศึกษา'),
- (3,5,'ป.2','ง12101'),(3,6,'ม.3','พลศึกษา'),
- (4,2,'ม.2','ง22201'),(4,5,'ป.2','ง12101'),
- (5,3,'ป.2','ง12101'),(5,4,'ม.1','ง21201')
+ (3,5,'ป.2','ค12101'),(3,6,'ม.3','พลศึกษา'),
+ (4,2,'ม.2','ง22201'),(4,5,'ป.2','ค12101'),
+ (5,3,'ป.2','ค12101'),(5,4,'ม.1','ง21201')
  ) as x(day_no,period_no,level_code,subject_key)
  loop
    select o.id into v_offering
@@ -35,7 +35,6 @@ begin
    where o.term_id=v_term and c.level_code=v_target.level_code and c.room_code='1'
     and (s.subject_code=v_target.subject_key or (v_target.subject_key='พลศึกษา' and s.name_th='พลศึกษา'));
    if v_offering is null then raise exception 'Missing offering % %',v_target.level_code,v_target.subject_key;end if;
-   if v_target.subject_key like 'ง2%2%01' then null;end if;
    if v_target.subject_key in ('ง21201','ง22201','ง23201') then
      insert into public.teaching_assignments(school_id,course_offering_id,teacher_user_id)
      values(v_school,v_offering,v_teacher)
