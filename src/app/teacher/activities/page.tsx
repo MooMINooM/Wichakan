@@ -42,12 +42,14 @@ export default function TeacherActivitiesPage(){
   const [r,g]=await Promise.all([db.from('school_activity_attendance').select('student_id,status').eq('schedule_id',chosen.id).eq('class_date',date),db.from('school_activity_assessments').select('student_id,result').eq('schedule_id',chosen.id)]);
   if(r.error||g.error)throw r.error??g.error;if(live){setStatuses(Object.fromEntries((r.data??[] as RecordRow[]).map(x=>[x.student_id,x.status])));setGrades(Object.fromEntries((g.data??[] as GradeRow[]).map(x=>[x.student_id,x.result])));}
  }catch(e){if(live)setError(e instanceof Error?e.message:'อ่านการเช็กชื่อไม่ได้');}})();return()=>{live=false};},[db,chosen?.id,date]);
- async function saveAll(){if(!db||!chosen||busy)return;setBusy(true);setError('');setNotice('');let count=0;try{
-  for(const student of roster){const status=statuses[student.id]??null,result=grades[student.id]??null;if(!status&&!result)continue;
-   const r=await db.rpc('save_school_activity_record',{p_schedule:chosen.id,p_student:student.id,p_date:date,p_status:status,p_result:result,p_comment:null});
-   if(r.error)throw r.error;count++;
-  }setNotice('บันทึกข้อมูลนักเรียน '+count+' คนเรียบร้อยแล้ว');
- }catch(e){setError('บันทึกแล้ว '+count+' คนก่อนพบข้อผิดพลาด: '+(e instanceof Error?e.message:'บันทึกไม่ได้'));}finally{setBusy(false);}}
+ async function saveAll(){if(!db||!chosen||busy||wrongDay)return;setBusy(true);setError('');setNotice('');try{
+  const records=roster.map(student=>({student_id:student.id,status:statuses[student.id]||null,result:grades[student.id]||null})).filter(record=>record.status||record.result);
+  if(!records.length){setNotice('ยังไม่มีข้อมูลที่ต้องบันทึก');return;}
+  const response=await db.rpc('save_school_activity_records',{p_schedule:chosen.id,p_date:date,p_records:records});
+  if(response.error)throw response.error;
+  setNotice('บันทึกข้อมูลนักเรียน '+response.data+' คนเรียบร้อยแล้ว');
+ }catch(e){setError('ไม่สามารถบันทึกข้อมูลได้ ข้อมูลทั้งชุดไม่ถูกบันทึก: '+(e instanceof Error?e.message:'บันทึกไม่ได้'))}finally{setBusy(false);}}
+
  const wrongDay=chosen&&new Date(date+'T12:00:00').getDay()!==chosen.weekday_no%7;
  return <main className="wichakan-page mx-auto max-w-5xl px-5 py-6"><PageHeader title="บันทึกกิจกรรม"/><p className="mb-4 text-sm text-slate-500">กิจกรรมแยกจากรายวิชา ครูผู้สอนดูแล สสส. แนะแนว อบรมคุณธรรม ส่วนชุมนุมและลูกเสือครูประจำชั้นทั้งสองคนบันทึกได้</p>
  {error&&<p role="alert" className="mb-3 rounded-lg bg-red-50 p-3 text-sm text-red-700">{error}</p>}{notice&&<p role="status" className="mb-3 rounded-lg bg-green-50 p-3 text-sm text-green-800">{notice}</p>}
