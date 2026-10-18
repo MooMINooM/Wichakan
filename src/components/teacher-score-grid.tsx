@@ -32,7 +32,11 @@ export default function TeacherScoreGrid({offeringId,students,records,setting,mo
   }catch(e){setError('บันทึกไม่สำเร็จ ข้อมูลที่กรอกยังคงอยู่ทั้งหมด กรุณาลองอีกครั้ง: '+teacherError(e));}
   finally{setBusy(false);}
  }
- const displayed=students.filter(s=>filter==='special'?!!drafts[s.id].special:filter==='complete'?complete(drafts[s.id]):filter==='incomplete'?!complete(drafts[s.id]):true);
+ // Show boys first, then girls; within each group sort student codes descending.
+ // The students table stores a Thai name prefix, not a separate gender column.
+ const genderOrder=(prefix:string|null)=>/^(เด็กชาย|ด\\.ช\\.|นาย)(?:\\s|$)/.test((prefix??'').trim())?0:/^(เด็กหญิง|ด\\.ญ\\.|นางสาว|นาง)(?:\\s|$)/.test((prefix??'').trim())?1:2;
+ const orderedStudents=[...students].sort((a,b)=>genderOrder(a.name_prefix_th)-genderOrder(b.name_prefix_th)||b.student_no.localeCompare(a.student_no,'th',{numeric:true})||a.id.localeCompare(b.id));
+ const displayed=orderedStudents.filter(s=>filter==='special'?!!drafts[s.id].special:filter==='complete'?complete(drafts[s.id]):filter==='incomplete'?!complete(drafts[s.id]):true);
  const termCap=(start:number)=>configured?caps.slice(start,start+3).reduce((a,b)=>a+b,0):'—';
  const semester=mode==='semester',start=termNo===1?0:3,visibleScoreIndices=semester?[start,start+1,start+2]:[0,1,2,3,4,5];
  return <>
@@ -48,7 +52,7 @@ export default function TeacherScoreGrid({offeringId,students,records,setting,mo
    {semester?<th colSpan={3} className={termNo===1?'score-term-one':'score-term-two'}>คะแนนภาคเรียนที่ {termNo}</th>:<><th colSpan={4} className="score-term-one">ภาคเรียนที่ 1</th><th colSpan={4} className="score-term-two">ภาคเรียนที่ 2</th></>}
    <th rowSpan={2}>{semester?'รวมภาคเรียน '+termNo:'รวมทั้งปี'}<br/><small>({configured?100:'—'})</small></th><th rowSpan={2}>เกรด</th><th rowSpan={2}>หมายเหตุ</th></tr><tr>
    {semester?visibleScoreIndices.map(i=><th key={i}>{['เก็บ','กลางภาค','ปลายภาค'][i%3]}<small>({caps[i]??'—'})</small></th>):<>{[0,1,2].map(i=><th key={i}>{['เก็บ','กลางภาค','ปลายภาค'][i]}<small>({caps[i]??'—'})</small></th>)}<th>รวม<br/>ภาคเรียน 1<small>({termCap(0)})</small></th>{[3,4,5].map(i=><th key={i}>{['เก็บ','กลางภาค','ปลายภาค'][i-3]}<small>({caps[i]??'—'})</small></th>)}<th>รวม<br/>ภาคเรียน 2<small>({termCap(3)})</small></th></>}</tr></thead><tbody>{displayed.map(student=>{
-    const d=drafts[student.id],value=evaluateScore(d.values,d.special,caps,mode,termNo),index=students.findIndex(s=>s.id===student.id);
+    const d=drafts[student.id],value=evaluateScore(d.values,d.special,caps,mode,termNo),index=orderedStudents.findIndex(s=>s.id===student.id);
     const input=(i:number)=><td key={'input'+i}><input aria-label={SCORE_LABELS[i]+' '+student.student_no} aria-invalid={value.invalid[i]||undefined} title={'คะแนนเต็ม '+(caps[i]??'—')} type="number" inputMode="numeric" min="0" max={caps[i]??0} step="1" disabled={!configured||busy} value={d.values[i]} onChange={e=>update(student.id,{values:d.values.map((s,j)=>j===i?e.target.value:s)})}/></td>;
     return <tr key={student.id} className={d.dirty?'score-dirty':''}><td className="score-number">{index+1}</td><td className="score-code">{student.student_no}</td><th scope="row" className="score-name">{student.name_prefix_th??''}{student.first_name_th} {student.last_name_th}</th>
     {semester?visibleScoreIndices.map(input):<>{[0,1,2].map(input)}<td><output className="score-output term-one" aria-label={'รวมภาคเรียน 1 '+student.student_no}>{value.term1??'—'}</output></td>{[3,4,5].map(input)}<td><output className="score-output term-two" aria-label={'รวมภาคเรียน 2 '+student.student_no}>{value.term2??'—'}</output></td></>}
