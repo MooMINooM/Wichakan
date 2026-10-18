@@ -34,7 +34,7 @@ export default function TeacherScoreGrid({offeringId,students,records,setting,mo
  }
  // Show boys first, then girls; within each group sort student codes descending.
  // The students table stores a Thai name prefix, not a separate gender column.
- const genderOrder=(prefix:string|null)=>/^(เด็กชาย|ด\\.ช\\.|นาย)(?:\\s|$)/.test((prefix??'').trim())?0:/^(เด็กหญิง|ด\\.ญ\\.|นางสาว|นาง)(?:\\s|$)/.test((prefix??'').trim())?1:2;
+ const genderOrder=(prefix:string|null)=>/^(เด็กชาย|ด\.ช\.|นาย)(?:\s|$)/.test((prefix??'').trim())?0:/^(เด็กหญิง|ด\.ญ\.|นางสาว|นาง)(?:\s|$)/.test((prefix??'').trim())?1:2;
  const orderedStudents=[...students].sort((a,b)=>genderOrder(a.name_prefix_th)-genderOrder(b.name_prefix_th)||b.student_no.localeCompare(a.student_no,'th',{numeric:true})||a.id.localeCompare(b.id));
  const displayed=orderedStudents.filter(s=>filter==='special'?!!drafts[s.id].special:filter==='complete'?complete(drafts[s.id]):filter==='incomplete'?!complete(drafts[s.id]):true);
  const termCap=(start:number)=>configured?caps.slice(start,start+3).reduce((a,b)=>a+b,0):'—';
