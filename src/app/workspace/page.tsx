@@ -25,6 +25,6 @@ export default function Workspace(){
  {loading&&<p className="mt-5">กำลังตรวจสอบสิทธิ์...</p>}
  {error&&<p role="alert" className="mt-5 text-red-700">{error}</p>}
  {!loading&&!error&&!roles.length&&<p className="mt-6 rounded-xl bg-amber-50 p-4">ยังไม่มีสิทธิ์ในโรงเรียน กรุณาติดต่อผู้ดูแลระบบ</p>}
- <div className="mt-6 grid gap-4 sm:grid-cols-2">{roles.map((m,i)=><Link key={m.school_id+m.role+i} href={routes[m.role]??'/workspace'} className="ui-panel group rounded-2xl border border-slate-200 bg-white p-6 shadow-sm transition hover:-translate-y-0.5 hover:border-blue-400 hover:shadow-md"><div className="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-blue-50 text-lg font-bold text-blue-800"><AcademicIcon name={m.role==='teacher'?'book':m.role==='school_admin'?'settings':m.role==='director'?'chart':'users'}/></div><h2 className="text-lg font-bold">{names[m.role]??m.role}</h2><p className="mt-2 text-sm text-slate-500">{m.schools?.name_th??'โรงเรียน'}</p></Link>)}</div>
+ <div className="workspace-roles mt-6">{roles.map((m,i)=><Link key={m.school_id+m.role+i} href={routes[m.role]??'/workspace'} className="ui-panel workspace-role"><div className="workspace-role-icon"><AcademicIcon name={m.role==='teacher'?'book':m.role==='school_admin'?'settings':m.role==='director'?'chart':'users'}/></div><div><h2>{names[m.role]??m.role}</h2><p className="mt-1 text-sm text-slate-500">{m.schools?.name_th??'โรงเรียน'}</p></div><span className="workspace-role-arrow" aria-hidden="true">→</span></Link>)}</div>
  </main>;
 }
