@@ -1,22 +1,22 @@
-# Wichakan interface
+# Wichakan — Open Academic Workspace
 
-Use `PageHeader` for workspace page titles. It provides one responsive heading, hero height, background, and optional context/actions. Include a school name or selected year only when it helps orient the user. Keep metrics and working controls outside the hero.
-
-Shared values live in `src/app/globals.css` under “Shared Wichakan workspace system”. Route styles should control layout rather than override these values.
+The interface should feel like an academic working document: white space, blue ink, clear headings, restrained navigation and readable tables. Avoid nested cards, decorative hero panels and shadows. Shared presentation lives in `src/app/academic-workspace.css`, loaded after legacy route styles; route files retain their data and layout behavior.
 
 | Element | Standard |
 | --- | --- |
-| Main title | 30px desktop / 26px mobile, weight 800 |
-| Panel heading | 18px, weight 700 |
-| Body / field / table | 14px / 13px / 13px |
-| Hero | Minimum 124px desktop / 112px mobile; actions appear in a separate row |
-| Panel | 16px radius, 20px padding / 16px mobile |
-| Primary action | Blue `--ui-primary`, minimum 42px height, 9px radius |
-| Input | Minimum 42px height, 9px radius |
-| Sidebar | 220px desktop; drawer below 1024px |
+| Canvas | White; pale blue sidebar and filter strips |
+| Text | Navy `#193656`, muted `#677d92`; local Sarabun font |
+| Primary action | Blue `#2563eb`; one clear main action per task |
+| Page title | Shared `PageHeader`, 30px desktop / 24px mobile, divider below |
+| Sections | Open surfaces, 20px vertical padding, no perimeter border or shadow |
+| Metrics | One divided strip; two columns on mobile where appropriate |
+| Tables | Pale blue header, row dividers, subtle hover, opaque sticky columns |
+| Controls | 7–8px radius; 44px touch actions on mobile |
+| Navigation | Grouped labels, pale active row and blue indicator; drawer under 1024px |
+| Dialogs | Keep a bounded surface and backdrop to distinguish the active task |
 
-Use `ui-panel`, `ui-primary`, and `ui-secondary` for new surfaces and actions. Existing academic panels use the same values. Compact table actions remain compact; checkboxes retain their native control layout. Green, amber, and red indicate status rather than separate page themes.
+Use `ui-panel` for an open section and `ui-primary` / `ui-secondary` for actions. Do not remove form field boundaries, validation, disabled states, status colors, selection indicators or the timetable grid. Keep local overflow on wide tables. Never flatten the printed PP6 report into this screen design.
 
-Keep labels, selected context, empty states, validation, failures, and destructive-action consequences. Remove repeated headings, English translations of Thai labels, obsolete version labels, promotional copy, and implementation notes. Explain complex operations at the point of use. Do not hide errors or authorization limits to shorten a page.
+Workspace role selection uses readable rows instead of a card grid. The teacher navigation includes the existing timetable route. Page headers use the wordmark eyebrow instead of decorative school artwork. The skip link moves keyboard users past navigation.
 
-Validation: production static export and TypeScript checks; mocked browser checks on all 15 routes at 1448px and 390px (header sizes, panel geometry, control heights, sidebar selection, overflow), curriculum step navigation, and the staff save/reset/error-recovery regression flow. Production data was not modified.
+Validation uses a production static export, TypeScript and existing domain checks, plus the mocked browser suite for populated desktop/mobile screens. Browser fixtures never write production data.

@@ -29,6 +29,7 @@ const adminSections:NavSection[]=[
 const teacherSections:NavSection[]=[
  {title:'ภาพรวม',items:[{href:'/teacher',label:'หน้าหลักครู',icon:'home'}]},
  {title:'การจัดการเรียนรู้',items:[
+  {href:'/teacher/timetable',label:'ตารางสอนของฉัน',icon:'calendar'},
   {href:'/teacher#courses',label:'รายวิชาที่สอน',icon:'book'},
   {href:'/teacher/scores',label:'บันทึกคะแนน',icon:'chart'},
   {href:'/teacher/activities',label:'บันทึกกิจกรรม',icon:'check'}
@@ -84,6 +85,7 @@ export default function AppNavigation(){
     {items.length>0&&<button onClick={()=>setOpen(x=>!x)} aria-expanded={open} aria-label="เปิดหรือปิดเมนู" className="rounded-lg border border-slate-200 px-3 py-2 text-lg lg:hidden"><AcademicIcon name="menu"/></button>}
     <Link href="/workspace" className="app-brand-link" aria-label="Wichakan เลือกพื้นที่ทำงาน"><WichakanBrand/></Link>
    </div>
+   <span className="app-workspace-label">{isTeacher?'พื้นที่ทำงานครู':isAdmin?'บริหารงานวิชาการ':'ระบบบริหารงานวิชาการ'}</span>
    {pathname==='/personnel'?<label className="hidden items-center gap-2 rounded-xl border border-blue-100 bg-white px-3 py-2 text-sm font-semibold text-blue-900 md:flex"><AcademicIcon name="calendar"/><select aria-label="ปีการศึกษาสรุปบุคลากร" className="bg-transparent outline-none" value={currentYear} disabled={!years.length} onChange={e=>{setCurrentYear(e.target.value);setYearSelection(schoolId,e.target.value);}}>{!years.length&&<option value="">ยังไม่มีปีการศึกษา</option>}{years.map(y=><option key={y.id} value={y.id}>ปีการศึกษา {y.year_be}</option>)}</select></label>:null}
 
    <div className="flex items-center gap-2">
