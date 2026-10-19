@@ -21,7 +21,6 @@ export default function TeacherPage(){
  const completed=courses.filter(c=>c.status==='complete').length,inProgress=courses.filter(c=>c.status==='progress').length;
  const studentCount=new Set(courses.flatMap(c=>c.studentIds)).size;
  const ready=!loading&&!error&&!!data.schoolId,contextReady=ready&&!!validTerm;
- const tasks=courses.filter(c=>c.status!=='complete').sort((a,b)=>(a.progress??-1)-(b.progress??-1));
  const homeRoster=(roomId:string)=>{const ids=new Set(data.enrollments.filter(e=>e.classroom_id===roomId&&e.academic_year_id===yearId).map(e=>e.student_id));return data.students.filter(s=>ids.has(s.id));};
  const roster=homeRoster(rosterRoom),selectedHome=data.rooms.find(r=>r.id===rosterRoom);
  return <main className="wichakan-page teacher-dashboard">
@@ -48,17 +47,16 @@ export default function TeacherPage(){
      <div className="teacher-table-scroll"><table className="teacher-course-table"><thead><tr><th>รหัสวิชา</th><th>ชื่อวิชา</th><th>ห้องเรียน</th><th>นักเรียน</th><th>ความคืบหน้าการลงคะแนน</th><th>สถานะ</th><th>จัดการ</th></tr></thead><tbody>{contextReady&&courses.map(c=><tr key={c.subjectId}><td>{c.code}</td><th scope="row">{c.name}</th><td>{c.roomIds.map(id=>data.rooms.find(r=>r.id===id)).filter(r=>!!r).map(teacherRoomLabel).join(', ')}</td><td>{c.studentIds.length}</td><td><div className={'teacher-progress '+c.status}><progress max="100" value={c.progress??0} aria-label={'ความคืบหน้า '+c.name}/><span>{c.progress===null?'—':c.progress+'%'}</span></div></td><td><span className={'teacher-state '+c.status}>{statusLabel[c.status]}</span></td><td><Link className="ui-primary teacher-table-button" href={scoreLink(c)}>บันทึกคะแนน</Link></td></tr>)}</tbody></table></div>
      {!loading&&!error&&(!validTerm||!courses.length)&&<p className="teacher-empty">{!validTerm?'ยังไม่มีภาคเรียนในปีที่เลือก':'ยังไม่มีรายวิชาที่ได้รับมอบหมายในภาคเรียนนี้'}</p>}
     </section>
-    <section className="ui-panel" id="homerooms" aria-labelledby="teacher-homerooms-heading"><div className="teacher-panel-heading"><h2 id="teacher-homerooms-heading"><AcademicIcon name="users"/>ห้องประจำชั้น</h2></div>
-     {ready&&homeRooms.map(r=><div className="teacher-homeroom-card" key={r.id}><AcademicIcon name="users"/><div><h3>{teacherRoomLabel(r)}</h3><p>นักเรียน {homeRoster(r.id).length} คน</p><span>ปีการศึกษา {data.years.find(y=>y.id===yearId)?.year_be??'—'}</span></div><Link className="ui-secondary" href={'/teacher/pp6?room='+encodeURIComponent(r.id)}>ตรวจสอบ ปพ.6</Link><button className="ui-secondary" onClick={()=>setRosterRoom(r.id)}><AcademicIcon name="users"/>ดูรายชื่อนักเรียน</button></div>)}
-     {ready&&!homeRooms.length&&<p className="teacher-empty">ไม่มีห้องประจำชั้นในปีที่เลือก</p>}
-    </section>
+
    </div>
    <aside className="ui-panel teacher-overview" aria-label="ภาพรวมงานของครู"><div className="teacher-panel-heading"><h2><AcademicIcon name="chart"/>ภาพรวมงานของครู</h2></div>
     <div className="teacher-overview-progress"><span>ความคืบหน้าการลงคะแนน (รายวิชา)</span><strong>{contextReady?completed+'/'+courses.length:'—'}</strong><progress max="100" value={contextReady&&courses.length?completed/courses.length*100:0} aria-label="สัดส่วนวิชาที่ลงคะแนนเสร็จ"/><b>{contextReady&&courses.length?Math.floor(completed/courses.length*100)+'%':'—'}</b></div>
     <div className="teacher-overview-legend"><p><i className="complete"/>เสร็จแล้ว <span>{contextReady?completed:'—'} รายวิชา</span></p><p><i className="progress"/>กำลังดำเนินการ <span>{contextReady?inProgress:'—'} รายวิชา</span></p><p><i className="empty"/>ยังไม่ครบ / รอตั้งค่า <span>{contextReady?courses.length-completed-inProgress:'—'} รายวิชา</span></p></div>
-    <h3 className="teacher-tasks-heading"><AcademicIcon name="file"/>งานที่ต้องดำเนินการ</h3>
-    {contextReady&&tasks.map(c=><Link href={scoreLink(c)} className={'teacher-task '+c.status} key={c.subjectId}><i aria-hidden="true"/><div><strong>{c.name}</strong><p>{c.status==='configuration'?'รอ Admin ตั้งคะแนนเต็ม':c.status==='no-students'?'ยังไม่มีนักเรียนในห้อง':c.saved+'/'+c.expected+' รายการ · '+statusLabel[c.status]}</p></div><span aria-hidden="true">›</span></Link>)}
-    {contextReady&&!tasks.length&&<p className="teacher-empty">{courses.length?'ลงคะแนนครบทุกวิชาแล้ว':'ยังไม่มีงานสอนในภาคเรียนนี้'}</p>}
+    <section id="homerooms" aria-labelledby="teacher-homerooms-heading" className="mt-5 border-t border-slate-200 pt-4">
+     <div className="teacher-panel-heading"><h2 id="teacher-homerooms-heading"><AcademicIcon name="users"/>ห้องประจำชั้น</h2></div>
+     {ready&&homeRooms.map(r=><div className="teacher-homeroom-card" key={r.id}><AcademicIcon name="users"/><div><h3>{teacherRoomLabel(r)}</h3><p>นักเรียน {homeRoster(r.id).length} คน</p><span>ปีการศึกษา {data.years.find(y=>y.id===yearId)?.year_be??'—'}</span></div><Link className="ui-secondary" href={'/teacher/pp6?room='+encodeURIComponent(r.id)}>ตรวจสอบ ปพ.6</Link><button type="button" className="ui-secondary" onClick={()=>setRosterRoom(r.id)}><AcademicIcon name="users"/>ดูรายชื่อนักเรียน</button></div>)}
+     {ready&&!homeRooms.length&&<p className="teacher-empty">ไม่มีห้องประจำชั้นในปีที่เลือก</p>}
+    </section>
    </aside>
   </div>
   {selectedHome&&<AcademicDialog title={'รายชื่อนักเรียน '+teacherRoomLabel(selectedHome)} onClose={()=>setRosterRoom('')}><p className="mb-3 text-sm text-slate-500">ปีการศึกษา {data.years.find(y=>y.id===yearId)?.year_be??'—'} · {roster.length} คน</p><div className="teacher-table-scroll"><table className="w-full text-left"><thead><tr><th>เลขที่</th><th>รหัส</th><th>ชื่อ–นามสกุล</th></tr></thead><tbody>{roster.map((s,i)=><tr key={s.id}><td>{i+1}</td><td>{s.student_no}</td><td>{s.name_prefix_th??''}{s.first_name_th} {s.last_name_th}</td></tr>)}</tbody></table></div>{!roster.length&&<p className="teacher-empty">ไม่มีนักเรียนลงทะเบียนในห้องนี้</p>}</AcademicDialog>}
