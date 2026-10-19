@@ -1,6 +1,7 @@
 'use client';
 import PageHeader from '@/components/page-header';
 import SubjectScoreSettings from '@/components/subject-score-settings';
+import SubjectLearningTargets from '@/components/subject-learning-targets';
 import {AcademicIcon} from '@/components/academic-visuals';
 import PageControls,{PAGE_SIZE} from '@/components/page-controls';
 import {useEffect,useState} from 'react';
@@ -16,7 +17,7 @@ export default function CurriculumPage(){
  const [canEdit,setCanEdit]=useState(false),[loading,setLoading]=useState(true);
  const [curricula,setCurricula]=useState<Curriculum[]>([]),[versions,setVersions]=useState<Version[]>([]),[subjects,setSubjects]=useState<Subject[]>([]);
  const [curriculumId,setCurriculumId]=useState(''),[versionId,setVersionId]=useState('');
- const [formOpen,setFormOpen]=useState(false),[editorTab,setEditorTab]=useState<'details'|'scores'>('details'),[canConfigureScores,setCanConfigureScores]=useState(false);
+ const [formOpen,setFormOpen]=useState(false),[editorTab,setEditorTab]=useState<'details'|'scores'|'targets'>('details'),[canConfigureScores,setCanConfigureScores]=useState(false);
  const [name,setName]=useState(''),[versionName,setVersionName]=useState(''),[effectiveYear,setEffectiveYear]=useState('2569');
  const [subjectQuery,setSubjectQuery]=useState(''),[subjectPage,setSubjectPage]=useState(1);
  const [gradeLevel,setGradeLevel]=useState('ป.1'),[filterGrade,setFilterGrade]=useState('ป.1');
@@ -164,8 +165,8 @@ export default function CurriculumPage(){
      </section>
      {formOpen&&<section className="ui-panel rounded-2xl border border-slate-100 bg-white p-4 shadow-sm sm:p-5">
       <div className="flex items-center justify-between gap-2"><h2 className="text-lg font-bold text-blue-950">{editing?'แก้ไขรายวิชา':'เพิ่มรายวิชา'}</h2>{formOpen&&<button type="button" onClick={closeForm} aria-label="ปิดแบบฟอร์ม" className="rounded-lg px-2 py-1 text-xl text-slate-400 hover:bg-slate-100">×</button>}</div>
-      {editing&&<div className="subject-editor-tabs" role="tablist" aria-label="ตั้งค่ารายวิชา"><button type="button" id="subject-details-tab" role="tab" aria-controls="subject-details-panel" aria-selected={editorTab==='details'} onClick={()=>setEditorTab('details')}>ข้อมูลรายวิชา</button><button type="button" id="subject-scores-tab" role="tab" aria-controls="subject-scores-panel" aria-selected={editorTab==='scores'} onClick={()=>setEditorTab('scores')}>โครงสร้างคะแนน</button></div>}
-      {editing&&editorTab==='scores'?<div id="subject-scores-panel" role="tabpanel" aria-labelledby="subject-scores-tab"><SubjectScoreSettings key={schoolId+editing.id} schoolId={schoolId} subject={editing} canEdit={canConfigureScores}/></div>:<div id="subject-details-panel" role={editing?'tabpanel':undefined} aria-labelledby={editing?'subject-details-tab':undefined}>
+      {editing&&<div className="subject-editor-tabs" role="tablist" aria-label="ตั้งค่ารายวิชา"><button type="button" id="subject-details-tab" role="tab" aria-controls="subject-details-panel" aria-selected={editorTab==='details'} onClick={()=>setEditorTab('details')}>ข้อมูลรายวิชา</button><button type="button" id="subject-scores-tab" role="tab" aria-controls="subject-scores-panel" aria-selected={editorTab==='scores'} onClick={()=>setEditorTab('scores')}>โครงสร้างคะแนน</button><button type="button" id="subject-targets-tab" role="tab" aria-controls="subject-targets-panel" aria-selected={editorTab==='targets'} onClick={()=>setEditorTab('targets')}>มาตรฐาน/ตัวชี้วัด</button></div>}
+      {editing&&editorTab==='scores'?<div id="subject-scores-panel" role="tabpanel" aria-labelledby="subject-scores-tab"><SubjectScoreSettings key={schoolId+editing.id} schoolId={schoolId} subject={editing} canEdit={canConfigureScores}/></div>:editing&&editorTab==='targets'?<div id="subject-targets-panel" role="tabpanel" aria-labelledby="subject-targets-tab"><SubjectLearningTargets key={schoolId+editing.id} schoolId={schoolId} subjectId={editing.id} canEdit={canConfigureScores}/></div>:<div id="subject-details-panel" role={editing?'tabpanel':undefined} aria-labelledby={editing?'subject-details-tab':undefined}>
        <div className="mt-3 max-h-[min(45vh,480px)] space-y-3 overflow-y-auto pr-1">
         {editing&&usedSubjectIds.includes(editing.id)&&<div role="alert" className="rounded-lg bg-amber-50 p-3 text-xs text-amber-900">รายวิชานี้มีประวัติเปิดสอน จึงแก้ไขไม่ได้จนกว่าจะยกเลิกการเปิดสอนที่ไม่มีครูผู้สอน หากมีประวัติการสอนจริงให้สร้างฉบับหลักสูตรใหม่</div>}
         <div className="grid grid-cols-2 gap-3">
