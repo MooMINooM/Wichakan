@@ -24,14 +24,14 @@ export default function TeacherPage(){
  const homeRoster=(roomId:string)=>{const ids=new Set(data.enrollments.filter(e=>e.classroom_id===roomId&&e.academic_year_id===yearId).map(e=>e.student_id));return data.students.filter(s=>ids.has(s.id));};
  const roster=homeRoster(rosterRoom),selectedHome=data.rooms.find(r=>r.id===rosterRoom);
  return <main className="wichakan-page teacher-dashboard">
-  <PageHeader title="แดชบอร์ดครู"/><div className="mb-4 flex flex-wrap gap-2"><Link href="/teacher/timetable" className="ui-primary">ดูตารางสอนของฉัน / ตารางเรียนประจำชั้น</Link></div>
+  <PageHeader title="แดชบอร์ดครู"/>
   {error&&<p role="alert" className="teacher-error">{error}<button onClick={()=>void reload()}>ลองอีกครั้ง</button></p>}
   {loading&&<p role="status" className="mb-4 text-sm text-slate-500">กำลังโหลดงานสอน...</p>}
   <section className="ui-panel teacher-filters" aria-label="เลือกงานสอน">
    <label>ปีการศึกษา<select aria-label="ปีการศึกษา dashboard" disabled={!ready} value={yearId} onChange={e=>{setYearId(e.target.value);setTermId('');setSubjectId('');setYearSelection(data.schoolId,e.target.value);}}>{!data.years.length&&<option value="">ยังไม่มีปีการศึกษา</option>}{data.years.map(y=><option key={y.id} value={y.id}>{y.year_be}</option>)}</select></label>
    <label>ภาคเรียน<select aria-label="ภาคเรียน dashboard" disabled={!ready} value={validTerm} onChange={e=>{setTermId(e.target.value);setSubjectId('');}}>{!yearTerms.length&&<option value="">ยังไม่มีภาคเรียน</option>}{yearTerms.map(t=><option key={t.id} value={t.id}>ภาคเรียนที่ {t.term_no}</option>)}</select></label>
    <label>รายวิชา<select aria-label="รายวิชา dashboard" disabled={!ready} value={validSubject} onChange={e=>setSubjectId(e.target.value)}><option value="">ทั้งหมด</option>{allCourses.map(c=><option key={c.subjectId} value={c.subjectId}>{c.code} {c.name}</option>)}</select></label>
-   <button className="ui-secondary" disabled={loading} onClick={()=>void reload()}>อัปเดตข้อมูล</button>
+   <div className="flex flex-wrap items-end gap-2 sm:col-span-2 lg:col-span-1 lg:justify-end"><button className="ui-secondary" disabled={loading} onClick={()=>void reload()}>อัปเดตข้อมูล</button><Link href="/teacher/timetable" className="ui-primary inline-flex items-center justify-center gap-2 whitespace-nowrap"><AcademicIcon name="calendar"/>ดูตารางสอน / ตารางเรียน</Link></div>
   </section>
   {data.hiddenAssignments>0&&ready&&<p role="alert" className="teacher-warning">มีงานสอน {data.hiddenAssignments} รายการที่อ่านรายละเอียดไม่ได้ กรุณาแจ้งผู้ดูแลระบบ</p>}
   <section className="teacher-metrics" aria-label="สรุปงานสอน">
