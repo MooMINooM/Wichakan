@@ -382,3 +382,9 @@ body:has(.wichakan-page) .app-topbar>div:nth-child(2){visibility:visible}
 .student-table-scroll{border:1px solid var(--ui-border);border-radius:10px}.student-register-table thead th{position:sticky;top:0;z-index:1}.student-register-table td:nth-child(2){white-space:nowrap}
 
 .subject-editor-tabs{display:flex;gap:4px;border-bottom:1px solid var(--ui-border);margin:16px 0}.subject-editor-tabs button{flex:1;min-height:44px;padding:8px;border-bottom:2px solid transparent;color:var(--ui-muted);font-size:14px;font-weight:600;cursor:pointer}.subject-editor-tabs button[aria-selected=true]{color:var(--ui-primary);border-color:var(--ui-primary);background:#eff6ff}.subject-score-terms{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin-top:16px}.wichakan-page .subject-score-terms label{font-size:13px}
+
+/* Teacher dashboard: keep timetable navigation with the academic filters. */
+.teacher-dashboard .teacher-filter-actions{display:flex;flex-wrap:wrap;align-items:end;justify-content:flex-end;gap:10px;min-width:0}
+.teacher-dashboard .teacher-filter-actions .ui-primary{white-space:normal;text-align:center}
+@media(max-width:1100px){.teacher-dashboard .teacher-filter-actions{grid-column:1/-1;justify-content:flex-start}}
+@media(max-width:600px){.teacher-dashboard .teacher-filter-actions>*{flex:1 1 180px;justify-content:center}}
