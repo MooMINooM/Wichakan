@@ -50,7 +50,7 @@ export default function DmcImportPage(){
    const matrix=(XLSX.utils.sheet_to_json(sheet,{header:1,raw:false,defval:'',blankrows:false}) as unknown[][]);
    const headerAt=matrix.findIndex(r=>value(r[0])==='รหัสโรงเรียน'&&value(r[3])==='ชั้น'&&value(r[4])==='ห้อง'&&value(r[5])==='เลขประจำตัวนักเรียน');
    if(headerAt<0||value(matrix[headerAt][8])!=='ชื่อ'||value(matrix[headerAt][9])!=='นามสกุล')throw new Error('ไม่พบคอลัมน์ DMC ตามรูปแบบตัวอย่าง กรุณาใช้ไฟล์ส่งออกจาก DMC');
-   const citizenIndex=matrix[headerAt].findIndex(v=>['เลขประจำตัวประชาชน','เลขบัตรประชาชน','เลขประจำตัวประชาชน13หลัก'].includes(value(v).replace(/\\s/g,'')));
+   const citizenIndex=matrix[headerAt].findIndex(v=>['เลขประจำตัวประชาชน','เลขบัตรประชาชน','เลขประจำตัวประชาชน13หลัก'].includes(value(v).replace(/\s/g,'')));
    setHasCitizenColumn(citizenIndex>=0);
    const prefixIndex=matrix[headerAt].findIndex(v=>['คำนำหน้าชื่อ','คำนำหน้า','ชื่อคำนำหน้า'].includes(value(v).replace(/\s/g,'')));
    const items:Item[]=[],issues:string[]=[],numbers=new Set<string>(),codes=new Set<string>();
@@ -59,7 +59,7 @@ export default function DmcImportPage(){
     const code=value(r[0]),no=value(r[5]),level=value(r[3]).replace(/\s/g,''),room=value(r[4]);
     const first=value(r[8]),last=value(r[9]),line=i+1;
     const prefix=prefixIndex>=0?value(r[prefixIndex]):'';
-    const citizen=citizenIndex>=0?value(r[citizenIndex]).replace(/[-\\s]/g,''):'';
+    const citizen=citizenIndex>=0?value(r[citizenIndex]).replace(/[-\s]/g,''):'';
     if(citizenIndex>=0&&!/^[0-9]{13}$/.test(citizen)){issues.push('แถว '+line+': เลขประจำตัวประชาชนต้องมี 13 หลัก');continue;}
     if(prefix&&!['เด็กชาย','เด็กหญิง','นาย','นางสาว','นาง'].includes(prefix)){issues.push('แถว '+line+': คำนำหน้าชื่อไม่อยู่ในรายการที่รองรับ');continue;}
     codes.add(code);
