@@ -2,10 +2,13 @@
 import {useEffect,useState} from 'react';
 import Script from 'next/script';
 import PageHeader from '@/components/page-header';
+import ParentPortalPage from '@/app/line/parent/page';
 
 type Liff={init:(o:{liffId:string})=>Promise<void>;isLoggedIn:()=>boolean;login:()=>void;getIDToken:()=>string|null};
 declare global{interface Window{liff?:Liff}}
 export default function LineRegisterPage(){
+ const [view,setView]=useState<'register'|'portal'>('register');
+ useEffect(()=>{if(new URLSearchParams(window.location.search).get('view')==='portal')setView('portal');},[]);
  const [sdk,setSdk]=useState(false),[ready,setReady]=useState(false),[citizen,setCitizen]=useState(''),[busy,setBusy]=useState(false),[notice,setNotice]=useState(''),[error,setError]=useState('');
  const liffId=process.env.NEXT_PUBLIC_LINE_LIFF_ID,api=process.env.NEXT_PUBLIC_SUPABASE_URL;
  useEffect(()=>{if(!sdk||!liffId||!window.liff)return;let live=true;window.liff.init({liffId}).then(()=>{if(!live)return;if(!window.liff?.isLoggedIn())window.liff?.login();else setReady(true);}).catch(()=>{if(live)setError('ไม่สามารถเชื่อมต่อบัญชี LINE ได้ กรุณาเปิดจากเมนู LINE OA');});return()=>{live=false;};},[sdk,liffId]);
@@ -16,9 +19,11 @@ export default function LineRegisterPage(){
   if(!result.ok)throw Error(body.status==='rate_limited'?'ส่งคำขอเกินจำนวนครั้งที่กำหนด กรุณาลองใหม่ภายหลัง':body.status==='not_configured'?'โรงเรียนยังไม่เปิดบริการลงทะเบียนผ่าน LINE':'ส่งคำขอไม่สำเร็จ กรุณาลองใหม่');
   setCitizen('');setNotice('รับคำขอแล้ว หากข้อมูลตรงกับทะเบียน โรงเรียนจะตรวจสอบและอนุมัติการเชื่อมบัญชี'); 
  }catch(e){setError((e as Error).message);}finally{setBusy(false);}}
+ if(view==='portal')return <ParentPortalPage/>;
  return <main className="wichakan-page mx-auto max-w-xl px-4 py-8">
   <Script src="https://static.line-scdn.net/liff/edge/2/sdk.js" onLoad={()=>setSdk(true)}/>
   <PageHeader title="ลงทะเบียนบุตรหลาน"/>
+  <button className="ui-secondary mb-4" type="button" onClick={()=>{window.history.replaceState(null,'','?view=portal');setView('portal');}}>ดูบุตรหลานที่อนุมัติแล้ว →</button>
   <p className="mb-5 text-sm">บริการผู้ปกครองโรงเรียนบ้านภูพระโนนผักหวาน · ระบบรับเพียงเลขประจำตัวประชาชนของนักเรียน 13 หลัก และบัญชี LINE ที่เข้าสู่ระบบ</p>
   <section className="ui-panel">
    <label className="block font-semibold">เลขประจำตัวประชาชนนักเรียน 13 หลัก<input inputMode="numeric" autoComplete="off" type="text" maxLength={13} className="mt-2 block w-full border p-3" placeholder="กรอกเลข 13 หลัก" value={citizen} onChange={e=>setCitizen(e.target.value.replace(/\D/g,'').slice(0,13))}/></label>
