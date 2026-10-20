@@ -2,6 +2,7 @@
 import Link from 'next/link';
 import {useEffect,useState} from 'react';
 import PageHeader from '@/components/page-header';
+import TeacherRecordTabs from '@/components/teacher-record-tabs';
 import TeacherScoreGrid from '@/components/teacher-score-grid';
 import {scoreMode} from '@/lib/teacher-scores';
 import {resolveYear,setYearSelection} from '@/lib/academic-year-selection';
@@ -39,7 +40,7 @@ export default function TeacherScoresPage(){
  const ready=!loading&&!error&&initialized;
  function change(fn:()=>void){if(busy)return;if(dirty&&!window.confirm('มีคะแนนที่ยังไม่บันทึก ยืนยันเปลี่ยนรายวิชา?'))return;setDirty(false);setLinkError('');fn();}
  return <main className="wichakan-page teacher-score-page">
-  <PageHeader title="บันทึกคะแนนรายวิชา"/>
+  <PageHeader title="บันทึกข้อมูลรายวิชา"/><TeacherRecordTabs offeringId={selected?.id} active="scores"/>
   {error&&<p role="alert" className="teacher-error">{error}<button onClick={()=>void reload()}>ลองอีกครั้ง</button></p>}
   {linkError&&<p role="alert" className="teacher-warning">{linkError}<button className="ml-3 underline" disabled={!ready||busy||!selected} onClick={()=>setLinkError('')}>เปิดรายวิชาของฉัน</button></p>}
   <section className="ui-panel score-selection" aria-label="เลือกรายวิชาบันทึกคะแนน">
