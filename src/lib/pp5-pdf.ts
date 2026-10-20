@@ -33,13 +33,14 @@ export async function createPp5Pdf(book:Pp5Book){
  const cover=addPage();cover.drawImage(emblem,{x:279,y:cover.getHeight()-116,width:36,height:53});box(cover,430,65,125,28);text(cover,'ปพ.5',492,67,19,115,'center',true);
  text(cover,'แบบบันทึกผลการพัฒนาคุณภาพผู้เรียน',297.5,123,19,535,'center',true);text(cover,book.schoolName,297.5,151,17,535,'center',true);
  function field(label:string,value:string|number,x:number,y:number,w:number,labelWidth:number){text(cover,label,x,y,11,labelWidth,'left',true);text(cover,value,x+labelWidth+4,y,11,w-labelWidth-6);line(cover,x+labelWidth,y+16,w-labelWidth,true);}
- field('ชั้น',roomLabel,35,181,220,35);field('ภาคเรียนที่',term.term_no,280,181,120,65);field('ปีการศึกษา',year.year_be,420,181,140,65);
+ const rightColumn=300,rightLabelWidth=88;
+ field('ชั้น',roomLabel,35,181,240,35);field('ภาคเรียนที่',term.term_no,rightColumn,181,130,rightLabelWidth);field('ปีการศึกษา',year.year_be,450,181,110,65);
  const male=roster.filter(s=>gender(s.name_prefix_th)===0).length,female=roster.filter(s=>gender(s.name_prefix_th)===1).length;
- field('นักเรียนชาย',male+' คน',35,204,175,72);field('นักเรียนหญิง',female+' คน',230,204,175,76);field('รวมทั้งหมด',roster.length+' คน',420,204,140,66);
- field('รหัสวิชา',subject.subject_code,35,227,200,55);field('รายวิชา',subject.name_th,260,227,300,50);
- field('กลุ่มสาระการเรียนรู้',group,35,250,325,101);field('เวลาเรียนทั้งหมด',book.expected+' ชั่วโมง/ภาคเรียน',375,250,185,88);
+ field('นักเรียนชาย',male+' คน',35,204,240,72);field('นักเรียนหญิง',female+' คน',rightColumn,204,130,rightLabelWidth);field('รวมทั้งหมด',roster.length+' คน',450,204,110,66);
+ field('รหัสวิชา',subject.subject_code,35,227,240,55);field('รายวิชา',subject.name_th,rightColumn,227,260,rightLabelWidth);
+ field('กลุ่มสาระการเรียนรู้',group,35,250,240,101);field('เวลาเรียนทั้งหมด',book.expected+' ชั่วโมง/ภาคเรียน',rightColumn,250,260,rightLabelWidth);
  field('อัตราส่วนคะแนน ระหว่างเรียน : กลางภาค : ปลายภาค',caps.join(' : '),35,273,525,306);
- field('เวลาเรียน',book.expected/20+' ชั่วโมง/สัปดาห์',35,296,290,58);field('จำนวน',room.level_code.startsWith('ม.')?(book.expected/40).toFixed(2)+' หน่วยกิต':'—',375,296,185,45);
+ field('เวลาเรียน',book.expected/20+' ชั่วโมง/สัปดาห์',35,296,290,58);field('จำนวน',room.level_code.startsWith('ม.')?(book.expected/40).toFixed(2)+' หน่วยกิต':'—',rightColumn,296,260,rightLabelWidth);
  field('ครูผู้สอน',book.teacherName,35,319,525,57);field('ครูที่ปรึกษา 1.',book.homeroomNames[0]??'—',35,342,255,80);field('ครูที่ปรึกษา 2.',book.homeroomNames[1]??'—',305,342,255,80);
  const gx=35,gy=377,gw=525;cell(cover,'สรุปผลการพัฒนาผู้เรียน',gx,gy,gw,22,13,true);
  const grades=['4','3.5','3','2.5','2','1.5','1','0','ร','มส'];const counts=grades.map(g=>scores.filter(s=>s.grade===g).length),numeric=scores.map(s=>Number(s.grade)).filter((n,i)=>scores[i].grade!=='—'&&scores[i].grade!==''&&Number.isFinite(n));
@@ -54,7 +55,8 @@ export async function createPp5Pdf(book:Pp5Book){
  // Twenty-five weekday columns per five-week page, preserving the source's four header rows.
  const sessions=attendanceSessions(attendance),anchor=book.termStart&&book.termStart<=sessions[0].date?book.termStart:sessions[0].date,monday=new Date(anchor+'T00:00:00Z');monday.setUTCDate(monday.getUTCDate()-((monday.getUTCDay()+6)%7));
  const weeks=Math.max(20,...sessions.map(s=>weekOf(s.date,anchor)+1)),lookup=new Map(attendance.map(a=>[a.student_id+'#'+a.class_date+'#'+a.session_no,a.attendance_status]));
- const marks:Record<string,string>={present:'/',absent:'ข',late:'ส',leave:'ล'},chunks:TeacherStudent[][]=[];for(let i=0;i<roster.length;i+=45)chunks.push(roster.slice(i,i+45));
+ const rowsPerPage=30;
+ const marks:Record<string,string>={present:'/',absent:'ข',late:'ส',leave:'ล'},chunks:TeacherStudent[][]=[];for(let i=0;i<roster.length;i+=rowsPerPage)chunks.push(roster.slice(i,i+rowsPerPage));
  const weekend=sessions.filter(s=>new Date(s.date+'T00:00:00Z').getUTCDay()%6===0);
  const attendanceBlocks=Array.from({length:Math.ceil(weeks/5)},(_,block)=>Array.from({length:25},(_,i)=>{const date=new Date(monday);date.setUTCDate(date.getUTCDate()+block*35+Math.floor(i/5)*7+i%5);const iso=date.toISOString().slice(0,10);return {date:iso,week:block*5+Math.floor(i/5)+1,periods:sessions.filter(s=>s.date===iso).map(s=>s.period)};}));
  if(weekend.length)attendanceBlocks.push(weekend.map(s=>({date:s.date,week:weekOf(s.date,anchor)+1,periods:[s.period]})));
@@ -65,14 +67,14 @@ export async function createPp5Pdf(book:Pp5Book){
  let from=0;while(from<days.length){let to=from+1;while(to<days.length&&days[to].week===days[from].week)to++;cell(p,days[from].week,dayX+from*dayW,y,(to-from)*dayW,14,9,true);from=to;}
  days.forEach((d,i)=>{const xx=dayX+i*dayW;cell(p,MONTHS[Number(d.date.slice(5,7))-1],xx,y+14,dayW,14,7);cell(p,Number(d.date.slice(8)),xx,y+28,dayW,14,8);cell(p,d.periods.join(','),xx,y+42,dayW,14,7,false,'center',!d.periods.length);});
  let sx=summaryX;['มาเรียน','ขาดเรียน','มาสาย','ลา','รวมเวลาเรียน','ร้อยละ','หมายเหตุ'].forEach((v,i)=>{vertical(p,v,sx,y,summaryWidths[i],56,8);sx+=summaryWidths[i];});
- for(let i=0;i<45;i++){const s=chunk[i],yy=y+56+i*10.5;cell(p,roster.indexOf(chunk[0])+i+1,x,yy,20,10.5,8);cell(p,s?.student_no??'',x+20,yy,40,10.5,8);cell(p,s?fullName(s):'',x+60,yy,180,10.5,9,false,'left');const values:string[]=[];
- days.forEach((d,j)=>{const eligible=s&&eligibleForLesson(data,o,s.id,d.date),statuses=eligible?d.periods.map(period=>lookup.get(s!.id+'#'+d.date+'#'+period)??''):[];values.push(...statuses);cell(p,s?(eligible?statuses.map(st=>marks[st]??'—').join(''):'—'):'',dayX+j*dayW,yy,dayW,10.5,8,false,'center',!d.periods.length);});
- const counts=['present','absent','late','leave'].map(v=>values.filter(a=>a===v).length),total=values.length,present=counts[0]+counts[2];let xx=summaryX;[...counts,total,total?(100*present/total).toFixed(0):'',''].forEach((v,j)=>{cell(p,s?v:'',xx,yy,summaryWidths[j],10.5,8);xx+=summaryWidths[j];});}
+ for(let i=0;i<rowsPerPage;i++){const s=chunk[i],yy=y+56+i*15.5;cell(p,roster.indexOf(chunk[0])+i+1,x,yy,20,15.5,10);cell(p,s?.student_no??'',x+20,yy,40,15.5,10);cell(p,s?fullName(s):'',x+60,yy,180,15.5,11,false,'left');const values:string[]=[];
+ days.forEach((d,j)=>{const eligible=s&&eligibleForLesson(data,o,s.id,d.date),statuses=eligible?d.periods.map(period=>lookup.get(s!.id+'#'+d.date+'#'+period)??''):[];values.push(...statuses);cell(p,s?(eligible?statuses.map(st=>marks[st]??'—').join(''):'—'):'',dayX+j*dayW,yy,dayW,15.5,10,false,'center',!d.periods.length);});
+ const counts=['present','absent','late','leave'].map(v=>values.filter(a=>a===v).length),total=values.length,present=counts[0]+counts[2];let xx=summaryX;[...counts,total,total?(100*present/total).toFixed(0):'',''].forEach((v,j)=>{cell(p,s?v:'',xx,yy,summaryWidths[j],15.5,9.5);xx+=summaryWidths[j];});}
  text(p,'/ มาเรียน   ข ขาดเรียน   ส มาสาย   ล ลา | หลายคาบในวันเดียวเรียงตามแถวชั่วโมง | ช่องสีเทาไม่มีคาบ',18,574,9,805);
  }});
  // Primary: two term groups on one row; secondary: only the selected term.
  const annual=!room.level_code.startsWith('ม.');
- for(const chunk of chunks){const p=addPage(annual),x=18,y=annual?44:54,rowHeight=annual?9.5:14,ws=annual?[22,174,...Array(8).fill(31),34,30,...Array(8).fill(16),24,...Array(5).fill(16),24,32]:[18,132,...Array(5).fill(25),...Array(8).fill(11),18,...Array(5).fill(11),18,25],xs=[x];ws.forEach(w=>xs.push(xs[xs.length-1]+w));
+ for(const chunk of chunks){const p=addPage(annual),x=18,y=annual?44:54,rowHeight=annual?14.25:21,ws=annual?[22,174,...Array(8).fill(31),34,30,...Array(8).fill(16),24,...Array(5).fill(16),24,32]:[18,132,...Array(5).fill(25),...Array(8).fill(11),18,...Array(5).fill(11),18,25],xs=[x];ws.forEach(w=>xs.push(xs[xs.length-1]+w));
  const traitStart=annual?12:7,traitResult=traitStart+8,readingStart=traitResult+1,readingResult=readingStart+5,note=readingResult+1,width=ws.reduce((a,b)=>a+b,0),center=p.getWidth()/2;
  text(p,`บันทึกผลการพัฒนาผู้เรียนและการประเมินคุณลักษณะอันพึงประสงค์/อ่านคิดวิเคราะห์และเขียน`,center,annual?13:20,11,width,'center',true);text(p,`${annual?'ปีการศึกษา '+year.year_be+' · คะแนนภาคเรียนที่ 1 และ 2':period} รายวิชา ${subject.subject_code} ${subject.name_th} ครูผู้สอน ${book.teacherName}`,center,annual?28:35,10,width,'center');
  const merged=(v:string,a:number,b:number,yy:number,h:number,size=8)=>{const w=xs[b]-xs[a];if(v.includes('\n')){box(p,xs[a],yy,w,h);v.split('\n').forEach((part,j)=>text(p,part,xs[a]+w/2,yy+1+j*9,size,w-4,'center',true));return;}if(bold.widthOfTextAtSize(v,size)<=w-4){cell(p,v,xs[a],yy,w,h,size,true);return;}box(p,xs[a],yy,w,h);wrap(v,w-4,6.3,bold).forEach((part,j)=>text(p,part,xs[a]+w/2,yy+1+j*7,6.3,w-4,'center',true));};
@@ -86,10 +88,10 @@ export async function createPp5Pdf(book:Pp5Book){
  vertical(p,'ผลการประเมิน',xs[traitResult],y+20,ws[traitResult],64,8);vertical(p,'ผลการประเมิน',xs[readingResult],y+20,ws[readingResult],64,8);
  for(let i=traitStart;i<traitResult;i++)cell(p,i-traitStart+1,xs[i],y+40,ws[i],24,9);for(let i=readingStart;i<readingResult;i++)cell(p,i-readingStart+1,xs[i],y+40,ws[i],24,9);
  for(const i of [...Array.from({length:8},(_,i)=>i+traitStart),...Array.from({length:5},(_,i)=>i+readingStart)])cell(p,3,xs[i],y+64,ws[i],20,8);
- for(let i=0;i<45;i++){const s=chunk[i],score=s?pp5Score(data,o,s.id):null,a=s?assessments.find(a=>a.student_id===s.id):null,row=Array<string|number>(ws.length).fill('');row[0]=roster.indexOf(chunk[0])+i+1;
+ for(let i=0;i<rowsPerPage;i++){const s=chunk[i],score=s?pp5Score(data,o,s.id):null,a=s?assessments.find(a=>a.student_id===s.id):null,row=Array<string|number>(ws.length).fill('');row[0]=roster.indexOf(chunk[0])+i+1;
  if(s&&score&&a){row[1]=fullName(s);if(annual){for(let j=0;j<3;j++){row[2+j]=score.yearScores[j]??'—';row[6+j]=score.yearScores[j+3]??'—';}row[5]=score.termTotals[0]??'—';row[9]=score.termTotals[1]??'—';row[10]=score.annualTotal??'—';row[11]=score.grade;}else{score.scores.forEach((v,j)=>row[j+2]=v??'—');row[5]=score.total??'—';row[6]=score.grade;}
  for(let j=0;j<8;j++)row[traitStart+j]=a.trait_scores![j];row[traitResult]=assessmentQuality(a.trait_scores,'traits')!;for(let j=0;j<5;j++)row[readingStart+j]=a.reading_scores![j];row[readingResult]=assessmentQuality(a.reading_scores,'reading')!;row[note]=['ร','มส'].includes(score.grade)?score.grade:'';}
- row.forEach((v,j)=>cell(p,v,xs[j],y+84+i*rowHeight,ws[j],rowHeight,j===1?9:8,false,j===1?'left':'center'));}
+ row.forEach((v,j)=>cell(p,v,xs[j],y+84+i*rowHeight,ws[j],rowHeight,j===1?11:10.5,false,j===1?'left':'center'));}
  text(p,'คุณภาพ 0 ไม่ผ่าน 1 ผ่าน 2 ดี 3 ดีเยี่ยม'+(annual?' | รวมปีและเกรดสรุปเมื่อคะแนนครบทั้งสองภาคเรียน':''),18,annual?573:785,8.5,width-110);
  }
  // 5.พิมพ์ ตชว: metadata first, then the original numbered writing lines.
