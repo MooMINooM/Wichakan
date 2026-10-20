@@ -2,7 +2,7 @@
 import {useEffect,useState} from 'react';
 import Script from 'next/script';
 import PageHeader from '@/components/page-header';
-import ParentPortalPage from '@/app/line/parent/page';
+import ParentPortalPage from '@/app/line/parent/portal';
 
 type Liff={init:(o:{liffId:string})=>Promise<void>;isLoggedIn:()=>boolean;login:()=>void;getIDToken:()=>string|null};
 declare global{interface Window{liff?:Liff}}
