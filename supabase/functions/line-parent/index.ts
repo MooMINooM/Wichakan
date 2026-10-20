@@ -4,7 +4,7 @@ const respond=(status:number,data:unknown,origin:string)=>new Response(JSON.stri
 Deno.serve(async(req:Request)=>{
  const expectedOrigin=(Deno.env.get('LINE_REGISTRATION_ORIGIN')??'').trim(),origin=req.headers.get('origin')??'';
  if(!expectedOrigin||origin!==expectedOrigin)return new Response('Forbidden',{status:403});
- if(req.method==='OPTIONS')return respond(204,{},origin);
+ if(req.method==='OPTIONS')return new Response(null,{status:204,headers:{'access-control-allow-origin':origin,'vary':'Origin','access-control-allow-methods':'POST, OPTIONS','access-control-allow-headers':'content-type','access-control-max-age':'600'}});
  if(req.method!=='POST')return respond(405,{error:'method_not_allowed'},origin);
  if(Number(req.headers.get('content-length')??'0')>5000)return respond(413,{error:'too_large'},origin);
  const channel=Deno.env.get('LINE_LOGIN_CHANNEL_ID'),url=Deno.env.get('SUPABASE_URL'),key=Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
