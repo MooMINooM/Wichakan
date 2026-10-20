@@ -12,7 +12,36 @@ export default function LineRegisterPage(){
  const [sdk,setSdk]=useState(false),[ready,setReady]=useState(false),[citizen,setCitizen]=useState(''),[busy,setBusy]=useState(false),[notice,setNotice]=useState(''),[error,setError]=useState('');
  const liffId=process.env.NEXT_PUBLIC_LINE_LIFF_ID,api=process.env.NEXT_PUBLIC_SUPABASE_URL;
  useEffect(()=>{if(view==='register'&&window.liff)setSdk(true);},[view]);
- useEffect(()=>{if(!sdk||!liffId||!window.liff||view!=='register')return;let live=true;window.liff.init({liffId}).then(()=>{if(!live)return;if(!window.liff?.isLoggedIn())window.liff?.login();else setReady(true);}).catch(()=>{if(live)setError('ไม่สามารถเชื่อมต่อบัญชี LINE ได้ กรุณาเปิดจากเมนู LINE OA');});return()=>{live=false;};},[sdk,liffId]);
+ // Re-run when returning from Parent Portal. The SDK may already be initialized,
+ // and Next/Script will not fire onLoad again for an existing script.
+ useEffect(()=>{
+  if(view!=='register'||!sdk)return;
+  if(!liffId){setReady(false);setError('โรงเรียนยังไม่ได้กำหนด LINE LIFF ID');return;}
+  const line=window.liff;
+  if(!line){setReady(false);setError('โหลด LINE SDK ไม่สำเร็จ กรุณาปิดแล้วเปิดใหม่');return;}
+  let active=true;
+  setError('');
+  async function connect(){
+   try{
+    // Parent Portal has already logged this LIFF session in: reuse it.
+    try{
+     if(line!.isLoggedIn()&&line!.getIDToken()){
+      if(active)setReady(true);
+      return;
+     }
+    }catch{ /* The SDK is not initialized yet; init it below. */ }
+    await line!.init({liffId:liffId!});
+    if(!active)return;
+    if(!line!.isLoggedIn()){line!.login();return;}
+    if(!line!.getIDToken())throw Error('missing_id_token');
+    setReady(true);
+   }catch{
+    if(active){setReady(false);setError('ไม่สามารถเชื่อมต่อบัญชี LINE ได้ กรุณาปิดแล้วเปิดจากเมนู LINE OA ใหม่');}
+   }
+  }
+  void connect();
+  return()=>{active=false;};
+ },[sdk,liffId,view]);
  async function submit(){if(busy||!ready||!/^[0-9]{13}$/.test(citizen)||!api)return;setBusy(true);setNotice('');setError('');try{
   const idToken=window.liff?.getIDToken();if(!idToken)throw Error('กรุณาเข้าสู่ระบบ LINE อีกครั้ง');
   const result=await fetch(api+'/functions/v1/line-register',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({id_token:idToken,citizen_id:citizen})});
