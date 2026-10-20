@@ -21,7 +21,7 @@ export function pp5Score(data:TeacherWorkspace,o:TeacherOffering,sid:string){
  const result=evaluateScore(SCORE_FIELDS.map(k=>record?.[k]==null?'':String(record[k])),record?.special_result??'',caps,mode,term?.term_no??1),offset=term?.term_no===2?3:0;
  const termScores=SCORE_FIELDS.slice(offset,offset+3).map(k=>record?.[k]??null),termReady=validCaps(caps,mode)&&result.valid&&(!!record?.special_result||termScores.every(n=>n!==null));
  // A first-term primary PP5 needs that term's scores, not future second-term scores.
- return {caps: caps.slice(offset,offset+3),scores:termScores,total:offset===0?result.term1:result.term2,grade:record?.special_result||(mode==='annual'&&!result.complete?'—':result.grade),complete:termReady};
+ return {yearCaps:caps,yearScores:result.numbers,termTotals:[result.term1,result.term2],annualTotal:mode==='annual'?result.total:null,caps: caps.slice(offset,offset+3),scores:termScores,total:offset===0?result.term1:result.term2,grade:record?.special_result||(mode==='annual'&&!result.complete?'—':result.grade),complete:termReady};
 }
 export function attendanceSessions(records:Attendance[]){return [...new Map(records.map(r=>[r.class_date+'#'+r.session_no,{date:r.class_date,period:r.session_no}])).values()].sort((a,b)=>a.date.localeCompare(b.date)||a.period-b.period);}
 export function eligibleForLesson(data:TeacherWorkspace,o:TeacherOffering,sid:string,date:string){
