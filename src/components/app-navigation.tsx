@@ -24,7 +24,8 @@ const adminSections:NavSection[]=[
   {href:'/students/history',label:'จัดนักเรียนเข้าห้อง',icon:'school'},
   {href:'/students/promote',label:'เลื่อนชั้นนักเรียน',icon:'promote'}
  ]},
- {title:'บุคลากร',items:[{href:'/personnel',label:'ข้อมูลบุคลากร',icon:'users'}]}
+ {title:'บุคลากร',items:[{href:'/personnel',label:'ข้อมูลบุคลากร',icon:'users'}]},
+ {title:'บริการผู้ปกครอง',items:[{href:'/admin/line-guardians',label:'เชื่อม LINE ผู้ปกครอง',icon:'users'}]}
 ];
 const teacherSections:NavSection[]=[
  {title:'ภาพรวม',items:[{href:'/teacher',label:'หน้าหลักครู',icon:'home'}]},
