@@ -19,7 +19,30 @@ Deno.serve(async(req:Request)=>{
  let event:unknown;
  try{event=JSON.parse(raw);}catch{return reply(400,{error:'invalid_json'});}
  if(!event||typeof event!=='object'||Array.isArray(event)||!Array.isArray((event as {events?:unknown}).events))return reply(400,{error:'invalid_payload'});
- // Acknowledge verified LINE events without storing or logging identifiers or message text.
- // Do not send grades or register guardians until identity verification is implemented.
+ // Only messages explicitly containing a school-issued, one-time invitation are considered.
+ // LINE's signed payload supplies the sender ID; the message alone never grants access.
+ const url=Deno.env.get('SUPABASE_URL'),service=Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+ if(!url||!service)return reply(503,{error:'database_not_configured'});
+ const events=(event as {events:unknown[]}).events;
+ for(const item of events.slice(0,25)){
+  if(!item||typeof item!=='object')continue;
+  const e=item as {type?:string;source?:{type?:string;userId?:string};message?:{type?:string;text?:string}};
+  if(e.type!=='message'||e.source?.type!=='user'||e.message?.type!=='text')continue;
+  const code=/^LINK\\s+([A-F0-9]{32})$/i.exec((e.message.text??'').trim())?.[1]?.toUpperCase();
+  const userId=e.source.userId;
+  if(!code||!userId||userId.length>255||userId.length<10)continue;
+  const headers={apikey:service,Authorization:'Bearer '+service,'Content-Type':'application/json'};
+  const q=await fetch(url+'/rest/v1/line_guardian_invites?select=id,school_id,guardian_id,expires_at,used_at&invite_code=eq.'+encodeURIComponent(code)+'&limit=1',{headers});
+  if(!q.ok)return reply(503,{error:'database_unavailable'});
+  const matches=await q.json() as Array<{id:string;school_id:string;guardian_id:string;expires_at:string;used_at:string|null}>;
+  const invite=matches[0];
+  if(!invite||invite.used_at||new Date(invite.expires_at).getTime()<=Date.now())continue;
+  const request=await fetch(url+'/rest/v1/line_guardian_requests',{method:'POST',headers:{...headers,Prefer:'return=minimal'},body:JSON.stringify({school_id:invite.school_id,guardian_id:invite.guardian_id,line_user_id:userId})});
+  if(!request.ok&&request.status!==409)return reply(503,{error:'request_unavailable'});
+  if(request.ok){
+   const used=await fetch(url+'/rest/v1/line_guardian_invites?id=eq.'+encodeURIComponent(invite.id)+'&used_at=is.null',{method:'PATCH',headers:{...headers,Prefer:'return=minimal'},body:JSON.stringify({used_at:new Date().toISOString()})});
+   if(!used.ok)return reply(503,{error:'invite_update_failed'});
+  }
+ }
  return reply(200,{ok:true});
 });
