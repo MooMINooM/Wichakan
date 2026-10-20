@@ -407,3 +407,11 @@ body:has(.wichakan-page) .app-topbar>div:nth-child(2){visibility:visible}
 .teacher-record-options>a{display:block;padding:9px 12px;border-radius:7px;color:#24466e;text-align:left;font-size:13px;white-space:nowrap}
 .teacher-record-options>a:hover,.teacher-record-options>a:focus-visible{background:#edf5ff;color:#174a93;outline:none}
 
+
+/* Teacher record workspace: one shared horizontal navigation for score, attendance and assessments. */
+.teacher-record-tabs{display:flex;flex-wrap:wrap;gap:4px;margin:0 0 16px;padding:0 0 8px;border-bottom:1px solid #dfe7f2}
+.teacher-record-tab{display:inline-flex;align-items:center;justify-content:center;min-height:40px;padding:9px 16px;border:0;border-bottom:2px solid transparent;background:transparent;color:#537092;font-size:14px;font-weight:600;text-decoration:none;cursor:pointer}
+.teacher-record-tab:hover{color:#1e56a3;background:#f5f9fe}
+.teacher-record-tab.is-active{color:#1852a0;border-bottom-color:#2563eb;background:#eff6ff}
+.teacher-record-tab:focus-visible{outline:2px solid #2563eb;outline-offset:2px}
+@media(max-width:640px){.teacher-record-tabs{flex-wrap:nowrap;overflow-x:auto}.teacher-record-tab{flex:0 0 auto;padding:9px 12px;white-space:nowrap}}

@@ -2,6 +2,7 @@
 import {useEffect,useMemo,useState} from 'react';
 import Link from 'next/link';
 import PageHeader from '@/components/page-header';
+import TeacherRecordTabs from '@/components/teacher-record-tabs';
 import {getSupabaseBrowserClient} from '@/lib/supabase/browser';
 import {eligibleForLesson,orderStudents,fullName,type Attendance} from '@/lib/pp5';
 import {useCourseContext} from '@/lib/use-course-context';
@@ -29,7 +30,7 @@ export default function TeacherAttendancePage(){
  async function save(){if(!selected||!ready||busy||!changes.length)return;setBusy(true);setError('');setNotice('');try{const db=getSupabaseBrowserClient();if(!db)throw Error('ไม่พบการเชื่อมต่อฐานข้อมูล');const result=await db.rpc('save_course_attendance_grid',{p_offering:selected.id,p_rows:changes});if(result.error)throw result.error;
  const keys=new Set(changes.map(r=>attendanceKey(r.student_id,r.class_date,r.session_no)));setEntries(old=>[...old.filter(r=>!keys.has(attendanceKey(r.student_id,r.class_date,r.session_no))),...changes]);setDraft(old=>Object.fromEntries(Object.entries(old).filter(([key])=>!keys.has(key))));setNotice('บันทึกทั้งตารางเรียบร้อยแล้ว');
  }catch(e){setError('ยังไม่บันทึกข้อมูล กรุณาลองอีกครั้ง: '+(e as {message:string}).message);}finally{setBusy(false);}}
- return <main className="wichakan-page teacher-attendance-page"><PageHeader title="บันทึกเวลาเรียนรายวิชา"/>
+ return <main className="wichakan-page teacher-attendance-page"><PageHeader title="บันทึกข้อมูลรายวิชา"/><TeacherRecordTabs offeringId={selected?.id} active="attendance"/>
  {(error||c.linkError||localError)&&<p role="alert" className="teacher-error">{error||c.linkError||localError}{!loadedId&&<button onClick={()=>setRetry(r=>r+1)}>ลองอีกครั้ง</button>}</p>}{notice&&<p role="status" className="teacher-success">{notice}</p>}
  <section className="ui-panel mb-4 flex flex-wrap items-end gap-3"><label>ปีการศึกษา<select aria-label="ปีการศึกษา" value={c.yearId} disabled={loading||busy} className="block border p-2" onChange={e=>{if(canLeave())c.chooseYear(e.target.value);}}>{data.years.map(y=><option key={y.id} value={y.id}>{y.year_be}</option>)}</select></label><label className="min-w-0 flex-1">รายวิชา / ห้องเรียน / ภาคเรียน<select aria-label="รายวิชา / ห้องเรียน / ภาคเรียน" value={selected?.id??''} disabled={loading||busy} className="block w-full min-w-0 border p-2" onChange={e=>{if(canLeave())c.chooseOffering(e.target.value);}}>{c.available.map(o=><option key={o.id} value={o.id}>{data.subjects.find(s=>s.id===o.subject_id)?.name_th} · {teacherRoomLabel(data.rooms.find(r=>r.id===o.classroom_id)!)} · ภาค {data.terms.find(t=>t.id===o.term_id)?.term_no}</option>)}</select></label><Link className="ui-secondary" href="/teacher#courses">รายวิชาที่สอน</Link></section>
  {(loading||fetching)&&<p role="status">กำลังโหลดตารางเรียน...</p>}
