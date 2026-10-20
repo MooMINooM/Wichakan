@@ -6,7 +6,7 @@ type Liff={init:(opts:{liffId:string})=>Promise<void>;isLoggedIn:()=>boolean;log
 declare global {interface Window{liff?:Liff}}
 type Child={id:string;name:string;student_no:string};
 type Grade={subject:string;subject_code:string;grade:string;total:number|null};
-type Result={students:Child[];grades:Grade[];published?:boolean};
+type Result={students:Child[];grades:Grade[];published?:boolean;years:{id:string;year_be:number}[]};
 const liffId=process.env.NEXT_PUBLIC_LINE_LIFF_ID;
 const base=(process.env.NEXT_PUBLIC_BASE_PATH??'')+'/line/register/';
 export default function LineParentPage(){
@@ -16,7 +16,7 @@ export default function LineParentPage(){
  async function load(includeGrade:boolean){if(!ready||!api)return;setLoading(true);setError('');setNotice('');try{
   const id_token=window.liff?.getIDToken();if(!id_token)throw Error('กรุณาเข้าสู่ระบบ LINE อีกครั้ง');
   const body:Record<string,unknown>={id_token};
-  if(includeGrade){if(!student||!year||!/^\\d{4}$/.test(year))throw Error('กรุณาเลือกบุตรและกรอกปีการศึกษา พ.ศ. ให้ถูกต้อง');body.student_id=student;body.year_id=year;body.term_no=term;}
+  if(includeGrade){if(!student||!year)throw Error('กรุณาเลือกบุตรและกรอกปีการศึกษา พ.ศ. ให้ถูกต้อง');body.student_id=student;body.year_id=year;body.term_no=term;}
   const r=await fetch(api+'/functions/v1/line-parent',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(body)});
   if(!r.ok)throw Error('ไม่สามารถโหลดข้อมูลได้ กรุณาลองใหม่');
   const x=await r.json() as Result;setData(x);
@@ -32,7 +32,7 @@ export default function LineParentPage(){
   {data?.students.length===0?<p className="text-sm">ยังไม่มีบุตรหลานที่ได้รับอนุมัติจากโรงเรียน</p>:data?.students.map(s=><label key={s.id} className="mb-2 flex gap-3 items-center border-b py-2"><input type="radio" name="student" checked={student===s.id} onChange={()=>{setStudent(s.id);setData(d=>d?{...d,grades:[],published:undefined}:d);}}/><span>{s.name}<span className="block text-xs text-slate-500">เลขประจำตัวนักเรียน {s.student_no}</span></span></label>)}
   <Link href={base} className="ui-secondary mt-3 inline-block">+ เพิ่มบุตรหลาน</Link>
  </section>
- {data?.students.length? <section className="ui-panel"><h2 className="font-semibold mb-3">ตรวจสอบผลการเรียน</h2><p className="mb-2 text-xs text-slate-500">แสดงผลเฉพาะรายการที่โรงเรียนประกาศแล้ว</p><label className="block mb-3">รหัสปีการศึกษา (เลือกจากหน้า Admin ก่อนตรวจสอบ)<input className="block w-full border p-2 mt-1" value={year} placeholder="รหัสปีการศึกษา UUID" onChange={e=>setYear(e.target.value)}/></label><label className="block mb-3">ภาคเรียน<select className="block w-full border p-2 mt-1" value={term} onChange={e=>setTerm(Number(e.target.value))}><option value={1}>ภาคเรียนที่ 1</option><option value={2}>ภาคเรียนที่ 2</option></select></label><button className="ui-primary" disabled={loading||!student||!year} onClick={()=>void load(true)}>{loading?'กำลังโหลด...':'ดูผลการเรียน'}</button>
+ {data?.students.length? <section className="ui-panel"><h2 className="font-semibold mb-3">ตรวจสอบผลการเรียน</h2><p className="mb-2 text-xs text-slate-500">แสดงผลเฉพาะรายการที่โรงเรียนประกาศแล้ว</p><label className="block mb-3">ปีการศึกษา<select className="block w-full border p-2 mt-1" value={year} onChange={e=>setYear(e.target.value)}><option value="">เลือกปีการศึกษา</option>{data.years.map(y=><option key={y.id} value={y.id}>{y.year_be}</option>)}</select></label><label className="block mb-3">ภาคเรียน<select className="block w-full border p-2 mt-1" value={term} onChange={e=>setTerm(Number(e.target.value))}><option value={1}>ภาคเรียนที่ 1</option><option value={2}>ภาคเรียนที่ 2</option></select></label><button className="ui-primary" disabled={loading||!student||!year} onClick={()=>void load(true)}>{loading?'กำลังโหลด...':'ดูผลการเรียน'}</button>
   {notice&&<p className="mt-3 text-sm" role="status">{notice}</p>}
   {data?.published&&<div className="mt-4 overflow-x-auto"><table className="w-full text-sm"><thead><tr><th className="p-2 text-left">รายวิชา</th><th className="p-2">คะแนน</th><th className="p-2">เกรด</th></tr></thead><tbody>{data.grades.map((g,i)=><tr key={g.subject_code+'-'+i}><td className="p-2">{g.subject}</td><td className="p-2 text-center">{g.total??'—'}</td><td className="p-2 text-center">{g.grade}</td></tr>)}</tbody></table>{data.grades.length===0&&<p className="text-sm">ยังไม่มีคะแนนที่ครบถ้วนสำหรับแสดงผล</p>}</div>}
  </section>:null}</>}
