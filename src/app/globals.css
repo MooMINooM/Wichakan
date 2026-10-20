@@ -403,7 +403,7 @@ body:has(.wichakan-page) .app-topbar>div:nth-child(2){visibility:visible}
 .teacher-record-menu>summary{display:inline-flex;align-items:center;justify-content:center;gap:7px;list-style:none;cursor:pointer;user-select:none}
 .teacher-record-menu>summary::-webkit-details-marker{display:none}
 .teacher-record-menu[open]>summary{filter:brightness(.96)}
-.teacher-record-options{position:absolute;z-index:20;top:calc(100% + 5px);right:0;width:max-content;min-width:185px;max-width:min(280px,85vw);display:flex;flex-direction:column;padding:5px;border:1px solid #e0e8f3;border-radius:10px;background:#fff;box-shadow:0 12px 28px #20355524}
+.teacher-record-options{position:relative;margin-top:6px;width:max-content;min-width:185px;max-width:min(280px,85vw);display:flex;flex-direction:column;padding:5px;border:1px solid #e0e8f3;border-radius:10px;background:#fff;box-shadow:0 12px 28px #20355524}
 .teacher-record-options>a{display:block;padding:9px 12px;border-radius:7px;color:#24466e;text-align:left;font-size:13px;white-space:nowrap}
 .teacher-record-options>a:hover,.teacher-record-options>a:focus-visible{background:#edf5ff;color:#174a93;outline:none}
-@media(max-width:760px){.teacher-record-options{right:auto;left:0}}
+
