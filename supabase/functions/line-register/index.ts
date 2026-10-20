@@ -17,9 +17,15 @@ Deno.serve(async req=>{
  if(!verified.ok)return respond(401,'invalid_line_login');
  const identity=await verified.json() as {sub?:string,iss?:string,aud?:string,exp?:number};
  if(identity.iss!=='https://access.line.me'||identity.aud!==channel||typeof identity.sub!=='string'||identity.sub.length<10||identity.exp==null||identity.exp*1000<Date.now())return respond(401,'invalid_line_login');
- const result=await fetch(url+'/rest/v1/rpc/request_line_registration',{method:'POST',headers:{'content-type':'application/json',apikey:key,Authorization:'Bearer '+key},body:JSON.stringify({p_line_user_id:identity.sub,p_citizen_id:payload.citizen_id})});
- if(!result.ok)return respond(503,'temporarily_unavailable');
- const status=await result.json() as string;
- if(status==='rate_limited')return respond(429,'rate_limited');
- return respond(200,'received');
+ // Ten bcrypt checks per transaction: the former all-students query hit statement_timeout.
+ // Run sequentially to limit CPU contention; only the first batch counts as an attempt.
+ for(let offset=0;offset<1000;offset+=10){
+  const result=await fetch(url+'/rest/v1/rpc/request_line_registration_batch',{method:'POST',headers:{'content-type':'application/json',apikey:key,Authorization:'Bearer '+key},body:JSON.stringify({p_line_user_id:identity.sub,p_citizen_id:payload.citizen_id,p_offset:offset,p_limit:10})});
+  if(!result.ok)return respond(503,'temporarily_unavailable');
+  const status=await result.json() as string;
+  if(status==='rate_limited')return respond(429,'rate_limited');
+  if(status==='invalid')return respond(400,'invalid_request');
+  if(status==='received'||status==='done')return respond(200,'received');
+ }
+ return respond(503,'temporarily_unavailable');
 });
