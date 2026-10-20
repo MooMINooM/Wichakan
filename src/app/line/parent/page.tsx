@@ -7,7 +7,8 @@ type Child={id:string;name:string;student_no:string};
 type Grade={subject:string;subject_code:string;grade:string;total:number|null};
 type Result={students:Child[];grades:Grade[];published?:boolean;years:{id:string;year_be:number}[]};
 const liffId=process.env.NEXT_PUBLIC_LINE_LIFF_ID;
-// Next.js Link automatically prepends the configured basePath on GitHub Pages.
+// Native anchor fallback is used only when the portal is opened as a separate route.
+const registerHref=(process.env.NEXT_PUBLIC_BASE_PATH??'')+'/line/register/';
 export default function LineParentPage({onAddChild}:{onAddChild?:()=>void}={}){
  const [sdk,setSdk]=useState(false),[ready,setReady]=useState(false),[data,setData]=useState<Result|null>(null),[student,setStudent]=useState(''),[year,setYear]=useState(''),[term,setTerm]=useState(2),[loading,setLoading]=useState(false),[notice,setNotice]=useState(''),[error,setError]=useState('');
  const api=process.env.NEXT_PUBLIC_SUPABASE_URL;
