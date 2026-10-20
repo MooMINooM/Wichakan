@@ -6,23 +6,24 @@ import {getSupabaseBrowserClient} from '@/lib/supabase/browser';
 type Guardian={id:string;full_name_th:string;phone:string|null};
 type Student={id:string;student_no:string;first_name_th:string;last_name_th:string;name_prefix_th:string|null};
 type Claim={id:string;student_id:string;created_at:string};
-type Student={id:string;student_no:string;first_name_th:string;last_name_th:string};
 type RequestRow={id:string;guardian_id:string;created_at:string;status:string};
 export default function LineGuardiansPage(){
- const [students,setStudents]=useState<Student[]>([]),[studentId,setStudentId]=useState(''),[guardianName,setGuardianName]=useState(''),[relationship,setRelationship]=useState('ผู้ปกครอง'),[guardianPhone,setGuardianPhone]=useState(''),[school,setSchool]=useState(''),[guardians,setGuardians]=useState<Guardian[]>([]),[requests,setRequests]=useState<RequestRow[]>([]),[linked,setLinked]=useState<Set<string>>(new Set()),[selected,setSelected]=useState(''),[invite,setInvite]=useState(''),[error,setError]=useState(''),[busy,setBusy]=useState(false);
+ const [claims,setClaims]=useState<Claim[]>([]),[students,setStudents]=useState<Student[]>([]),[studentId,setStudentId]=useState(''),[guardianName,setGuardianName]=useState(''),[relationship,setRelationship]=useState('ผู้ปกครอง'),[guardianPhone,setGuardianPhone]=useState(''),[school,setSchool]=useState(''),[guardians,setGuardians]=useState<Guardian[]>([]),[requests,setRequests]=useState<RequestRow[]>([]),[linked,setLinked]=useState<Set<string>>(new Set()),[selected,setSelected]=useState(''),[invite,setInvite]=useState(''),[error,setError]=useState(''),[busy,setBusy]=useState(false);
  const reload=useCallback(async()=>{
   const db=getSupabaseBrowserClient();if(!db)throw Error('ไม่พบการเชื่อมต่อฐานข้อมูล');
   const {data:{user},error:authError}=await db.auth.getUser();if(authError||!user)throw Error('กรุณาเข้าสู่ระบบ');
   const {data:m,error:memberError}=await db.from('school_memberships').select('school_id').eq('user_id',user.id).eq('active',true).eq('role','school_admin').limit(1).maybeSingle();
   if(memberError||!m)throw Error('เฉพาะผู้ดูแลระบบโรงเรียนเท่านั้น');
   setSchool(m.school_id);
-  const [g,r,l,studentsResult]=await Promise.all([
+  const [g,r,l,studentsResult,claimsResult]=await Promise.all([
    db.from('guardians').select('id,full_name_th,phone').eq('school_id',m.school_id).order('full_name_th'),
    db.from('line_guardian_requests').select('id,guardian_id,created_at,status').eq('school_id',m.school_id).eq('status','pending').order('created_at',{ascending:false}),
    db.from('line_guardian_accounts').select('guardian_id').eq('school_id',m.school_id),
-   db.from('students').select('id,student_no,first_name_th,last_name_th,name_prefix_th').eq('school_id',m.school_id).eq('status','active').order('student_no')
+   db.from('students').select('id,student_no,first_name_th,last_name_th,name_prefix_th').eq('school_id',m.school_id).eq('status','active').order('student_no'),
+   db.from('line_student_claims').select('id,student_id,created_at').eq('school_id',m.school_id).eq('status','pending').order('created_at',{ascending:false})
   ]);
-  if(g.error||r.error||l.error||studentsResult.error)throw Error(g.error?.message||r.error?.message||l.error?.message||studentsResult.error?.message);
+  if(g.error||r.error||l.error||studentsResult.error||claimsResult.error)throw Error(g.error?.message||r.error?.message||l.error?.message||studentsResult.error?.message||claimsResult.error?.message);
+  setClaims(claimsResult.data??[]);
   setStudents(studentsResult.data??[]);
   setGuardians(g.data??[]);setRequests(r.data??[]);setLinked(new Set((l.data??[]).map(x=>x.guardian_id)));
  },[]);
