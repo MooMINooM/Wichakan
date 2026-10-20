@@ -19,7 +19,10 @@ Deno.serve(async(req:Request)=>{
  const uuid=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
  const selected=typeof input.student_id==='string'&&uuid.test(input.student_id)&&typeof input.year_id==='string'&&uuid.test(input.year_id)&&[1,2].includes(Number(input.term_no));
  if(input.student_id!==undefined&&!selected)return respond(400,{error:'invalid_selection'},origin);
+ const y=await fetch(url+'/rest/v1/rpc/line_parent_years',{method:'POST',headers:{'content-type':'application/json',apikey:key,Authorization:'Bearer '+key},body:JSON.stringify({p_line_user_id:identity.sub})});
+ if(!y.ok)return respond(503,{error:'temporarily_unavailable'},origin);
+ const years=await y.json();
  const q=await fetch(url+'/rest/v1/rpc/line_parent_portal_data',{method:'POST',headers:{'content-type':'application/json',apikey:key,Authorization:'Bearer '+key},body:JSON.stringify({p_line_user_id:identity.sub,p_student_id:selected?input.student_id:null,p_year:selected?input.year_id:null,p_term:selected?input.term_no:null})});
  if(!q.ok)return respond(503,{error:'temporarily_unavailable'},origin);
- return respond(200,await q.json(),origin);
+ return respond(200,{...await q.json(),years},origin);
 });
