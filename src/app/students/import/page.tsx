@@ -50,7 +50,12 @@ export default function DmcImportPage(){
    const matrix=(XLSX.utils.sheet_to_json(sheet,{header:1,raw:false,defval:'',blankrows:false}) as unknown[][]);
    const headerAt=matrix.findIndex(r=>value(r[0])==='รหัสโรงเรียน'&&value(r[3])==='ชั้น'&&value(r[4])==='ห้อง'&&value(r[5])==='เลขประจำตัวนักเรียน');
    if(headerAt<0||value(matrix[headerAt][8])!=='ชื่อ'||value(matrix[headerAt][9])!=='นามสกุล')throw new Error('ไม่พบคอลัมน์ DMC ตามรูปแบบตัวอย่าง กรุณาใช้ไฟล์ส่งออกจาก DMC');
-   const citizenIndex=matrix[headerAt].findIndex(v=>['เลขประจำตัวประชาชน','เลขบัตรประชาชน','เลขประจำตัวประชาชน13หลัก'].includes(value(v).replace(/\s/g,'')));
+   // DMC exports can label BOTH column C (13-digit citizen ID) and column F
+   // (school student number) as "เลขประจำตัวนักเรียน". Never use column F as a citizen ID.
+   const header=matrix[headerAt].map(v=>value(v).replace(/\\s/g,''));
+   const explicitCitizenIndex=header.findIndex(v=>['เลขประจำตัวประชาชน','เลขบัตรประชาชน','เลขประจำตัวประชาชน13หลัก'].includes(v));
+   const dmcCitizenCol=header[2]==='เลขประจำตัวนักเรียน'&&header[5]==='เลขประจำตัวนักเรียน';
+   const citizenIndex=explicitCitizenIndex>=0?explicitCitizenIndex:dmcCitizenCol?2:-1;
    setHasCitizenColumn(citizenIndex>=0);
    const prefixIndex=matrix[headerAt].findIndex(v=>['คำนำหน้าชื่อ','คำนำหน้า','ชื่อคำนำหน้า'].includes(value(v).replace(/\s/g,'')));
    const items:Item[]=[],issues:string[]=[],numbers=new Set<string>(),codes=new Set<string>();
