@@ -24,5 +24,6 @@ jobs:
           node tests/pp6-print-summary.cjs
           node tests/pp6-student-prefix.cjs
           node tests/pp5.cjs
+          node tests/attendance-grid.cjs
       - name: Build
         run: npm run build

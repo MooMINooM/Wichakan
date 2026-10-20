@@ -1,0 +1,13 @@
+const fs=require('fs'),ts=require('typescript'),assert=require('node:assert/strict');
+require.extensions['.ts']=(m,f)=>m._compile(ts.transpileModule(fs.readFileSync(f,'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2020,esModuleInterop:true}}).outputText,f);
+const {attendancePages,attendanceChanges,attendanceKey}=require('../src/lib/attendance-grid.ts'),b=require('./pp5-fixture.cjs')(),o=b.data.offerings[0];
+const slots=[{weekday_no:1,period_no:2},{weekday_no:1,period_no:3},{weekday_no:4,period_no:5}];
+const pages=attendancePages('2026-05-18','2026-10-02',slots);assert.equal(pages.length,4);assert(pages.every(p=>p.length===25));assert.deepEqual(pages[0][0].periods,[2,3]);assert.deepEqual(pages[0][1].periods,[]);assert.equal(pages[0][5].date,'2026-05-25');assert.equal(pages[3][24].date,'2026-10-02');
+const partial=attendancePages('2026-05-15','2026-10-09',slots);assert.equal(partial.length,5);assert(!partial[0][0].inTerm);assert.deepEqual(partial[0][0].periods,[]);assert.equal(partial[4][24].date,'2026-10-30');assert(!partial[4][24].inTerm);
+assert.deepEqual(attendancePages('','',slots),[]);
+const existing=[{student_id:b.roster[0].id,class_date:'2026-05-18',session_no:2,attendance_status:'absent'}];
+let rows=attendanceChanges(b.data,o,b.roster,pages[0],existing,{},'2026-10-20');assert.equal(rows.length,29);assert(rows.every(r=>r.attendance_status==='present'));assert(!rows.some(r=>r.student_id===b.roster[0].id&&r.class_date==='2026-05-18'&&r.session_no===2));assert(rows.every(r=>[1,4].includes(new Date(r.class_date+'T00:00:00Z').getUTCDay())));
+const draft={[attendanceKey(b.roster[0].id,'2026-05-18',2)]:'leave'};rows=attendanceChanges(b.data,o,b.roster,pages[0],existing,draft,'2026-05-18');assert.equal(rows.length,4);assert.equal(rows[0].attendance_status,'leave');assert(rows.every(r=>r.class_date==='2026-05-18'));
+b.data.enrollments[0].started_on='2026-05-25';rows=attendanceChanges(b.data,o,b.roster,pages[0],[],{},'2026-10-20');assert(!rows.some(r=>r.student_id===b.roster[0].id&&r.class_date<'2026-05-25'));
+assert.equal(attendanceChanges(b.data,o,b.roster,pages[0],[],{},'2026-05-17').length,0);
+console.log('PASS: 25 weekday cells, four five-week blocks, term boundaries/overflow, exact timetable dates and multiple periods, defaults/preserved absences, future dates and enrollment eligibility.');
