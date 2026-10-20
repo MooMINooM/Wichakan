@@ -70,22 +70,23 @@ export async function createPp5Pdf(book:Pp5Book){
  const counts=['present','absent','late','leave'].map(v=>values.filter(a=>a===v).length),total=values.length,present=counts[0]+counts[2];let xx=summaryX;[...counts,total,total?(100*present/total).toFixed(0):'',''].forEach((v,j)=>{cell(p,s?v:'',xx,yy,summaryWidths[j],10.5,8);xx+=summaryWidths[j];});}
  text(p,'/ มาเรียน   ข ขาดเรียน   ส มาสาย   ล ลา | หลายคาบในวันเดียวเรียงตามแถวชั่วโมง | ช่องสีเทาไม่มีคาบ',18,574,9,805);
  }});
- // 3.พิมพ์คะแนน: retain grouped indicators, exam, grade, traits and reading columns on portrait A4.
- for(const chunk of chunks){const p=addPage(),x=18,y=54,widths=[18,124,...Array(6).fill(9),10,10,...Array(6).fill(9),14,14,10,16,16,12,...Array(8).fill(10),14,...Array(5).fill(10),14,18],scale=559/widths.reduce((a,b)=>a+b,0),ws=widths.map(w=>w*scale),xs=[x];ws.forEach(w=>xs.push(xs[xs.length-1]+w));
+ // Scores follow the fields teachers actually enter; indicators are printed only on their own page.
+ for(const chunk of chunks){const p=addPage(),x=18,y=54,ws=[18,132,...Array(5).fill(25),...Array(8).fill(11),18,...Array(5).fill(11),18,25],xs=[x];ws.forEach(w=>xs.push(xs[xs.length-1]+w));
  text(p,`บันทึกผลการพัฒนาผู้เรียนและการประเมินคุณลักษณะอันพึงประสงค์/อ่านคิดวิเคราะห์และเขียน`,297.5,20,11,559,'center',true);text(p,`${period} รายวิชา ${subject.subject_code} ${subject.name_th} ครูผู้สอน ${book.teacherName}`,297.5,35,10,559,'center');
- const merged=(v:string,a:number,b:number,yy:number,h:number,size=8)=>{const w=xs[b]-xs[a];if(bold.widthOfTextAtSize(v,size)<=w-4){cell(p,v,xs[a],yy,w,h,size,true);return;}box(p,xs[a],yy,w,h);const parts=wrap(v,w-4,6.3,bold);parts.forEach((part,j)=>text(p,part,xs[a]+w/2,yy+1+j*7,6.3,w-4,'center',true));};
- merged('เลขที่',0,1,y,84,8);merged('ชื่อ-สกุล',1,2,y,84,10);merged('ตัวชี้วัด/ผลการเรียนรู้ ก่อนกลางภาค',2,8,y,20,7);merged('กลางภาค',8,10,y,20,8);merged('ตัวชี้วัด/ผลการเรียนรู้ หลังกลางภาค',10,16,y,20,7);
- merged('คะแนนคุณลักษณะอันพึงประสงค์/อ่านคิดวิเคราะห์และเขียน',22,37,y,20,8);
- ['รวมระหว่างภาค','คะแนนปลายภาค','คะแนนเก็บรวม','รวมคะแนนทั้งหมด','ระดับผลการเรียน','แก้ตัว'].forEach((v,i)=>vertical(p,v,xs[16+i],y,ws[16+i],64,8));
- vertical(p,'หมายเหตุ',xs[37],y,ws[37],84,8);
- for(const [a,b,title] of [[22,30,'คุณลักษณะอันพึงประสงค์'],[31,36,'อ่านคิดวิเคราะห์และเขียน']] as const)merged(title,a,b,y+20,20,8);
- vertical(p,'ผลการประเมิน',xs[30],y+20,ws[30],64,8);vertical(p,'ผลการประเมิน',xs[36],y+20,ws[36],64,8);
- for(let i=2;i<16;i++){const label=i===7||i===15?'รวม':i===8?'สอบ':i===9?'แก้ตัว':'';if(label)vertical(p,label,xs[i],y+20,ws[i],44,8);else cell(p,'',xs[i],y+20,ws[i],44,7);}
- for(let i=22;i<30;i++)cell(p,i-21,xs[i],y+40,ws[i],24,9);for(let i=31;i<36;i++)cell(p,i-30,xs[i],y+40,ws[i],24,9);
- for(let i=2;i<36;i++){if(i===30)continue;const cap=i===8?caps[1]:i===16?caps[0]+caps[1]:i===17?caps[2]:i===18?caps[0]:i===19?caps.reduce((a,b)=>a+b,0):i>=22?3:'—';cell(p,cap,xs[i],y+64,ws[i],20,8);}
- for(let i=0;i<45;i++){const s=chunk[i],score=s?pp5Score(data,o,s.id):null,a=s?assessments.find(a=>a.student_id===s.id):null,row=Array<string|number>(38).fill('');if(s&&score&&a){row[0]=roster.indexOf(s)+1;row[1]=fullName(s);row[8]=score.scores[1]??'—';row[16]=(score.scores[0]??0)+(score.scores[1]??0);row[17]=score.scores[2]??'—';row[18]=score.scores[0]??'—';row[19]=score.total??'—';row[20]=score.grade;for(let j=0;j<8;j++)row[22+j]=a.trait_scores![j];row[30]=assessmentQuality(a.trait_scores,'traits')!;for(let j=0;j<5;j++)row[31+j]=a.reading_scores![j];row[36]=assessmentQuality(a.reading_scores,'reading')!;row[37]=['ร','มส'].includes(score.grade)?score.grade:'';}
- if(!s)row[0]=roster.indexOf(chunk[0])+i+1;row.forEach((v,j)=>cell(p,v,xs[j],y+84+i*14,ws[j],14,j===1?9:8,false,j===1?'left':'center'));}
- text(p,'คะแนนเก็บรวม '+caps[0]+' คะแนน | ช่องรายตัวชี้วัดเว้นไว้เมื่อยังไม่มีคะแนนแยกรายข้อ',18,777,8.5,559);text(p,'คุณภาพ 0 ไม่ผ่าน 1 ผ่าน 2 ดี 3 ดีเยี่ยม'+(room.level_code.startsWith('ป.')?' | เกรดรายปีสรุปเมื่อคะแนนครบทั้งสองภาคเรียน':''),18,792,8.5,559);
+ const merged=(v:string,a:number,b:number,yy:number,h:number,size=8)=>{const w=xs[b]-xs[a];if(v.includes('\n')){box(p,xs[a],yy,w,h);v.split('\n').forEach((part,j)=>text(p,part,xs[a]+w/2,yy+1+j*9,size,w-4,'center',true));return;}if(bold.widthOfTextAtSize(v,size)<=w-4){cell(p,v,xs[a],yy,w,h,size,true);return;}box(p,xs[a],yy,w,h);wrap(v,w-4,6.3,bold).forEach((part,j)=>text(p,part,xs[a]+w/2,yy+1+j*7,6.3,w-4,'center',true));};
+ merged('เลขที่',0,1,y,84,8);merged('ชื่อ-สกุล',1,2,y,84,10);merged('คะแนนผลการเรียน',2,7,y,20,10);
+ merged('การประเมินคุณลักษณะอันพึงประสงค์/อ่านคิดวิเคราะห์และเขียน',7,22,y,20,8);
+ ['คะแนน\nเก็บ','กลาง\nภาค','ปลาย\nภาค','รวม\nคะแนน','ระดับผล\nการเรียน'].forEach((label,i)=>{const j=i+2,w=ws[j],parts=label.split('\n');box(p,xs[j],y+20,w,44);parts.forEach((part,k)=>text(p,part,xs[j]+w/2,y+21+(44-parts.length*10)/2+k*10,8.5,w-4,'center',true));});
+ vertical(p,'หมายเหตุ',xs[22],y,ws[22],84,8);
+ merged('คุณลักษณะอันพึงประสงค์',7,15,y+20,20,8);merged('อ่าน คิดวิเคราะห์\nและเขียน',16,21,y+20,20,7.5);
+ vertical(p,'ผลการประเมิน',xs[15],y+20,ws[15],64,8);vertical(p,'ผลการประเมิน',xs[21],y+20,ws[21],64,8);
+ for(let i=7;i<15;i++)cell(p,i-6,xs[i],y+40,ws[i],24,9);for(let i=16;i<21;i++)cell(p,i-15,xs[i],y+40,ws[i],24,9);
+ [...caps,caps.reduce((a,b)=>a+b,0),'—'].forEach((cap,i)=>cell(p,cap,xs[i+2],y+64,ws[i+2],20,9));
+ for(const i of [...Array.from({length:8},(_,i)=>i+7),...Array.from({length:5},(_,i)=>i+16)])cell(p,3,xs[i],y+64,ws[i],20,8);
+ for(let i=0;i<45;i++){const s=chunk[i],score=s?pp5Score(data,o,s.id):null,a=s?assessments.find(a=>a.student_id===s.id):null,row=Array<string|number>(23).fill('');row[0]=roster.indexOf(chunk[0])+i+1;
+ if(s&&score&&a){row[1]=fullName(s);score.scores.forEach((v,j)=>row[j+2]=v??'—');row[5]=score.total??'—';row[6]=score.grade;for(let j=0;j<8;j++)row[7+j]=a.trait_scores![j];row[15]=assessmentQuality(a.trait_scores,'traits')!;for(let j=0;j<5;j++)row[16+j]=a.reading_scores![j];row[21]=assessmentQuality(a.reading_scores,'reading')!;row[22]=['ร','มส'].includes(score.grade)?score.grade:'';}
+ row.forEach((v,j)=>cell(p,v,xs[j],y+84+i*14,ws[j],14,j===1?9:8,false,j===1?'left':'center'));}
+ text(p,'คุณภาพ 0 ไม่ผ่าน 1 ผ่าน 2 ดี 3 ดีเยี่ยม'+(room.level_code.startsWith('ป.')?' | เกรดรายปีสรุปเมื่อคะแนนครบทั้งสองภาคเรียน':''),18,785,8.5,559);
  }
  // 5.พิมพ์ ตชว: metadata first, then the original numbered writing lines.
  let targetPage:PDFPage;let ty=0;
