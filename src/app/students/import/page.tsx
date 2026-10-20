@@ -17,7 +17,7 @@ export default function DmcImportPage(){
  const [schools,setSchools]=useState<School[]>([]),[schoolId,setSchoolId]=useState('');
  const [years,setYears]=useState<Year[]>([]),[yearId,setYearId]=useState('');
  const [rows,setRows]=useState<Item[]>([]),[schoolCode,setSchoolCode]=useState('');
- const [hasCitizenColumn,setHasCitizenColumn]=useState(false),[citizenResult,setCitizenResult]=useState<{updated:number;unmatched:number}|null>(null);
+ const [hasCitizenColumn,setHasCitizenColumn]=useState(false),[citizenResult,setCitizenResult]=useState<{updated:number;unmatched:number}|null>(null),[citizenProgress,setCitizenProgress]=useState('');
  const [fileName,setFileName]=useState(''),[problems,setProblems]=useState<string[]>([]);
  const [busy,setBusy]=useState(false),[error,setError]=useState(''),[result,setResult]=useState<ImportResult|null>(null);
  useEffect(()=>{let active=true;(async()=>{
@@ -38,7 +38,7 @@ export default function DmcImportPage(){
  const selectedSchool=schools.find(s=>s.id===schoolId),selectedYear=years.find(y=>y.id===yearId);
  const roomCounts=useMemo(()=>{const counts=new Map<string,number>();for(const r of rows){const name=r.level_code+'/'+r.room_code;counts.set(name,(counts.get(name)??0)+1);}return [...counts.entries()].sort((a,b)=>a[0].localeCompare(b[0],'th'));},[rows]);
  async function parseFile(file:File){
-  setError('');setResult(null);setProblems([]);setRows([]);setSchoolCode('');setFileName(file.name);setHasCitizenColumn(false);setCitizenResult(null);
+  setError('');setResult(null);setProblems([]);setRows([]);setCitizenProgress('');setSchoolCode('');setFileName(file.name);setHasCitizenColumn(false);setCitizenResult(null);
   if(!/\.xlsx?$/i.test(file.name)){setError('กรุณาเลือกไฟล์ Excel จาก DMC (.xlsx หรือ .xls)');return;}
   if(file.size>8*1024*1024){setError('ไฟล์ใหญ่เกิน 8 MB');return;}
   setBusy(true);
@@ -87,14 +87,25 @@ export default function DmcImportPage(){
   if(busy||!schoolId||!yearId||!rows.length||problems.length||!selectedYear)return;
   if(!window.confirm('ยืนยันนำเข้านักเรียน '+rows.length+' คน เข้าปีการศึกษา '+selectedYear.year_be+'? ระบบไม่เปลี่ยนห้องที่มีประวัติลงทะเบียนอยู่แล้ว'))return;
   const db=getSupabaseBrowserClient();if(!db)return;
-  setBusy(true);setError('');setResult(null);
+  setBusy(true);setError('');setResult(null);setCitizenProgress('');setCitizenResult(null);
   try{
    const {data,error:e}=await db.rpc('import_dmc_students',{p_school_id:schoolId,p_academic_year_id:yearId,p_school_code:schoolCode,p_rows:rows});
    if(e)throw new Error(e.message);
    setResult(data as ImportResult);
-   if(hasCitizenColumn){const {data:citizenData,error:citizenError}=await db.rpc('import_dmc_citizen_verifiers',{p_school:schoolId,p_rows:rows.filter(r=>r.citizen_id).map(r=>({student_no:r.student_no,first_name_th:r.first_name_th,last_name_th:r.last_name_th,citizen_id:r.citizen_id}))});
-    if(citizenError)throw new Error('นำเข้าทะเบียนสำเร็จ แต่ไม่สามารถอัปเดตเลขบัตรสำหรับ LINE ได้: '+citizenError.message);
-    setCitizenResult(citizenData as {updated:number;unmatched:number});
+   if(hasCitizenColumn){
+    const citizenRows=rows.filter(r=>r.citizen_id).map(r=>({student_no:r.student_no,first_name_th:r.first_name_th,last_name_th:r.last_name_th,citizen_id:r.citizen_id}));
+    let updated=0,unmatched=0;
+    // bcrypt is intentionally expensive: keep each database request comfortably below the statement timeout.
+    for(let from=0;from<citizenRows.length;from+=10){
+     const slice=citizenRows.slice(from,from+10);
+     setCitizenProgress('กำลังอัปเดตรหัสตรวจสอบ LINE '+Math.min(from+slice.length,citizenRows.length)+'/'+citizenRows.length+' คน');
+     const {data:chunk,error:chunkError}=await db.rpc('import_dmc_citizen_verifiers',{p_school:schoolId,p_rows:slice});
+     if(chunkError)throw new Error('นำเข้าทะเบียนสำเร็จ แต่การอัปเดตเลขบัตรสำหรับ LINE หยุดที่ '+from+'/'+citizenRows.length+' คน: '+chunkError.message+' กรุณานำเข้าไฟล์เดิมอีกครั้งได้โดยไม่สร้างนักเรียนซ้ำ');
+     updated+=(chunk as {updated:number;unmatched:number}).updated;
+     unmatched+=(chunk as {updated:number;unmatched:number}).unmatched;
+     setCitizenResult({updated,unmatched});
+    }
+    setCitizenProgress('');
    }
    setRows([]);
   }catch(e){setError(e instanceof Error?e.message:'นำเข้าไม่สำเร็จ');}
@@ -120,6 +131,7 @@ export default function DmcImportPage(){
    <p className="mt-3 text-xs text-slate-500">ระบบจะเติมหรือปรับคำนำหน้าชื่อของนักเรียนเดิมที่รหัส ชื่อ และนามสกุลตรงกัน โดยไม่เปลี่ยนห้องเดิม หากรหัสเดิมมีชื่อไม่ตรงกันหรือมีการลงทะเบียนห้องอื่นแล้ว จะข้ามรายการนั้นและรายงานข้อขัดแย้ง ไม่เขียนทับประวัติเดิม</p>
    <button disabled={busy||problems.length>0||!selectedYear} onClick={commit} className="ui-primary mt-4 rounded-xl bg-blue-700 px-5 py-3 font-bold text-white disabled:opacity-40">{busy?'กำลังประมวลผล...':'ยืนยันนำเข้า '+rows.length+' คน'}</button>
   </section>}
+  {citizenProgress&&<p role="status" className="mt-3 text-sm">{citizenProgress}</p>}
   {citizenResult&&<p role="status" className="mt-3 text-sm">รหัสตรวจสอบเลขบัตรสำหรับ LINE: อัปเดต {citizenResult.updated} คน · ไม่ตรงทะเบียน {citizenResult.unmatched} คน</p>}
   {result&&<section role="status" className="mt-4 rounded-2xl border border-emerald-200 bg-emerald-50 p-5"><h2 className="font-bold text-emerald-900">นำเข้าเสร็จแล้ว</h2><p className="mt-2 text-sm">นักเรียนใหม่ {result.new_students} คน · อัปเดตคำนำหน้า {result.updated_prefixes??0} คน · ลงทะเบียนใหม่ {result.new_enrollments} คน · สร้างห้องใหม่ {result.new_rooms} ห้อง · รายการขัดแย้ง {result.conflicts}</p>{result.details?.length>0&&<div className="mt-3 max-h-40 overflow-auto text-xs text-amber-900">{result.details.map((d,i)=><p key={i}>แถว {d.row} · รหัส {d.student_no} · {d.reason==='existing_enrollment_conflict'?'มีการลงทะเบียนเดิมต่างจากไฟล์':'ข้อมูลชื่อหรือสถานภาพเดิมไม่ตรงกับไฟล์'}</p>)}</div>}<Link href="/students" className="mt-4 inline-block text-sm font-semibold text-blue-700">กลับไปดูทะเบียนนักเรียน →</Link></section>}
  </main>;
