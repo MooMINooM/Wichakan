@@ -24,7 +24,7 @@ export default function TeacherPage(){
  const homeRoster=(roomId:string)=>{const ids=new Set(data.enrollments.filter(e=>e.classroom_id===roomId&&e.academic_year_id===yearId).map(e=>e.student_id));return data.students.filter(s=>ids.has(s.id));};
  const roster=homeRoster(rosterRoom),selectedHome=data.rooms.find(r=>r.id===rosterRoom);
  return <main className="wichakan-page teacher-dashboard">
-  <PageHeader title="แดชบอร์ดครู"/><div className="mb-3 flex flex-wrap gap-2"><Link href="/teacher/pp5" className="ui-secondary">ปพ.5 รายวิชา</Link></div>
+  <PageHeader title="แดชบอร์ดครู"/><div className="mb-3 flex flex-wrap gap-2"><Link href="/teacher/pp5" className="ui-secondary">ปพ.5 รายวิชา</Link><Link href="/teacher/attendance" className="ui-secondary">บันทึกเวลาเรียน</Link></div>
   {error&&<p role="alert" className="teacher-error">{error}<button onClick={()=>void reload()}>ลองอีกครั้ง</button></p>}
   {loading&&<p role="status" className="mb-4 text-sm text-slate-500">กำลังโหลดงานสอน...</p>}
   <section className="ui-panel teacher-filters" aria-label="เลือกงานสอน">
