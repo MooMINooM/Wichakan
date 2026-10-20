@@ -8,7 +8,7 @@ type Child={id:string;name:string;student_no:string};
 type Grade={subject:string;subject_code:string;grade:string;total:number|null};
 type Result={students:Child[];grades:Grade[];published?:boolean;years:{id:string;year_be:number}[]};
 const liffId=process.env.NEXT_PUBLIC_LINE_LIFF_ID;
-const base=(process.env.NEXT_PUBLIC_BASE_PATH??'')+'/line/register/';
+// Next.js Link automatically prepends the configured basePath on GitHub Pages.
 export default function LineParentPage(){
  const [sdk,setSdk]=useState(false),[ready,setReady]=useState(false),[data,setData]=useState<Result|null>(null),[student,setStudent]=useState(''),[year,setYear]=useState(''),[term,setTerm]=useState(2),[loading,setLoading]=useState(false),[notice,setNotice]=useState(''),[error,setError]=useState('');
  const api=process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -43,7 +43,7 @@ export default function LineParentPage(){
  {error&&<p role="alert" className="teacher-error">{error}</p>}
  {ready&&<><section className="ui-panel mb-4"><h2 className="font-semibold mb-3">บุตรหลานที่ได้รับอนุมัติ</h2>
   {data?.students.length===0?<p className="text-sm">ยังไม่มีบุตรหลานที่ได้รับอนุมัติจากโรงเรียน</p>:data?.students.map(s=><label key={s.id} className="mb-2 flex gap-3 items-center border-b py-2"><input type="radio" name="student" checked={student===s.id} onChange={()=>{setStudent(s.id);setData(d=>d?{...d,grades:[],published:undefined}:d);}}/><span>{s.name}<span className="block text-xs text-slate-500">เลขประจำตัวนักเรียน {s.student_no}</span></span></label>)}
-  <Link href={base} className="ui-secondary mt-3 inline-block">+ เพิ่มบุตรหลาน</Link>
+  <Link href="/line/register/" className="ui-secondary mt-3 inline-block">+ เพิ่มบุตรหลาน</Link>
  </section>
  {data?.students.length? <section className="ui-panel"><h2 className="font-semibold mb-3">ตรวจสอบผลการเรียน</h2><p className="mb-2 text-xs text-slate-500">แสดงผลเฉพาะรายการที่โรงเรียนประกาศแล้ว</p><label className="block mb-3">ปีการศึกษา<select className="block w-full border p-2 mt-1" value={year} onChange={e=>setYear(e.target.value)}><option value="">เลือกปีการศึกษา</option>{data.years.map(y=><option key={y.id} value={y.id}>{y.year_be}</option>)}</select></label><label className="block mb-3">ภาคเรียน<select className="block w-full border p-2 mt-1" value={term} onChange={e=>setTerm(Number(e.target.value))}><option value={1}>ภาคเรียนที่ 1</option><option value={2}>ภาคเรียนที่ 2</option></select></label><button className="ui-primary" disabled={loading||!student||!year} onClick={()=>void load(true)}>{loading?'กำลังโหลด...':'ดูผลการเรียน'}</button>
   {notice&&<p className="mt-3 text-sm" role="status">{notice}</p>}
