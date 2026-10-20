@@ -1,77 +1,48 @@
 'use client';
-import {useEffect,useState} from 'react';
+import {useEffect,useMemo,useState} from 'react';
 import Link from 'next/link';
 import PageHeader from '@/components/page-header';
-import {resolveYear} from '@/lib/academic-year-selection';
 import {getSupabaseBrowserClient} from '@/lib/supabase/browser';
-import {useTeacherWorkspace,teacherRoomLabel,offeringRoster} from '@/lib/use-teacher-workspace';
-import {evaluateScore,scoreMode,settingCaps,SCORE_FIELDS,validCaps} from '@/lib/teacher-scores';
-
-type Target={id:string;target_type:'indicator'|'learning_outcome';standard_code:string|null;target_code:string|null;target_description:string;indicator_phase:string|null;display_order:number};
-const gender=(prefix:string|null)=>/^(เด็กชาย|ด\.ช\.|นาย)(?:\s|$)/.test((prefix??'').trim())?0:/^(เด็กหญิง|ด\.ญ\.|นางสาว|นาง)(?:\s|$)/.test((prefix??'').trim())?1:2;
-const scoreText=(value:number|null)=>value===null?'—':String(value);
+import {useTeacherWorkspace,offeringRoster,teacherRoomLabel} from '@/lib/use-teacher-workspace';
+import {useCourseContext} from '@/lib/use-course-context';
+import {orderStudents,pp5Readiness,type CourseAssessment,type Attendance,type Target} from '@/lib/pp5';
+import type {Pp5Book} from '@/lib/pp5-pdf';
 export default function TeacherPp5Page(){
- const {data,loading,error,reload}=useTeacherWorkspace();
- const [yearId,setYearId]=useState(''),[offeringId,setOfferingId]=useState(''),[targets,setTargets]=useState<Target[]>([]),[targetLoading,setTargetLoading]=useState(false),[targetError,setTargetError]=useState('');
- const [attendance,setAttendance]=useState<{student_id:string;class_date:string;session_no:number;attendance_status:string}[]>([]),[attendanceLoading,setAttendanceLoading]=useState(false),[attendanceError,setAttendanceError]=useState('');
- useEffect(()=>{if(!loading&&data.schoolId)setYearId(v=>data.years.some(y=>y.id===v)?v:resolveYear(data.years,data.schoolId));},[loading,data.schoolId,data.years]);
- const year=data.years.find(y=>y.id===yearId);
- const available=data.offerings.filter(o=>data.rooms.some(r=>r.id===o.classroom_id&&r.academic_year_id===yearId));
- const selected=available.find(o=>o.id===offeringId)??available[0];
- const subject=data.subjects.find(s=>s.id===selected?.subject_id);
- const room=data.rooms.find(r=>r.id===selected?.classroom_id);
- const term=data.terms.find(t=>t.id===selected?.term_id);
- const mode=scoreMode(room?.level_code);
- const setting=data.settings.find(s=>s.subject_id===selected?.subject_id&&s.academic_year_id===yearId);
- const caps=settingCaps(setting);
- const capsReady=validCaps(caps,mode);
- const roster=selected?offeringRoster(data,selected).sort((a,b)=>gender(a.name_prefix_th)-gender(b.name_prefix_th)||a.student_no.localeCompare(b.student_no,'th',{numeric:true})): [];
- const rows=roster.map((student,i)=>{
-  const record=data.scores.find(r=>r.course_offering_id===selected?.id&&r.student_id===student.id);
-  const result=evaluateScore(SCORE_FIELDS.map(f=>record?.[f]==null?'':String(record[f])),record?.special_result??'',caps,mode,term?.term_no??1);
-  const offset=(term?.term_no??1)===1?0:3;
-  return {student,i,record,result,scores:SCORE_FIELDS.slice(offset,offset+3).map(f=>record?.[f]??null),termTotal:(term?.term_no??1)===1?result.term1:result.term2,complete:!!record?.is_complete&&result.complete};
- });
- const done=rows.filter(r=>r.complete).length;
- useEffect(()=>{let live=true;(async()=>{
-  setTargets([]);setTargetError('');if(!selected?.subject_id||!data.schoolId)return;
-  setTargetLoading(true);
-  const db=getSupabaseBrowserClient();if(!db){setTargetError('ยังไม่ได้เชื่อมต่อฐานข้อมูล');setTargetLoading(false);return;}
-  const res=await db.from('subject_learning_targets').select('id,target_type,standard_code,target_code,target_description,indicator_phase,display_order').eq('school_id',data.schoolId).eq('subject_id',selected.subject_id).order('display_order').order('target_code');
-  if(live){if(res.error)setTargetError(res.error.message);else setTargets((res.data??[]) as Target[]);setTargetLoading(false);}
- })();return()=>{live=false};},[data.schoolId,selected?.subject_id]);
- useEffect(()=>{let active=true;(async()=>{setAttendance([]);setAttendanceError('');if(!selected?.id||!data.schoolId)return;setAttendanceLoading(true);const db=getSupabaseBrowserClient();if(!db){setAttendanceError('ไม่พบการเชื่อมต่อฐานข้อมูล');setAttendanceLoading(false);return;}const r=await db.from('course_attendance_records').select('student_id,class_date,session_no,attendance_status').eq('school_id',data.schoolId).eq('course_offering_id',selected.id).order('class_date').limit(10000);if(active){if(r.error)setAttendanceError(r.error.message);else setAttendance(r.data??[]);setAttendanceLoading(false);}})();return()=>{active=false};},[data.schoolId,selected?.id]);
- const recordedSessions=new Set(attendance.map(a=>a.class_date+'#'+a.session_no)).size;
- return <main className="wichakan-page pp5-page">
-  <PageHeader title="ปพ.5 รายวิชา"/>
-  <p className="mb-4 text-sm text-slate-500">รายงานผลการพัฒนาคุณภาพผู้เรียนรายวิชา โดยใช้ข้อมูลคะแนนจากหน้าบันทึกคะแนนเดิม (ไม่ต้องกรอกซ้ำ)</p>
-  {error&&<p role="alert" className="teacher-error">{error}<button onClick={()=>void reload()}>ลองอีกครั้ง</button></p>}
-  {loading&&<p role="status" className="teacher-empty">กำลังโหลดข้อมูลรายวิชา...</p>}
-  <section className="ui-panel mb-4 flex flex-wrap items-end gap-3 print:hidden" aria-label="เลือกรายงาน ปพ.5">
-   <label className="min-w-[130px] flex-1 text-sm font-semibold">ปีการศึกษา<select className="mt-1 w-full rounded-lg border p-2" value={yearId} onChange={e=>{setYearId(e.target.value);setOfferingId('')}} disabled={loading}>{data.years.map(y=><option key={y.id} value={y.id}>{y.year_be}</option>)}</select></label>
-   <label className="min-w-[250px] flex-[3] text-sm font-semibold">รายวิชา / ห้องเรียน / ภาคเรียน<select className="mt-1 w-full rounded-lg border p-2" value={selected?.id??''} onChange={e=>setOfferingId(e.target.value)} disabled={loading}>{available.map(o=>{const s=data.subjects.find(s=>s.id===o.subject_id),r=data.rooms.find(r=>r.id===o.classroom_id),t=data.terms.find(t=>t.id===o.term_id);return <option key={o.id} value={o.id}>{s?.subject_code} {s?.name_th} · {r?teacherRoomLabel(r):'—'} · ภาค {t?.term_no??'—'}</option>})}</select></label>
-   <button type="button" className="ui-primary" onClick={()=>window.print()} disabled={!selected||loading}>พิมพ์ / บันทึก PDF</button>
-   {selected&&<Link className="ui-secondary" href={'/teacher/scores?offering='+encodeURIComponent(selected.id)}>ไปหน้าบันทึกคะแนน</Link>}\n   {selected&&<Link className="ui-secondary" href="/teacher/attendance">บันทึกเวลาเรียน</Link>}
-  </section>
-  {!loading&&!selected&&<p className="ui-panel teacher-empty">ยังไม่มีรายวิชาที่ได้รับมอบหมายในปีการศึกษานี้</p>}
-  {selected&&<div className="pp5-print space-y-4 bg-white text-slate-900">
-   <header className="border-b-2 border-blue-800 pb-4">
-    <p className="text-xs font-semibold uppercase tracking-widest text-blue-800">WICHAKAN · Academic Record</p>
-    <h1 className="mt-2 text-2xl font-bold">แบบบันทึกผลการพัฒนาคุณภาพผู้เรียน (ปพ.5)</h1>
-    <p className="mt-1 text-sm text-slate-600">รหัสวิชา {subject?.subject_code??'—'} · {subject?.name_th??'—'}</p>
-    <div className="mt-3 flex flex-wrap gap-x-8 gap-y-1 text-sm"><span>ชั้น/ห้อง: <strong>{room?teacherRoomLabel(room):'—'}</strong></span><span>ปีการศึกษา: <strong>{year?.year_be??'—'}</strong></span><span>ภาคเรียนที่: <strong>{term?.term_no??'—'}</strong></span><span>นักเรียน: <strong>{roster.length} คน</strong></span></div>
-   </header>
-   <section className="flex flex-wrap gap-5 border-b border-slate-200 pb-3 text-sm"><span>สถานะบันทึกครบ <strong>{done}/{roster.length}</strong></span><span>โครงสร้างคะแนน: <strong>{capsReady?'กำหนดแล้ว':'ยังไม่ครบ'}</strong></span><span>มาตรฐานและตัวชี้วัด: <strong>{targets.length} รายการ</strong></span></section>
-   <section><h2 className="mb-2 text-lg font-bold">ข้อมูลคะแนนรายวิชา</h2><div className="overflow-x-auto"><table className="w-full border-collapse text-sm"><thead><tr className="bg-blue-50 text-blue-950"><th className="border-b p-2 text-left">เลขที่</th><th className="border-b p-2 text-left">รหัส</th><th className="border-b p-2 text-left">ชื่อ–สกุล</th><th className="border-b p-2 text-right">เก็บ ({caps[term?.term_no===1?0:3]??'—'})</th><th className="border-b p-2 text-right">กลาง ({caps[term?.term_no===1?1:4]??'—'})</th><th className="border-b p-2 text-right">ปลาย ({caps[term?.term_no===1?2:5]??'—'})</th><th className="border-b p-2 text-right">รวมภาค</th><th className="border-b p-2 text-center">ผลการเรียน</th></tr></thead><tbody>{rows.map(({student,i,result,scores,termTotal,complete})=><tr key={student.id} className="border-b border-slate-100"><td className="p-2">{i+1}</td><td className="p-2">{student.student_no}</td><td className="p-2">{student.name_prefix_th??''}{student.first_name_th} {student.last_name_th}</td>{scores.map((v,j)=><td className="p-2 text-right" key={j}>{scoreText(v)}</td>)}<td className="p-2 text-right font-semibold">{scoreText(termTotal)}</td><td className="p-2 text-center">{complete?result.grade:'—'}</td></tr>)}</tbody></table></div>
-    {!capsReady&&<p className="mt-2 text-sm text-amber-800">ยังไม่ได้ตั้งค่าโครงสร้างคะแนนให้ถูกต้อง — ต้องตรวจสอบก่อนรับรองผลการเรียน</p>}
-    {mode==='annual'&&<p className="mt-2 text-xs text-slate-500">ระดับประถมศึกษา: คะแนนภาคเรียนละ 50 คะแนน ระดับผลการเรียนประจำปีจะแสดงเมื่อมีคะแนนครบทั้งสองภาคเรียน</p>}
-   </section>
-   <section className="border-t border-slate-200 pt-3"><h2 className="mb-2 text-lg font-bold">มาตรฐานการเรียนรู้ / ตัวชี้วัด / ผลการเรียนรู้</h2>
-    {targetLoading?<p className="text-sm text-slate-500">กำลังโหลดตัวชี้วัด...</p>:targetError?<p role="alert" className="text-sm text-red-700">{targetError}</p>:targets.length?<ol className="space-y-2 text-sm">{targets.map((t,i)=><li key={t.id} className="border-b border-slate-100 pb-2"><span className="mr-2 font-semibold">{i+1}.</span>{t.target_code&&<strong className="mr-2">{t.target_code}</strong>}{t.target_description}<span className="ml-2 text-xs text-slate-500">({t.target_type==='learning_outcome'?'ผลการเรียนรู้':t.indicator_phase==='intermediate'?'ระหว่างทาง':t.indicator_phase==='final'?'ปลายทาง':'ตัวชี้วัด'})</span></li>)}</ol>:<p className="text-sm text-slate-500">ยังไม่ได้กำหนดตัวชี้วัดสำหรับรายวิชานี้ — ให้ Admin เพิ่มในเมนูหลักสูตรและรายวิชา</p>}
-   </section>
-   <section className="border-t border-slate-200 pt-3"><h2 className="mb-2 text-lg font-bold">สรุปเวลาเรียนรายวิชา</h2>{attendanceLoading?<p className="text-sm text-slate-500">กำลังโหลดเวลาเรียน...</p>:attendanceError?<p role="alert" className="text-sm text-red-700">{attendanceError}</p>:<><p className="mb-2 text-xs text-slate-600">จำนวนคาบที่มีบันทึก: {recordedSessions} คาบ (นับเฉพาะคาบที่มีการเช็กชื่อ ไม่ใช่จำนวนคาบทั้งหมดตามแผนการสอน)</p><table className="w-full border-collapse text-sm"><thead><tr className="bg-blue-50"><th className="border-b p-2 text-left">นักเรียน</th><th className="border-b p-2 text-right">มา</th><th className="border-b p-2 text-right">ขาด</th><th className="border-b p-2 text-right">สาย</th><th className="border-b p-2 text-right">ลา</th><th className="border-b p-2 text-right">คาบที่บันทึก</th></tr></thead><tbody>{roster.map(student=>{const a=attendance.filter(e=>e.student_id===student.id);return <tr className="border-b border-slate-100" key={student.id}><td className="p-2">{student.name_prefix_th??''}{student.first_name_th} {student.last_name_th}</td>{(['present','absent','late','leave'] as const).map(v=><td className="p-2 text-right" key={v}>{a.filter(e=>e.attendance_status===v).length}</td>)}<td className="p-2 text-right">{a.length}/{recordedSessions}</td></tr>})}</tbody></table></>}<p className="mt-2 text-xs text-slate-500">รายงานยังเป็นฉบับร่าง การพิจารณา มส. ต้องอาศัยเกณฑ์เวลาเรียนและคาบเรียนจริงที่กำหนดโดยโรงเรียน</p></section>
-   <footer className="border-t border-slate-200 pt-4 text-sm"><p className="font-semibold">เอกสารฉบับร่างจาก Wichakan — ยังไม่ผ่านการรับรอง</p><p className="mt-1 text-xs text-slate-500">ข้อมูลคะแนนและตัวชี้วัดแสดงจากฐานข้อมูล ณ เวลาที่เรียกรายงาน ไม่ใช่เอกสารรับรองผลการเรียน</p></footer>
-  </div>}
-  <style jsx global>{`@media print{@page{size:A4 landscape;margin:12mm}body *{visibility:hidden!important}.pp5-print,.pp5-print *{visibility:visible!important}.pp5-print{position:absolute!important;top:0;left:0;width:100%;font-size:10pt!important}.pp5-print table{width:100%;font-size:9pt!important}.pp5-print tr{break-inside:avoid}.pp5-print section{break-inside:auto}.pp5-print header{break-after:avoid}.pp5-print h2{break-after:avoid}}`}</style>
+ const {data,loading,error,reload}=useTeacherWorkspace(),c=useCourseContext(data,loading);
+ const [book,setBook]=useState<Pp5Book|null>(null),[fetching,setFetching]=useState(false),[localError,setError]=useState(''),[pdfUrl,setPdfUrl]=useState(''),[generating,setGenerating]=useState(false),[attempt,setAttempt]=useState(0);
+ useEffect(()=>{let live=true;setBook(null);setError('');setFetching(false);if(!c.selected||!c.initialized)return;setFetching(true);
+ (async()=>{try{
+  const db=getSupabaseBrowserClient();if(!db)throw Error('ไม่พบการเชื่อมต่อฐานข้อมูล');const o=c.selected!;
+  async function all<T>(query:(from:number,to:number)=>PromiseLike<{data:unknown[]|null;error:{message:string}|null}>){const rows:T[]=[];for(let i=0;;i+=500){const r=await query(i,i+499);if(r.error)throw r.error;rows.push(...((r.data??[]) as T[]));if((r.data?.length??0)<500)break;}return rows as T[];}
+  const [auth,school,subject,term,homes,targets,attendance,assessments]=await Promise.all([
+   db.auth.getUser(),db.from('schools').select('name_th').eq('id',data.schoolId).limit(1),
+   db.from('subjects').select('learning_hours,hour_basis').eq('school_id',data.schoolId).eq('id',o.subject_id).limit(1),
+   db.from('terms').select('starts_on,ends_on').eq('school_id',data.schoolId).eq('id',o.term_id).limit(1),
+   db.from('homeroom_assignments').select('teacher_user_id').eq('school_id',data.schoolId).eq('classroom_id',o.classroom_id),
+   all<Target>((a,b)=>db.from('subject_learning_targets').select('id,target_type,standard_code,target_code,target_description,indicator_phase,display_order').eq('school_id',data.schoolId).eq('subject_id',o.subject_id).order('display_order').order('id').range(a,b)),
+   all<Attendance>((a,b)=>db.from('course_attendance_records').select('student_id,class_date,session_no,attendance_status').eq('school_id',data.schoolId).eq('course_offering_id',o.id).order('class_date').order('session_no').order('student_id').range(a,b)),
+   all<CourseAssessment>((a,b)=>db.from('course_student_assessments').select('student_id,trait_scores,reading_scores').eq('school_id',data.schoolId).eq('course_offering_id',o.id).order('student_id').range(a,b))
+  ]);
+  for(const r of [school,subject,term,homes])if(r.error)throw r.error;if(auth.error)throw auth.error;if(!auth.data.user)throw Error('กรุณาเข้าสู่ระบบอีกครั้ง');
+  const ids=[...new Set([auth.data.user.id,...(homes.data??[]).map(h=>h.teacher_user_id)])];
+  const profiles=await db.from('profiles').select('user_id,display_name').in('user_id',ids);if(profiles.error)throw profiles.error;
+  const teacher=profiles.data?.find(p=>p.user_id===auth.data.user!.id)?.display_name?.trim();if(!teacher||!school.data?.[0]?.name_th)throw Error('ข้อมูลชื่อครูผู้สอนหรือโรงเรียนไม่ครบ');
+  const hours=subject.data?.[0]?.learning_hours??0,basis=subject.data?.[0]?.hour_basis??'';
+  const expected=hours>0&&['year','term'].includes(basis)?Math.ceil(hours/(basis==='year'?2:1)):0;
+  if(live)setBook({data,offering:o,roster:orderStudents(offeringRoster(data,o)),attendance:attendance.filter(a=>(!term.data?.[0]?.starts_on||a.class_date>=term.data[0].starts_on)&&(!term.data?.[0]?.ends_on||a.class_date<=term.data[0].ends_on)),assessments,targets,expected,schoolName:school.data![0].name_th,teacherName:teacher,homeroomNames:(homes.data??[]).map(h=>profiles.data?.find(p=>p.user_id===h.teacher_user_id)?.display_name??'ไม่พบชื่อครู'),learningHours:hours,hourBasis:basis,termStart:term.data?.[0]?.starts_on??null});
+ }catch(e){if(live)setError((e as {message:string}).message);}finally{if(live)setFetching(false);}})();return()=>{live=false;};},[data,c.selected?.id,c.initialized]);
+ const currentBook=book?.offering.id===c.selected?.id?book:null;
+ const readiness=useMemo(()=>currentBook?pp5Readiness(currentBook.data,currentBook.offering,currentBook.roster,currentBook.attendance,currentBook.assessments,currentBook.expected):null,[currentBook]);
+ useEffect(()=>{let live=true,url='';setPdfUrl('');setGenerating(false);if(!book||!readiness?.ready||error||c.linkError)return;setGenerating(true);
+ (async()=>{try{const {createPp5Pdf}=await import('@/lib/pp5-pdf');const bytes=await createPp5Pdf(book);if(!live)return;url=URL.createObjectURL(new Blob([new Uint8Array(bytes)],{type:'application/pdf'}));setPdfUrl(url);}catch(e){if(live)setError((e as {message:string}).message);}finally{if(live)setGenerating(false);}})();return()=>{live=false;if(url)URL.revokeObjectURL(url);};},[book,readiness,error,c.linkError,attempt]);
+ const subject=data.subjects.find(s=>s.id===c.selected?.subject_id);
+ const link=(path:string)=>path+'?offering='+encodeURIComponent(c.selected?.id??'');
+ return <main className="wichakan-page pp5-page"><PageHeader title="ปพ.5 รายวิชา"/>
+ <section className="ui-panel mb-4 flex flex-wrap items-end gap-3"><label>ปีการศึกษา<select aria-label="ปีการศึกษา" className="block border p-2" value={c.yearId} disabled={loading} onChange={e=>c.chooseYear(e.target.value)}>{data.years.map(y=><option key={y.id} value={y.id}>{y.year_be}</option>)}</select></label><label className="min-w-0 flex-1">รายวิชา / ห้อง / ภาคเรียน<select aria-label="รายวิชา" className="block w-full min-w-0 border p-2" value={c.selected?.id??''} disabled={loading} onChange={e=>c.chooseOffering(e.target.value)}>{c.available.map(o=><option key={o.id} value={o.id}>{data.subjects.find(s=>s.id===o.subject_id)?.name_th} · {teacherRoomLabel(data.rooms.find(r=>r.id===o.classroom_id)!)} · ภาค {data.terms.find(t=>t.id===o.term_id)?.term_no}</option>)}</select></label><Link className="ui-secondary" href="/teacher#courses">รายวิชาที่สอน</Link></section>
+ {(error||localError||c.linkError)&&<p role="alert" className="teacher-error">{error||localError||c.linkError}<button onClick={()=>{setError('');setAttempt(a=>a+1);void reload();}}>ลองอีกครั้ง</button></p>}
+ {(loading||fetching||generating)&&<p role="status">{generating?'กำลังสร้าง PDF พร้อมพิมพ์...':'กำลังตรวจสอบข้อมูลรายวิชา...'}</p>}
+ {!loading&&!c.selected&&!c.linkError&&<p className="ui-panel">ไม่มีรายวิชาที่ได้รับมอบหมาย</p>}
+ {readiness&&!readiness.ready&&<section className="ui-panel" aria-label="ความพร้อม ปพ.5"><h2>บันทึกข้อมูลให้ครบก่อนออก ปพ.5</h2><ul className="my-4 space-y-3"><li>คะแนน: {readiness.scoreMissing?'ยังไม่ครบ '+readiness.scoreMissing+' คน':'ครบแล้ว'} · <Link href={link('/teacher/scores')} className="text-blue-700 underline">บันทึกคะแนน</Link></li><li>เวลาเรียน: {readiness.sessions}/{readiness.expected||'ยังไม่กำหนด'} คาบ {readiness.missingCells?'· ขาดสถานะ '+readiness.missingCells+' ช่อง':''} · <Link href={link('/teacher/attendance')} className="text-blue-700 underline">บันทึกเวลาเรียน</Link></li><li>คุณลักษณะฯ: {readiness.traitsMissing?'ยังไม่ครบ '+readiness.traitsMissing+' คน':'ครบแล้ว'} · <Link href={link('/teacher/assessments')+'&group=traits'} className="text-blue-700 underline">บันทึกคุณลักษณะฯ</Link></li><li>อ่านคิดเขียน: {readiness.readingMissing?'ยังไม่ครบ '+readiness.readingMissing+' คน':'ครบแล้ว'} · <Link href={link('/teacher/assessments')+'&group=reading'} className="text-blue-700 underline">บันทึกอ่านคิดเขียน</Link></li></ul><p className="text-sm text-slate-500">เวลาเรียนต้องครบตามชั่วโมงรายวิชา และทุกคาบที่บันทึกต้องมีสถานะนักเรียนครบทุกคน</p><button className="ui-primary mt-4" disabled>สร้าง PDF ปพ.5</button></section>}
+ {pdfUrl&&readiness?.ready&&!loading&&!fetching&&!error&&<section aria-label="PDF ปพ.5"><div className="mb-3 flex flex-wrap gap-3"><a className="ui-primary" href={pdfUrl} download={'PP5-'+subject?.subject_code+'.pdf'}>ดาวน์โหลด PDF</a><a className="ui-secondary" href={pdfUrl} target="_blank" rel="noreferrer">เปิด PDF เพื่อพิมพ์</a></div><iframe title="PDF ปพ.5 พร้อมพิมพ์" src={pdfUrl} className="h-[80vh] w-full border border-slate-200"/></section>}
  </main>;
 }
