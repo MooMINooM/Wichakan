@@ -388,3 +388,5 @@ body:has(.wichakan-page) .app-topbar>div:nth-child(2){visibility:visible}
 .teacher-dashboard .teacher-filter-actions .ui-primary{white-space:normal;text-align:center}
 @media(max-width:1100px){.teacher-dashboard .teacher-filter-actions{grid-column:1/-1;justify-content:flex-start}}
 @media(max-width:600px){.teacher-dashboard .teacher-filter-actions>*{flex:1 1 180px;justify-content:center}}
+
+.course-actions{display:flex;flex-direction:column;gap:8px}.course-action-row{display:flex;flex-wrap:wrap;align-items:center;gap:6px;min-width:350px}.course-action-row>span{font-size:12px;color:var(--ui-muted)}.wichakan-page .course-action-row .teacher-table-button{font-size:12px;min-height:34px;padding:6px 9px}.pp5-page iframe{min-height:500px}

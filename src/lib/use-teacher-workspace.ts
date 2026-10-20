@@ -9,7 +9,7 @@ export type TeacherSubject={id:string;subject_code:string;name_th:string;grade_l
 export type TeacherStudent={id:string;student_no:string;name_prefix_th:string|null;first_name_th:string;last_name_th:string};
 export type TeacherYear={id:string;year_be:number;is_active:boolean};
 export type TeacherTerm={id:string;academic_year_id:string;term_no:number};
-export type TeacherEnrollment={student_id:string;classroom_id:string;academic_year_id:string;status:string};
+export type TeacherEnrollment={student_id:string;classroom_id:string;academic_year_id:string;status:string;started_on?:string|null;ended_on?:string|null};
 export type TeacherWorkspace={schoolId:string;offerings:TeacherOffering[];rooms:TeacherRoom[];subjects:TeacherSubject[];years:TeacherYear[];terms:TeacherTerm[];homerooms:{classroom_id:string}[];enrollments:TeacherEnrollment[];students:TeacherStudent[];scores:ScoreRecord[];settings:ScoreSetting[];hiddenAssignments:number};
 const empty:TeacherWorkspace={schoolId:'',offerings:[],rooms:[],subjects:[],years:[],terms:[],homerooms:[],enrollments:[],students:[],scores:[],settings:[],hiddenAssignments:0};
 export const teacherRoomLabel=(r:TeacherRoom)=>r.room_code.startsWith(r.level_code+'/')?r.room_code:r.level_code+'/'+r.room_code;
@@ -38,7 +38,7 @@ export function useTeacherWorkspace(){
    const [rooms,subjects,enrollments,scores,settings]=await Promise.all([
     batches<TeacherRoom>(roomIds,(ids,a,b)=>db.from('classrooms').select('id,level_code,room_code,academic_year_id').eq('school_id',schoolId).in('id',ids).order('id').range(a,b)),
     batches<TeacherSubject>(subjectIds,(ids,a,b)=>db.from('subjects').select('id,subject_code,name_th,grade_level').eq('school_id',schoolId).in('id',ids).order('id').range(a,b)),
-    batches<TeacherEnrollment>(roomIds,(ids,a,b)=>db.from('enrollments').select('student_id,classroom_id,academic_year_id,status').eq('school_id',schoolId).in('classroom_id',ids).in('status',['active','completed']).order('id').range(a,b)),
+    batches<TeacherEnrollment>(roomIds,(ids,a,b)=>db.from('enrollments').select('student_id,classroom_id,academic_year_id,status,started_on,ended_on').eq('school_id',schoolId).in('classroom_id',ids).in('status',['active','completed']).order('id').range(a,b)),
     batches<ScoreRecord>(offerings.map(o=>o.id),(ids,a,b)=>db.from('student_course_scores').select('course_offering_id,student_id,term1_coursework,term1_midterm,term1_final,term2_coursework,term2_midterm,term2_final,special_result,is_complete').eq('school_id',schoolId).in('course_offering_id',ids).order('id').range(a,b)),
     batches<ScoreSetting>(subjectIds,(ids,a,b)=>db.from('subject_score_settings').select('subject_id,academic_year_id,term1_coursework,term1_midterm,term1_final,term2_coursework,term2_midterm,term2_final').eq('school_id',schoolId).in('subject_id',ids).order('id').range(a,b)),
    ]);

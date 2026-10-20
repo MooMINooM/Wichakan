@@ -1,0 +1,20 @@
+const fs=require('fs'),path=require('path'),ts=require('typescript'),assert=require('node:assert/strict');
+require.extensions['.ts']=(m,f)=>m._compile(ts.transpileModule(fs.readFileSync(f,'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2020,esModuleInterop:true}}).outputText,f);
+const lib=require('../src/lib/pp5.ts'),{createPp5Pdf}=require('../src/lib/pp5-pdf.ts'),fixture=require('./pp5-fixture.cjs');
+const book=fixture();book.offering=book.data.offerings[0];
+const readiness=()=>lib.pp5Readiness(book.data,book.offering,book.roster,book.attendance,book.assessments,book.expected);
+assert(readiness().ready,'first-term primary scores must not require future second-term marks');
+assert.equal(lib.assessmentQuality(Array(8).fill(0),'traits'),0);assert.equal(lib.assessmentQuality([3,3,3,3,1],'reading'),3);assert.equal(lib.assessmentQuality([2,2,2,2,2],'reading'),2);assert.equal(lib.assessmentQuality(null,'traits'),null);
+assert(!lib.validAssessment([0,0,0,0,null],5));
+for(const group of ['trait_scores','reading_scores']){const old=book.assessments[0][group];book.assessments[0][group]=null;assert(!readiness().ready);book.assessments[0][group]=old;}
+let old=book.data.scores[0].term1_midterm;book.data.scores[0].term1_midterm=null;assert(!readiness().ready);book.data.scores[0].term1_midterm=old;
+const first=book.attendance.shift();assert(!readiness().ready);book.attendance.unshift(first);
+assert(!lib.pp5Readiness(book.data,book.offering,book.roster,book.attendance,book.assessments,41).ready,'must cover planned teaching hours');
+assert(!lib.pp5Readiness(book.data,book.offering,[],book.attendance,[],40).ready);
+book.assessments[0].trait_scores=Array(8).fill(0);assert(readiness().ready,'zero scores are recorded assessments, not missing values');book.assessments[0].trait_scores=Array(8).fill(3);
+const before=book.attendance;book.data.enrollments[0].started_on='2026-05-25';book.attendance=before.filter(a=>a.student_id!==book.roster[0].id||a.class_date>='2026-05-25');assert(readiness().ready,'new students do not need attendance before enrolment');book.attendance=before;delete book.data.enrollments[0].started_on;
+global.fetch=async()=>new Response(fs.readFileSync(path.resolve(__dirname,'../public/fonts/NotoSansThai.ttf')));
+(async()=>{const bytes=await createPp5Pdf(book);fs.writeFileSync('/tmp/pp5-complete.pdf',bytes);const {PDFDocument}=require('pdf-lib'),pdf=await PDFDocument.load(bytes);assert.equal(pdf.getPageCount(),7);assert(pdf.getPage(0).getHeight()>pdf.getPage(0).getWidth());assert(pdf.getPage(1).getWidth()>pdf.getPage(1).getHeight());
+ const long={...book,targets:Array.from({length:55},(_,i)=>({...book.targets[0],id:'t'+i,target_description:'ตัวชี้วัดชื่อยาว '.repeat(18)}))};const expanded=await createPp5Pdf(long);fs.writeFileSync('/tmp/pp5-overflow.pdf',expanded);assert((await PDFDocument.load(expanded)).getPageCount()>7);
+ const crowded={...book,roster:Array.from({length:35},(_,i)=>({...book.roster[0],id:'crowded'+i,student_no:String(3000+i)}))};crowded.data={...book.data,students:crowded.roster,enrollments:crowded.roster.map(s=>({...book.data.enrollments[0],student_id:s.id})),scores:crowded.roster.map(s=>({...book.data.scores[0],student_id:s.id}))};crowded.attendance=crowded.roster.flatMap(s=>book.attendance.filter(a=>a.student_id===book.roster[0].id).map(a=>({...a,student_id:s.id})));crowded.assessments=crowded.roster.map(s=>({...book.assessments[0],student_id:s.id}));const large=await createPp5Pdf(crowded);fs.writeFileSync('/tmp/pp5-large-class.pdf',large);assert.equal((await PDFDocument.load(large)).getPageCount(),12,'large rosters paginate every attendance block and results');
+ book.assessments[0].reading_scores=null;await assert.rejects(()=>createPp5Pdf(book),/ไม่ครบ/);console.log('PASS: all four prerequisite gates, primary term isolation, zero vs missing, workbook quality formulas, embedded Thai PDF, 7-page order and overflow pagination.');})().catch(e=>{console.error(e);process.exit(1)});
