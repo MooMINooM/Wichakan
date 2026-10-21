@@ -39,30 +39,31 @@ export default function LineResultsPage(){
  },[reload]);
  async function setPublished(year:string,term:number,publish:boolean){
   const info=status[key(year,term)];
-  if(publish&&!info?.ready){setError('ยังประกาศผลไม่ได้: คะแนนหรือรายวิชายังไม่ครบ กรุณาตรวจสอบความพร้อมก่อน');return;}
   const prompt=publish?
-   'ยืนยันว่าได้ตรวจสอบข้อมูลผลการเรียนตามระเบียบโรงเรียนแล้ว และต้องการเผยแพร่ผลการเรียนภาคเรียนนี้ผ่าน LINE ให้ผู้ปกครองที่อนุมัติ?' :
+   'ยืนยันประกาศผลการเรียนผ่าน LINE?'+
+   (info&&!info.ready?'\\n\\nคะแนนครบแล้ว '+info.completed+'/'+info.expected+' รายการ — รายวิชาที่ยังไม่ครบจะแสดง “รอผล” และไม่เผยแพร่คะแนนที่ไม่สมบูรณ์':'')+
+   '\\n\\nการบันทึกคะแนนเพิ่มเติมจะปรากฏแก่ผู้ปกครองที่ได้รับสิทธิ์เมื่อกดดูผลใหม่' :
    'ยืนยันระงับการเผยแพร่ผลการเรียนภาคเรียนนี้ทาง LINE?';
   if(!window.confirm(prompt))return;
   const db=getSupabaseBrowserClient();if(!db)return;
   setBusy(true);setError('');setNotice('');
   try{
    const {error:rpcError}=await db.rpc('set_line_grade_publication',{p_year:year,p_term:term,p_publish:publish});
-   if(rpcError)throw Error(rpcError.message==='grades_not_ready'?'ผลการเรียนเปลี่ยนแปลงหรือยังไม่ครบ ระบบจึงไม่อนุญาตให้ประกาศ':rpcError.message);
+   if(rpcError)throw Error(rpcError.message);
    await reload();
-   setNotice(publish?'ประกาศผลผ่าน LINE สำเร็จแล้ว':'ระงับประกาศผลผ่าน LINE สำเร็จแล้ว');
+   setNotice(publish?'เปิดประกาศผลผ่าน LINE แล้ว รายวิชาที่ยังไม่ครบจะแสดง “รอผล”':'ระงับประกาศผลผ่าน LINE สำเร็จแล้ว');
   }catch(e){setError((e as Error).message);}
   finally{setBusy(false);}
  }
  async function refresh(){setLoading(true);setError('');setNotice('');try{await reload();setNotice('ตรวจสอบความพร้อมล่าสุดแล้ว');}catch(e){setError((e as Error).message);}finally{setLoading(false);}}
  return <main className="wichakan-page">
   <PageHeader title="ตรวจสอบและประกาศผลการเรียนผ่าน LINE"/>
-  <p className="mb-4 text-sm">Admin ตรวจสอบความครบถ้วนก่อนเผยแพร่ผลการเรียนจาก Wichakan ให้ผู้ปกครองที่โรงเรียนอนุมัติแล้วเท่านั้น คะแนน ป.1–ป.6 ภาคเรียนที่ 1 เป็นคะแนนระหว่างปีเต็ม 50 ส่วนเกรดประถมสรุปเมื่อสิ้นปี และมัธยมคิดเกรดแยกภาคเรียนเต็ม 100</p>
+  <p className="mb-4 text-sm">Admin สามารถประกาศผลการเรียนบางส่วนได้ แม้ครูยังบันทึกคะแนนไม่ครบ โดยผู้ปกครองเห็นคะแนนเฉพาะรายวิชาที่มีผลถูกต้องครบแล้ว ส่วนที่เหลือแสดง “รอผล” คะแนน ป.1–ป.6 ภาคเรียนที่ 1 เต็ม 50 และมัธยมคิดเกรดแยกภาคเรียนเต็ม 100</p>
   {error&&<p role="alert" className="teacher-error mb-3">{error}</p>}
   {notice&&<p role="status" className="teacher-success mb-3">{notice}</p>}
   <section className="ui-panel">
    <div className="flex flex-wrap justify-between items-center gap-3 mb-3">
-    <h2 className="font-semibold">สถานะความพร้อมตามปีการศึกษาและภาคเรียน</h2>
+    <h2 className="font-semibold">ความครบถ้วนของคะแนนและการประกาศผล</h2>
     <button type="button" className="ui-secondary" disabled={loading||busy} onClick={()=>void refresh()}>{loading?'กำลังตรวจสอบ...':'ตรวจสอบความพร้อมใหม่'}</button>
    </div>
    {loading&&<p role="status" className="text-sm">กำลังตรวจสอบคะแนนและรายวิชา...</p>}
@@ -75,16 +76,16 @@ export default function LineResultsPage(){
       <td className="p-2 font-medium">{y.year_be} · ภาคเรียนที่ {term}</td>
       <td className="p-2">{!info?'—':info.reason==='term_missing'?'ยังไม่ได้สร้างภาคเรียน':
        <div>
-        <span className={info.ready?'text-green-700 font-semibold':'font-semibold'}>{info.ready?'พร้อมประกาศ':'ยังไม่พร้อม'}</span>
+        <span className={info.ready?'text-green-700 font-semibold':'font-semibold'}>{info.ready?'คะแนนครบทั้งหมด':'คะแนนยังไม่ครบ'}</span>
         <span className="block text-xs text-slate-600">ครบ {info.completed}/{info.expected} รายการรายวิชา-นักเรียน</span>
         {!info.ready&&<span className="block text-xs text-slate-600">ไม่มีคะแนน {info.missing} · ไม่ครบ {info.incomplete} · ซ้ำ {info.duplicate} · ไม่ถูกต้อง {info.invalid}</span>}
        </div>}</td>
       <td className="text-center p-2">{published?'ประกาศแล้ว':'ยังไม่ประกาศ'}</td>
-      <td className="text-center p-2"><button type="button" disabled={busy||loading||(!published&&!info?.ready)} className={published?'ui-secondary':'ui-primary'} onClick={()=>void setPublished(y.id,term,!published)}>{published?'ระงับประกาศ':'ประกาศผล'}</button></td>
+      <td className="text-center p-2"><button type="button" disabled={busy||loading} className={published?'ui-secondary':'ui-primary'} onClick={()=>void setPublished(y.id,term,!published)}>{published?'ระงับประกาศ':'ประกาศผล'}</button></td>
      </tr>;
     }))}</tbody>
    </table></div>
-   <p className="mt-4 text-xs text-slate-600">ระบบป้องกันการเผยแพร่เมื่อคะแนนรายวิชาไม่ครบ ผิดเกณฑ์คะแนนเต็ม หรือพบข้อมูลซ้ำ และยังต้องให้ Admin ตรวจสอบความถูกต้องตามกระบวนการของโรงเรียนก่อนกดประกาศ</p>
+   <p className="mt-4 text-xs text-slate-600">สามารถเปิดประกาศได้แม้คะแนนไม่ครบ รายวิชาที่ไม่มีคะแนนหรือผลไม่ถูกต้องจะถูกซ่อนคะแนนและแสดง “รอผล” การแก้ไขคะแนนหลังประกาศจะแสดงผลเมื่อผู้ปกครองโหลดใหม่ โปรดตรวจสอบข้อมูลก่อนเผยแพร่</p>
   </section>
  </main>;
 }
