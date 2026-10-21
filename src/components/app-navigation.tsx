@@ -24,7 +24,7 @@ const adminSections:NavSection[]=[
   {href:'/students/history',label:'จัดนักเรียนเข้าห้อง',icon:'school'},
   {href:'/students/promote',label:'เลื่อนชั้นนักเรียน',icon:'promote'}
  ]},
- {title:'บุคลากร',items:[{href:'/personnel',label:'ข้อมูลบุคลากร',icon:'users'}]},
+ {title:'บุคลากรและผู้ลงนาม',items:[{href:'/personnel',label:'ข้อมูลบุคลากร',icon:'users'},{href:'/admin/pp5-signatories',label:'ผู้ลงนาม ปพ.5',icon:'file'}]},
  {title:'บริการผู้ปกครอง',items:[{href:'/admin/line-guardians',label:'เชื่อม LINE ผู้ปกครอง',icon:'users'},{href:'/admin/line-results',label:'ประกาศผลทาง LINE',icon:'chart'}]}
 ];
 const teacherSections:NavSection[]=[
