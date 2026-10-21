@@ -4,8 +4,8 @@ import {useEffect,useRef,useState} from 'react';
 type Liff={init:(opts:{liffId:string})=>Promise<void>;isLoggedIn:()=>boolean;login:()=>void;getIDToken:()=>string|null};
 declare global {interface Window{liff?:Liff}}
 type Child={id:string;name:string;student_no:string};
-type Grade={subject:string;subject_code:string;grade:string;total:number|null};
-type Result={students:Child[];grades:Grade[];published?:boolean;years:{id:string;year_be:number}[]};
+type Grade={subject:string;subject_code:string;grade:string;total:number|null;state?:'ready'|'pending'};
+type Result={students:Child[];grades:Grade[];published?:boolean;completed_count?:number;pending_count?:number;years:{id:string;year_be:number}[]};
 const liffId=process.env.NEXT_PUBLIC_LINE_LIFF_ID;
 // Native anchor fallback is used only when the portal is opened as a separate route.
 const registerHref=(process.env.NEXT_PUBLIC_BASE_PATH??'')+'/line/register/';
@@ -67,7 +67,19 @@ export default function LineParentPortal({onAddChild}:{onAddChild?:()=>void}={})
  {data?.students.length? <section className="ui-panel"><h2 className="font-semibold mb-3">ตรวจสอบผลการเรียน</h2><p className="mb-2 text-xs text-slate-500">แสดงผลเฉพาะรายการที่โรงเรียนประกาศแล้ว</p><label className="block mb-3">ปีการศึกษา<select className="block w-full border p-2 mt-1" value={year} onChange={e=>{setYear(e.target.value);clearShownGrades();}}><option value="">เลือกปีการศึกษา</option>{data.years.map(y=><option key={y.id} value={y.id}>{y.year_be}</option>)}</select></label><label className="block mb-3">ภาคเรียน<select className="block w-full border p-2 mt-1" value={term} onChange={e=>{setTerm(Number(e.target.value));clearShownGrades();}}><option value={1}>ภาคเรียนที่ 1</option><option value={2}>ภาคเรียนที่ 2</option></select></label><button className="ui-primary" disabled={loading||!student||!year} onClick={()=>void load(true)}>{loading?'กำลังโหลด...':'ดูผลการเรียน'}</button>
   {notice&&<p className="mt-3 text-sm" role="status">{notice}</p>}
   <p className="mt-3 text-xs text-slate-500">ประถมภาคเรียนที่ 1 แสดงคะแนนสะสมเต็ม 50 และผล “ระหว่างปี” ส่วนมัธยมแสดงผลรายภาคเรียนเต็ม 100</p>
-  {data?.published&&<div className="mt-4 overflow-x-auto"><table className="w-full text-sm"><thead><tr><th className="p-2 text-left">รายวิชา</th><th className="p-2">คะแนน</th><th className="p-2">เกรด</th></tr></thead><tbody>{data.grades.map((g,i)=><tr key={g.subject_code+'-'+i}><td className="p-2">{g.subject}</td><td className="p-2 text-center">{g.total??'—'}</td><td className="p-2 text-center">{g.grade}</td></tr>)}</tbody></table>{data.grades.length===0&&<p className="text-sm">ยังไม่มีคะแนนที่ครบถ้วนสำหรับแสดงผล</p>}</div>}
+  {data?.published&&<div className="mt-4">
+   <p role="status" className="mb-3 text-sm font-medium">โรงเรียนเปิดประกาศผลแล้ว · มีผลการเรียน {data.completed_count??0} รายวิชา · รอผล {data.pending_count??0} รายวิชา</p>
+   <div className="overflow-x-auto"><table className="w-full text-sm">
+    <thead><tr><th className="p-2 text-left">รายวิชา</th><th className="p-2 text-center">คะแนน</th><th className="p-2 text-center">ผลการเรียน</th></tr></thead>
+    <tbody>{data.grades.map((g,i)=><tr className="border-t" key={g.subject_code+'-'+i}>
+     <td className="p-2">{g.subject}</td>
+     <td className="p-2 text-center">{g.state==='pending'?'—':g.total??'—'}</td>
+     <td className="p-2 text-center">{g.state==='pending'?'รอผล':g.grade}</td>
+    </tr>)}</tbody>
+   </table></div>
+   {data.grades.length===0&&<p className="text-sm">ยังไม่มีรายวิชาที่เปิดสอนสำหรับภาคเรียนนี้</p>}
+   {(data.pending_count??0)>0&&<p className="mt-2 text-xs text-slate-500">รายวิชาที่แสดง “รอผล” ยังไม่มีผลการเรียนที่ครบถ้วนและผ่านการตรวจสอบ เมื่อครูบันทึกข้อมูลเรียบร้อย สามารถกดดูผลการเรียนใหม่ได้</p>}
+  </div>}
  </section>:null}</>}
  </main>;
 }
