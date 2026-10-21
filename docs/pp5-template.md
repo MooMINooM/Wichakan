@@ -11,3 +11,17 @@ Scores/caps come directly from the same record used by the teacher score-entry f
 The original workbook's fixed staff names are not copied into live reports: current teacher/homeroom names come from system data, while unconfigured approval names remain writing lines. The source OBEC emblem is copied without editing. No school or student records are changed by the layout.
 
 The cover's semester, female student count, subject and total-hours labels share one right-hand column, and their values share a second aligned column.
+
+
+## เวลาเรียนวิชาบูรณาการ
+
+- ใช้คู่รายวิชาจาก `timetable_course_integrations` ในห้องและภาคเรียนเดียวกัน
+- ระบบเลือกคาบวิชาหลักเรียงวันจันทร์–ศุกร์และเลขคาบ ใช้ชุดเดิมทุกสัปดาห์ตามตารางปัจจุบัน
+- จำนวนคาบ/สัปดาห์ = ชั่วโมงในหลักสูตร ÷ 40 (รายปี) หรือ ÷ 20 (รายภาค) เช่น 20 ชั่วโมง/ภาค → 1 คาบ; 60 → 3 คาบ
+- ต้องได้จำนวนเต็มและวิชาหลักต้องมีคาบเพียงพอ มิฉะนั้นแจ้งผู้ดูแลให้ตรวจข้อมูล ไม่เดาชั่วโมงหรือเพิ่มคาบเอง
+- `course_attendance_slots` และ `effective_course_attendance` ใช้ RLS ของผู้เรียก หน้าเช็คเวลาและ ปพ.5 อ่านแหล่งเดียวกัน
+- วิชาบูรณาการอ่านสถานะจริงจากวิชาหลักเฉพาะคาบที่เลือก คาบที่ยังไม่บันทึกเป็นช่องว่าง ไม่มีการสร้างสถานะมาเรียนแทน
+- แก้สถานะที่วิชาหลักแล้วข้อมูลวิชาบูรณาการเปลี่ยนตามเมื่อโหลดใหม่ ไม่มีการคัดลอกข้อมูลสองชุด คะแนนและการประเมินยังแยกตามวิชา
+- ไม่รวมสถานะเดิมที่เคยบันทึกแยกไว้ในวิชาบูรณาการ และปฏิเสธ RPC ที่พยายามบันทึกซ้ำ ข้อมูลเดิมยังอยู่ในฐานข้อมูล
+- ตารางสอนและภาระสอนจริงไม่ถูกเพิ่มคาบซ้ำ หากผู้ดูแลแก้ตารางหรือชั่วโมงในหลักสูตร ระบบจะคำนวณชุดคาบจากข้อมูลล่าสุด
+- ทดสอบฐานข้อมูลด้วย `tests/integrated-attendance.sql` กับข้อมูลนำเข้าที่มีคู่คณิตศาสตร์เพิ่มเติม 20/60 ชั่วโมง ทุกการเปลี่ยนข้อมูลในชุดทดสอบใช้ transaction และ rollback
