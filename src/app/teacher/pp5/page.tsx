@@ -20,7 +20,7 @@ export default function TeacherPp5Page(){
    db.from('terms').select('starts_on,ends_on').eq('school_id',data.schoolId).eq('id',o.term_id).limit(1),
    db.from('homeroom_assignments').select('teacher_user_id').eq('school_id',data.schoolId).eq('classroom_id',o.classroom_id),
    all<Target>((a,b)=>db.from('subject_learning_targets').select('id,target_type,standard_code,target_code,target_description,indicator_phase,display_order').eq('school_id',data.schoolId).eq('subject_id',o.subject_id).order('display_order').order('id').range(a,b)),
-   all<Attendance>((a,b)=>db.from('course_attendance_records').select('student_id,class_date,session_no,attendance_status').eq('school_id',data.schoolId).eq('course_offering_id',o.id).order('class_date').order('session_no').order('student_id').range(a,b)),
+   all<Attendance>((a,b)=>db.from('effective_course_attendance').select('student_id,class_date,session_no,attendance_status').eq('school_id',data.schoolId).eq('course_offering_id',o.id).order('class_date').order('session_no').order('student_id').range(a,b)),
    all<CourseAssessment>((a,b)=>db.from('course_student_assessments').select('student_id,trait_scores,reading_scores').eq('school_id',data.schoolId).eq('course_offering_id',o.id).order('student_id').range(a,b))
   ]);
   for(const r of [school,subject,term,homes])if(r.error)throw r.error;if(auth.error)throw auth.error;if(!auth.data.user)throw Error('กรุณาเข้าสู่ระบบอีกครั้ง');
