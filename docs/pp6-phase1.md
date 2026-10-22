@@ -12,3 +12,10 @@ Each student gets a complete header and paper. More than 24 subjects continue on
 Verification: `node tests/pp6-print-summary.cjs` checks totals, missing/zero/special results, ordering and comment pagination. Mocked browser print checks cover one-page A4, seven students producing exactly seven pages, searched roster printing, 27 subjects on two pages, separate long comments, local fonts/emblem and no production writes. Printed PDF pages are rendered and compared to the reference's measured geometry.
 
 To reproduce the browser print checks, build with the mock environment (`NEXT_PUBLIC_SUPABASE_URL=https://ux-test.supabase.co NEXT_PUBLIC_SUPABASE_ANON_KEY=ux-test-public-key NEXT_PUBLIC_BASE_PATH=/Wichakan npm run build`) and run `node tests/pp6-print.browser.cjs` with Playwright and Chromium installed, or set `PLAYWRIGHT_MODULE` and `BROWSER_EXECUTABLE_PATH`. The test intercepts all backend requests, writes only temporary test PDFs, and never changes real student data.
+
+
+## Shared report typography
+
+PP5 and PP6 share `REPORT_TYPE` in `src/lib/report-typography.ts`: page titles 20 pt, section headings 16 pt, body/subject rows 14 pt, table headings/notes/page numbers 12 pt. PP6 retains the existing TH Sarabun New regular/bold family and the A4 reference geometry. SVG sizes map directly to print points; HTML continuation pages use equivalent point units. Inline comments use matching SVG-coordinate sizes and a 15-unit line height so three lines fit the reserved lower margin.
+
+Browser regression checks assert the rendered font family, shared sizes in headers/tables, short-comment bounds, continuation-page sizes, single/class page counts and authenticated homeroom signature.
