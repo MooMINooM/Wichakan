@@ -73,7 +73,7 @@ export default function HomeroomPp6(){
  async function printReport(){
   if(printing||!printerName)return;setPrinting(true);setPrintError('');
   try{
-   await Promise.all([document.fonts.load('13.329px "TH Sarabun PP6"'),document.fonts.load('700 15px "TH Sarabun PP6"'),new Promise<void>((resolve,reject)=>{const image=new Image();image.onload=()=>resolve();image.onerror=()=>reject(Error('โหลดตราโรงเรียนไม่สำเร็จ กรุณาลองอีกครั้ง'));image.src=(process.env.NEXT_PUBLIC_BASE_PATH||'')+'/pp6/school-emblem.png';})]);
+   await Promise.all([document.fonts.load('14px "TH Sarabun PP6"'),document.fonts.load('700 20px "TH Sarabun PP6"'),new Promise<void>((resolve,reject)=>{const image=new Image();image.onload=()=>resolve();image.onerror=()=>reject(Error('โหลดตราโรงเรียนไม่สำเร็จ กรุณาลองอีกครั้ง'));image.src=(process.env.NEXT_PUBLIC_BASE_PATH||'')+'/pp6/school-emblem.png';})]);
    await document.fonts.ready;await new Promise<void>(resolve=>requestAnimationFrame(()=>requestAnimationFrame(()=>resolve())));window.print();
   }catch(e){setPrintError(e instanceof Error?e.message:'เตรียมเอกสารไม่สำเร็จ');}finally{setPrinting(false);}
  }

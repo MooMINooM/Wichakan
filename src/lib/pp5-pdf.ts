@@ -1,11 +1,12 @@
 import {PDFDocument,rgb,degrees,type PDFPage,type PDFFont} from 'pdf-lib';
 import fontkit from '@pdf-lib/fontkit';
+import {REPORT_TYPE as PP5_TYPE} from './report-typography';
 import {TRAITS,READING,QUALITY,eligibleForLesson,assessmentQuality,attendanceSessions,fullName,gender,pp5Score,pp5Readiness,weekOf,type Attendance,type CourseAssessment,type Target} from './pp5';
 import type {TeacherWorkspace,TeacherOffering,TeacherStudent} from './use-teacher-workspace';
 export type Pp5Signatories={assessment_head_name:string;academic_head_name:string;director_name:string};
 export type Pp5Book={signatories:Pp5Signatories;data:TeacherWorkspace;offering:TeacherOffering;roster:TeacherStudent[];attendance:Attendance[];assessments:CourseAssessment[];targets:Target[];expected:number;schoolName:string;teacherName:string;homeroomNames:string[];learningHours:number;hourBasis:string;termStart:string|null};
 // Shared print hierarchy (points), used by every sheet in the book.
-export const PP5_TYPE={title:20,section:16,body:14,tableHeader:12,note:12} as const;
+export {REPORT_TYPE as PP5_TYPE} from './report-typography';
 const MONTHS=['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'];
 export async function createPp5Pdf(book:Pp5Book){
  const {data,offering:o,roster,attendance,assessments,targets}=book;

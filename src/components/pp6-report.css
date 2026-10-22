@@ -9,9 +9,10 @@
 .pp6-student-page+.pp6-student-page{border-top:1px solid #ddd}
 .pp6-document{display:block;width:100%;height:100%;font-family:'TH Sarabun PP6',sans-serif;fill:black;font-weight:400;line-height:normal}
 .pp6-document text{white-space:pre}
-.pp6-inline-comment{font-family:'TH Sarabun PP6',sans-serif;font-size:12px;line-height:14px;color:black;overflow-wrap:anywhere;white-space:pre-wrap}
-.pp6-comment-page{padding:20mm 15mm;font-size:16pt;line-height:1.5;overflow-wrap:anywhere}
-.pp6-comment-page h2{font-size:20pt;font-weight:700;color:black;margin:0 0 10mm}
+.pp6-inline-comment{font-family:'TH Sarabun PP6',sans-serif;font-size:var(--pp6-inline-body);line-height:15px;color:black;overflow-wrap:anywhere;white-space:pre-wrap}
+.pp6-inline-comment b{font-size:var(--pp6-inline-heading);font-weight:700}
+.pp6-comment-page{padding:20mm 15mm;font-size:var(--pp6-body);line-height:1.5;overflow-wrap:anywhere}
+.pp6-comment-page h2{font-size:var(--pp6-title);font-weight:700;color:black;margin:0 0 10mm}
 .pp6-comment-page p{margin:0 0 3mm}.pp6-comment-page>div{margin-top:8mm;white-space:pre-wrap}
 @page{size:A4 portrait;margin:0}
 @media print{
