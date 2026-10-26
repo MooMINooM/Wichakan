@@ -10,4 +10,17 @@ let rows=attendanceChanges(b.data,o,b.roster,pages[0],existing,{},'2026-10-20');
 const draft={[attendanceKey(b.roster[0].id,'2026-05-18',2)]:'leave'};rows=attendanceChanges(b.data,o,b.roster,pages[0],existing,draft,'2026-05-18');assert.equal(rows.length,4);assert.equal(rows[0].attendance_status,'leave');assert(rows.every(r=>r.class_date==='2026-05-18'));
 b.data.enrollments[0].started_on='2026-05-25';rows=attendanceChanges(b.data,o,b.roster,pages[0],[],{},'2026-10-20');assert(!rows.some(r=>r.student_id===b.roster[0].id&&r.class_date<'2026-05-25'));
 assert.equal(attendanceChanges(b.data,o,b.roster,pages[0],[],{},'2026-05-17').length,0);
+// Keep the workbook's four heading bands and 36 table columns aligned.
+const view=fs.readFileSync('src/app/teacher/attendance/page.tsx','utf8');
+const styles=fs.readFileSync('src/app/globals.css','utf8');
+assert(view.includes('<colgroup>'),'attendance workbook must define consistent column widths');
+assert(view.includes('length:25},(_,i)=><col'),'25 date columns require explicit width');
+assert(view.includes('length:7},(_,i)=><col'),'seven summary columns require explicit width');
+assert(view.includes('scope="row" colSpan={2} className="attendance-name"'),'student name intentionally spans name and week-label columns');
+assert(view.includes('role="region" aria-label="ตารางบันทึกเวลาเรียน'),'keyboard-accessible scroll region required');
+for(const [row,top] of [[1,0],[2,40],[3,70],[4,100]]){
+ assert(styles.includes(`.attendance-excel thead tr:nth-child(${row}) th{position:sticky;top:${top}px`),
+  'sticky header band '+row+' must retain its measured offset');
+}
+assert(styles.includes('thead th[rowspan="4"]'),'row-spanning header cells must keep the highest sticky corner');
 console.log('PASS: 25 weekday cells, four five-week blocks, term boundaries/overflow, exact timetable dates and multiple periods, defaults/preserved absences, future dates and enrollment eligibility.');
