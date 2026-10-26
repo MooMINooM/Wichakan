@@ -3,6 +3,7 @@ import {useEffect,useMemo,useState} from 'react';
 import Link from 'next/link';
 import PageHeader from '@/components/page-header';
 import {getSupabaseBrowserClient} from '@/lib/supabase/browser';
+import {ACTIVITY_LABELS,timetableTeacherNames,type TimetableTeacherProfile} from '@/lib/timetable-display';
 
 type Year={id:string;year_be:number};
 type Term={id:string;academic_year_id:string;term_no:number};
@@ -14,13 +15,12 @@ type Homeroom={classroom_id:string;teacher_user_id:string};
 type Slot={id:string;course_offering_id:string;weekday_no:number;period_no:number};
 type Activity={id:string;term_id:string;classroom_id:string;activity_type:string;weekday_no:number;period_no:number;teacher_user_id:string|null};
 type Period={period_no:number;starts_at:string;ends_at:string};
-type Lesson={key:string;day:number;period:number;name:string;room:string;kind:'course'|'activity'};
+type Lesson={key:string;day:number;period:number;name:string;room:string;teachers:string;kind:'course'|'activity'};
 const DAYS=['จันทร์','อังคาร','พุธ','พฤหัสบดี','ศุกร์'];
-const ACTIVITY:Record<string,string>={computing:'วิทยาการคำนวณ (รวมผลการเรียนวิทยาศาสตร์)',sss:'สสส.',guidance:'แนะแนว',ethics:'อบรมคุณธรรม',club:'ชุมนุม',scout:'ลูกเสือ–เนตรนารี'};
 const roomName=(r:Room|undefined)=>r?r.level_code+'/'+r.room_code:'—';
 export default function TeacherTimetablePage(){
  const db=getSupabaseBrowserClient();
- const [userId,setUserId]=useState(''),[years,setYears]=useState<Year[]>([]),[terms,setTerms]=useState<Term[]>([]),[rooms,setRooms]=useState<Room[]>([]),[offerings,setOfferings]=useState<Offering[]>([]),[subjects,setSubjects]=useState<Subject[]>([]),[assignments,setAssignments]=useState<Assignment[]>([]),[homerooms,setHomerooms]=useState<Homeroom[]>([]),[slots,setSlots]=useState<Slot[]>([]),[activities,setActivities]=useState<Activity[]>([]),[periods,setPeriods]=useState<Period[]>([]);
+ const [userId,setUserId]=useState(''),[profiles,setProfiles]=useState<TimetableTeacherProfile[]>([]),[years,setYears]=useState<Year[]>([]),[terms,setTerms]=useState<Term[]>([]),[rooms,setRooms]=useState<Room[]>([]),[offerings,setOfferings]=useState<Offering[]>([]),[subjects,setSubjects]=useState<Subject[]>([]),[assignments,setAssignments]=useState<Assignment[]>([]),[homerooms,setHomerooms]=useState<Homeroom[]>([]),[slots,setSlots]=useState<Slot[]>([]),[activities,setActivities]=useState<Activity[]>([]),[periods,setPeriods]=useState<Period[]>([]);
  const [yearId,setYearId]=useState(''),[termId,setTermId]=useState(''),[roomId,setRoomId]=useState(''),[view,setView]=useState<'teacher'|'room'>('teacher'),[loading,setLoading]=useState(true),[error,setError]=useState('');
  useEffect(()=>{let live=true;(async()=>{try{
   if(!db)throw Error('ไม่สามารถเชื่อมต่อฐานข้อมูล');const auth=await db.auth.getUser();const uid=auth.data.user?.id;if(!uid)throw Error('กรุณาเข้าสู่ระบบ');
@@ -31,35 +31,43 @@ export default function TeacherTimetablePage(){
    db.from('classrooms').select('id,academic_year_id,level_code,room_code').eq('school_id',school),
    db.from('course_offerings').select('id,term_id,classroom_id,subject_id').eq('school_id',school),
    db.from('subjects').select('id,subject_code,name_th').eq('school_id',school),
-   db.from('teaching_assignments').select('course_offering_id,teacher_user_id').eq('school_id',school).eq('teacher_user_id',uid),
-   db.from('homeroom_assignments').select('classroom_id,teacher_user_id').eq('school_id',school).eq('teacher_user_id',uid),
+   db.from('teaching_assignments').select('course_offering_id,teacher_user_id').eq('school_id',school),
+   db.from('homeroom_assignments').select('classroom_id,teacher_user_id').eq('school_id',school),
    db.from('timetable_slots').select('id,course_offering_id,weekday_no,period_no').eq('school_id',school),
    db.from('school_activity_schedules').select('id,term_id,classroom_id,activity_type,weekday_no,period_no,teacher_user_id').eq('school_id',school),
    db.from('timetable_periods').select('period_no,starts_at,ends_at').eq('school_id',school)
   ]);
-  const issue=[y,t,r,o,s,a,h,sl,ac,p].find(x=>x.error)?.error;if(issue)throw issue;if(!live)return;
-  setUserId(uid);setYears(y.data??[]);setTerms(t.data??[]);setRooms(r.data??[]);setOfferings(o.data??[]);setSubjects(s.data??[]);setAssignments(a.data??[]);setHomerooms(h.data??[]);setSlots(sl.data??[]);setActivities(ac.data??[]);setPeriods(p.data??[]);setYearId(y.data?.[0]?.id??'');
+  const issue=[y,t,r,o,s,a,h,sl,ac,p].find(x=>x.error)?.error;if(issue)throw issue;
+  const staffIds=[...new Set([uid,...(a.data??[]).map(x=>x.teacher_user_id),...(h.data??[]).map(x=>x.teacher_user_id),...(ac.data??[]).map(x=>x.teacher_user_id)].filter((v):v is string=>!!v))];
+  const schoolProfiles:TimetableTeacherProfile[]=[];
+  for(let i=0;i<staffIds.length;i+=100){
+   const result=await db.from('profiles').select('user_id,display_name').in('user_id',staffIds.slice(i,i+100));
+   if(result.error)throw result.error;
+   schoolProfiles.push(...(result.data??[]));
+  }
+  if(!live)return;
+  setProfiles(schoolProfiles);setUserId(uid);setYears(y.data??[]);setTerms(t.data??[]);setRooms(r.data??[]);setOfferings(o.data??[]);setSubjects(s.data??[]);setAssignments(a.data??[]);setHomerooms(h.data??[]);setSlots(sl.data??[]);setActivities(ac.data??[]);setPeriods(p.data??[]);setYearId(y.data?.[0]?.id??'');
  }catch(e){if(live)setError(e instanceof Error?e.message:'โหลดตารางสอนไม่สำเร็จ');}finally{if(live)setLoading(false);}})();return()=>{live=false};},[db]);
  const yearTerms=terms.filter(t=>t.academic_year_id===yearId).sort((a,b)=>a.term_no-b.term_no);
  const selectedTerm=yearTerms.some(t=>t.id===termId)?termId:yearTerms[0]?.id??'';
- const myRooms=rooms.filter(r=>r.academic_year_id===yearId&&homerooms.some(h=>h.classroom_id===r.id));
+ const myRooms=rooms.filter(r=>r.academic_year_id===yearId&&homerooms.some(h=>h.classroom_id===r.id&&h.teacher_user_id===userId));
  const selectedRoom=myRooms.some(r=>r.id===roomId)?roomId:myRooms[0]?.id??'';
  const lessons=useMemo(()=>{
   const termOffers=offerings.filter(o=>o.term_id===selectedTerm);
   const output:Lesson[]=[];
   for(const slot of slots){const offering=termOffers.find(o=>o.id===slot.course_offering_id);if(!offering)continue;
-   if(view==='teacher'&&!assignments.some(a=>a.course_offering_id===offering.id))continue;
+   if(view==='teacher'&&!assignments.some(a=>a.course_offering_id===offering.id&&a.teacher_user_id===userId))continue;
    if(view==='room'&&offering.classroom_id!==selectedRoom)continue;
    const subject=subjects.find(s=>s.id===offering.subject_id);
-   output.push({key:slot.id,day:slot.weekday_no,period:slot.period_no,name:subject?.name_th??'ไม่พบรายวิชา',room:roomName(rooms.find(r=>r.id===offering.classroom_id)),kind:'course'});
+   output.push({key:slot.id,day:slot.weekday_no,period:slot.period_no,name:subject?.name_th??'ไม่พบรายวิชา',room:roomName(rooms.find(r=>r.id===offering.classroom_id)),teachers:timetableTeacherNames(assignments.filter(a=>a.course_offering_id===offering.id).map(a=>a.teacher_user_id),profiles),kind:'course'});
   }
   for(const a of activities.filter(a=>a.term_id===selectedTerm)){
    const homeroomActivity=a.activity_type==='club'||a.activity_type==='scout';
-   if(view==='teacher'&&!(homeroomActivity?homerooms.some(h=>h.classroom_id===a.classroom_id):a.teacher_user_id===userId))continue;
+   if(view==='teacher'&&!(homeroomActivity?homerooms.some(h=>h.classroom_id===a.classroom_id&&h.teacher_user_id===userId):a.teacher_user_id===userId))continue;
    if(view==='room'&&a.classroom_id!==selectedRoom)continue;
-   output.push({key:a.id,day:a.weekday_no,period:a.period_no,name:ACTIVITY[a.activity_type]??a.activity_type,room:roomName(rooms.find(r=>r.id===a.classroom_id)),kind:'activity'});
+   output.push({key:a.id,day:a.weekday_no,period:a.period_no,name:ACTIVITY_LABELS[a.activity_type]??a.activity_type,room:roomName(rooms.find(r=>r.id===a.classroom_id)),teachers:timetableTeacherNames(homeroomActivity?homerooms.filter(h=>h.classroom_id===a.classroom_id).map(h=>h.teacher_user_id):a.teacher_user_id?[a.teacher_user_id]:[],profiles),kind:'activity'});
   }return output;
- },[selectedTerm,selectedRoom,view,offerings,slots,assignments,subjects,rooms,activities,homerooms,userId]);
+ },[selectedTerm,selectedRoom,view,offerings,slots,assignments,subjects,rooms,activities,homerooms,userId,profiles]);
  const maxPeriod=Math.max(7,...lessons.map(x=>x.period),...periods.map(p=>p.period_no));
  return <main className="wichakan-page mx-auto max-w-7xl px-5 py-6"><PageHeader title="ตารางสอนและตารางเรียน"/>
  <p className="mb-4 text-sm text-slate-500">แสดงข้อมูลจากตารางสอนกลางของฝ่ายวิชาการโดยอัตโนมัติ · เฉพาะบัญชีครูที่เข้าสู่ระบบ</p>
@@ -76,7 +84,7 @@ export default function TeacherTimetablePage(){
  <div className="mb-3 flex flex-wrap items-center justify-between gap-2"><h2 className="font-semibold">{view==='teacher'?'ตารางสอนรายบุคคล':'ตารางเรียน '+roomName(myRooms.find(r=>r.id===selectedRoom))}</h2><span className="text-sm text-slate-500">คาบที่มีข้อมูล {lessons.length} รายการ</span></div>
  <table className="w-full min-w-[920px] table-fixed border-separate border-spacing-0 text-sm">
  <thead><tr><th scope="col" className="sticky left-0 z-20 w-28 border border-slate-200 bg-slate-100 p-2 text-left">วัน / คาบ</th>{Array.from({length:maxPeriod},(_,i)=>i+1).map(p=>{const time=periods.find(x=>x.period_no===p);return <th scope="col" key={p} className="border border-slate-200 bg-slate-100 p-2 text-center">คาบ {p}{time&&<span className="block text-[11px] font-normal text-slate-500">{time.starts_at.slice(0,5)}–{time.ends_at.slice(0,5)}</span>}</th>})}</tr></thead>
- <tbody>{DAYS.map((day,index)=><tr key={day}><th scope="row" className="sticky left-0 z-10 border border-slate-200 bg-slate-50 p-3 text-left font-semibold text-slate-800">{day}</th>{Array.from({length:maxPeriod},(_,i)=>i+1).map(p=>{const cells=lessons.filter(x=>x.day===index+1&&x.period===p);return <td key={p} className="h-24 border border-slate-200 bg-white p-1.5 align-top">{cells.map(x=><div key={x.key} className={'mb-1 rounded-lg p-2 leading-snug '+(x.kind==='activity'?'bg-amber-50 text-amber-900':'bg-sky-50 text-sky-900')}><strong className="block break-words">{x.name}</strong>{view==='teacher'&&<span className="mt-1 block text-xs">{x.room}</span>}</div>)}</td>})}</tr>)}</tbody></table>
+ <tbody>{DAYS.map((day,index)=><tr key={day}><th scope="row" className="sticky left-0 z-10 border border-slate-200 bg-slate-50 p-3 text-left font-semibold text-slate-800">{day}</th>{Array.from({length:maxPeriod},(_,i)=>i+1).map(p=>{const cells=lessons.filter(x=>x.day===index+1&&x.period===p);return <td key={p} className="h-24 border border-slate-200 bg-white p-1.5 align-top">{cells.map(x=><div key={x.key} className={'mb-1 rounded-lg p-2 leading-snug '+(view==='room'?'flex min-h-20 flex-col items-center justify-center text-center ':'text-left ')+(x.kind==='activity'?'bg-amber-50 text-amber-900':'bg-sky-50 text-sky-900')}><strong className="block break-words">{x.name}</strong>{view==='room'&&<span className="mt-1 block break-words text-xs font-normal">{x.teachers}</span>}{view==='teacher'&&<span className="mt-1 block text-xs">{x.room}</span>}</div>)}</td>})}</tr>)}</tbody></table>
  </section>
  {!lessons.length&&<p role="status" className="mt-3 rounded-lg border p-4 text-sm text-slate-600">ยังไม่มีรายการคาบที่บันทึกในตารางสอนกลางสำหรับมุมมองนี้ กรุณาให้ฝ่ายวิชาการจัดตารางสอนก่อน</p>}
  </>}

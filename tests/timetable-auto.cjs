@@ -1,5 +1,13 @@
 const fs=require('node:fs'),ts=require('typescript'),vm=require('node:vm'),assert=require('node:assert/strict');
 const exp={};vm.runInNewContext(ts.transpileModule(fs.readFileSync('src/lib/timetable-auto.ts','utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2020}}).outputText,{exports:exp});
+const display={};
+vm.runInNewContext(ts.transpileModule(fs.readFileSync('src/lib/timetable-display.ts','utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2020}}).outputText,{exports:display});
+assert.equal(display.ACTIVITY_LABELS.computing,'วิทยาการคำนวณ','student timetable uses short computing label');
+const people=[{user_id:'teacher1',display_name:'นายครู หนึ่ง'},{user_id:'teacher2',display_name:'นางสาวครู สอง'}];
+assert.equal(display.timetableTeacherNames(['teacher1'],people),'นายครู หนึ่ง');
+assert.equal(display.timetableTeacherNames(['teacher1','teacher2','teacher1'],people),'นายครู หนึ่ง / นางสาวครู สอง');
+assert.equal(display.timetableTeacherNames([],people),'ยังไม่ระบุครูผู้สอน');
+assert.equal(display.timetableTeacherNames(['missing'],people),'ไม่พบชื่อครู');
 const courses=[{id:'math',classroom_id:'r1',subject_id:'s1',target:3},{id:'sport',classroom_id:'r1',subject_id:'s2',target:1},{id:'other',classroom_id:'r2',subject_id:'s3',target:2}];
 const staff=[{course_offering_id:'math',teacher_user_id:'t1'},{course_offering_id:'sport',teacher_user_id:'t2'},{course_offering_id:'other',teacher_user_id:'t1'}];
 const existing=[{course_offering_id:'math',weekday_no:1,period_no:1}];
