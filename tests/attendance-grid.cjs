@@ -19,7 +19,7 @@ assert(view.includes('length:7},(_,i)=><col'),'seven summary columns require exp
 assert(view.includes('scope="row" colSpan={2} className="attendance-name"'),'student name intentionally spans name and week-label columns');
 assert(view.includes('role="region" aria-label="ตารางบันทึกเวลาเรียน'),'keyboard-accessible scroll region required');
 for(const [row,top] of [[1,0],[2,40],[3,70],[4,100]]){
- assert(styles.includes(`.attendance-excel thead tr:nth-child(${row}) th{position:sticky;top:${top}px`),
+ assert(styles.includes(`.attendance-excel thead tr:nth-child(${row}) th{position:sticky;top:${top===0?'0':top+'px'}`),
   'sticky header band '+row+' must retain its measured offset');
 }
 assert(styles.includes('thead th[rowspan="4"]'),'row-spanning header cells must keep the highest sticky corner');
