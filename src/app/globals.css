@@ -511,3 +511,14 @@ body:has(.wichakan-page) .app-topbar>div:nth-child(2){visibility:visible}
 .teacher-record-tab.is-active{color:#1852a0;border-bottom-color:#2563eb;background:#eff6ff}
 .teacher-record-tab:focus-visible{outline:2px solid #2563eb;outline-offset:2px}
 @media(max-width:640px){.teacher-record-tabs{flex-wrap:nowrap;overflow-x:auto}.teacher-record-tab{flex:0 0 auto;padding:9px 12px;white-space:nowrap}}
+
+/* PP6 review matrix: the corner stays above both sticky axes; separate borders
+   stay attached to the cells instead of scrolling away with collapsed borders. */
+.pp6-summary-scroll{max-height:65vh;overflow:auto;isolation:isolate;border:1px solid var(--ui-border);overscroll-behavior:contain}
+.wichakan-page .pp6-summary-table{border-collapse:separate;border-spacing:0}
+.wichakan-page .pp6-summary-table :is(th,td){border-width:0 1px 1px 0}
+.wichakan-page .pp6-summary-table tr>:last-child{border-right-width:0}
+.wichakan-page .pp6-summary-table tbody tr:last-child>*{border-bottom-width:0}
+.wichakan-page .pp6-summary-table thead th{position:sticky;top:0;z-index:3;background:#f1f5f9}
+.wichakan-page .pp6-summary-table tbody th{position:sticky;left:0;z-index:1;background:#fff;white-space:nowrap}
+.wichakan-page .pp6-summary-table thead th:first-child{left:0;z-index:4}
