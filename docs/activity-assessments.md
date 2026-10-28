@@ -1,0 +1,20 @@
+# Activity assessments by reporting period
+
+`/teacher/activities` records one result for each student, classroom and activity type. Primary classes use `period_no=0` (the academic year); secondary classes use 1 or 2. Days, periods, attendance statuses and date validation are absent from this screen. Repeated schedule slots for the same activity are combined, including slots across both semesters for primary classes. Computing is a timetable-only instructional block and is not included in developmental-activity assessments.
+
+The activity list still follows the school's teaching/homeroom assignments. Assigned teachers assess SSS, guidance and ethics. Both homeroom teachers assess clubs and scouts. An explicit secondary semester assignment takes priority; when that semester has no assignment, the existing assignment for the same classroom/activity in the academic year applies. This allows semester assessment without first creating individual timetable slots for the new term.
+
+`school_activity_period_assessments` stores the canonical result. The SECURITY INVOKER RPC `save_school_activity_period` saves a whole class atomically, validates authorization, enrollment, period, result and duplicate student IDs, and derives the school/year from the classroom. RLS applies to direct table access as well. Blank and pending results are not converted to passing results. Teachers can explicitly set the whole room to pass, edit exceptions and save once. Failed saves retain the editable draft; unsaved edits require acknowledgement before changing groups/years.
+
+Existing attendance and legacy schedule-based assessments are retained. The migration consolidates agreeing legacy assessments and marks conflicting results as pending; it does not invent a pass. There were no legacy activity assessments or attendance rows in production when this migration was applied.
+
+PP6 reads the configured activity types and the canonical results for the room/year. Primary reports use the same annual result in both report periods; secondary reports use the selected semester. When activities are configured, the total is derived from those records: every activity must have pass/fail, all passing means ผ่าน, and any failure means ไม่ผ่าน. Missing/pending records leave the total unassessed. The homeroom assessment dialog displays this total read-only with a link to the activity screen. Rooms with no configured developmental activities retain their prior manual PP6 summary. No activity subjects or numeric grades are created automatically.
+
+Validation:
+
+- `node tests/activity-assessments.cjs`: grouping, annual deduplication, semester assignment fallback/override and conservative totals (also runs in CI).
+- `node tests/activity-period.browser.cjs`: result-only whole-class saves, blank defaults, semester/year isolation, retries, unsaved changes, authorization filters and mobile overflow.
+- `node tests/pp6-print.browser.cjs`: existing report workflows plus derived annual totals in both primary reporting periods and missing/pending results.
+- `tests/activity-period.sql`: transactional integration regression against imported school fixtures, including actual teacher RLS, both homeroom teachers, semester assignment priority, invalid period/enrollment/results, duplicates and atomic rollback. Every fixture edit is rolled back.
+
+Build the browser fixtures with `NEXT_PUBLIC_SUPABASE_URL=https://ux-test.supabase.co NEXT_PUBLIC_SUPABASE_ANON_KEY=ux-test-public-key NEXT_PUBLIC_BASE_PATH=/Wichakan npm run build`. Browser checks mock all backend requests and do not write production data.
