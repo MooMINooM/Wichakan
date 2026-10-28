@@ -25,5 +25,6 @@ jobs:
           node tests/pp6-student-prefix.cjs
           node tests/pp5.cjs
           node tests/attendance-grid.cjs
+          node tests/activity-assessments.cjs
       - name: Build
         run: npm run build

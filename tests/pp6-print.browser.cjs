@@ -58,6 +58,15 @@ const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('n
  await page.locator('.pp6-document').first().waitFor();
  assert.match(await page.locator('.pp6-document').first().textContent(),/นางสาวครูคนที่สอง ทดสอบ/);
  assert.doesNotMatch(await page.locator('.pp6-document').first().textContent(),/นายครูคนแรก/);
+
+ // Period activity records drive the PP6 total; primary uses annual period 0 in both terms.
+ tables.school_activity_schedules=['club','scout'].map((kind,i)=>({id:'activity'+i,school_id:school,term_id:'t1',classroom_id:'r2',activity_type:kind,teacher_user_id:null}));
+ tables.school_activity_period_assessments=[{school_id:school,classroom_id:'r2',academic_year_id:'y69',student_id:'st0',activity_type:'club',period_no:0,result:'pass'},{school_id:school,classroom_id:'r2',academic_year_id:'y69',student_id:'st0',activity_type:'scout',period_no:0,result:'fail'},{school_id:school,classroom_id:'r2',academic_year_id:'y69',student_id:'st0',activity_type:'club',period_no:1,result:'fail'}];
+ const activityTotal=()=>page.locator('.pp6-document').first().evaluate(svg=>[...svg.querySelectorAll('text')].find(t=>t.getAttribute('x')==='298.852'&&Math.abs(Number(t.getAttribute('y'))-749.392)<.01)?.textContent);
+ await page.reload();await page.getByRole('button',{name:'พิมพ์ ปพ.6',exact:true}).first().click();await page.locator('.pp6-document').first().waitFor();assert.equal(await activityTotal(),'ไม่ผ่าน');
+ tables.school_activity_period_assessments[1].result='pass';await page.reload();await page.getByRole('button',{name:'พิมพ์ ปพ.6',exact:true}).first().click();await page.locator('.pp6-document').first().waitFor();assert.equal(await activityTotal(),'ผ่าน');
+ await page.getByRole('button',{name:'ปิดตัวอย่าง',exact:true}).click();await page.getByRole('combobox',{name:'งวดรายงาน'}).selectOption('2');await page.getByRole('button',{name:'พิมพ์ ปพ.6',exact:true}).first().click();await page.locator('.pp6-document').first().waitFor();assert.equal(await activityTotal(),'ผ่าน');
+ tables.school_activity_period_assessments[1].result='pending';await page.reload();await page.getByRole('button',{name:'พิมพ์ ปพ.6',exact:true}).first().click();await page.locator('.pp6-document').first().waitFor();assert.equal(await activityTotal(),'—','incomplete activities must not fall back to an old manual pass');
  tables.pp5_signatories=[];await page.reload();await page.getByRole('button',{name:'พิมพ์ ปพ.6',exact:true}).first().click();await page.locator('.pp6-document').first().waitFor();assert.doesNotMatch(await page.locator('.pp6-document').first().textContent(),/นายผู้อำนวยการ/);
  tables.profiles=[];await page.reload();
  await page.getByRole('alert').filter({hasText:'ไม่พบชื่อครูในบัญชีผู้พิมพ์'}).waitFor();

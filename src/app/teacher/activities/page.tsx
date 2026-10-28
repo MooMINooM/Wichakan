@@ -1,62 +1,48 @@
 'use client';
-import {useEffect,useState} from 'react';
+import {useEffect,useMemo,useState} from 'react';
 import Link from 'next/link';
 import PageHeader from '@/components/page-header';
 import {getSupabaseBrowserClient} from '@/lib/supabase/browser';
-type Schedule={id:string;school_id:string;term_id:string;classroom_id:string;activity_type:string;weekday_no:number;period_no:number;teacher_user_id:string|null};
-type Room={id:string;level_code:string;room_code:string};
+import {ACTIVITY_NAMES,activityGroups,type ActivityGrade,type ActivityRoom,type ActivitySchedule,type ActivityTerm} from '@/lib/activity-assessments';
+import {fullName,orderStudents} from '@/lib/pp5';
+import type {TeacherStudent} from '@/lib/use-teacher-workspace';
+type Year={id:string;year_be:number;is_active:boolean};
 type Enrollment={student_id:string;classroom_id:string;academic_year_id:string;status:string};
-type Student={id:string;name_prefix_th:string|null;first_name_th:string;last_name_th:string};
-type Term={id:string;academic_year_id:string;term_no:number};
-type RecordRow={student_id:string;status:string};
-type GradeRow={student_id:string;result:string};
-const kinds:Record<string,string>={sss:'สสส.',guidance:'แนะแนว',ethics:'อบรมคุณธรรม',club:'ชุมนุม',scout:'ลูกเสือ–เนตรนารี'};
-const weekdays=['','จันทร์','อังคาร','พุธ','พฤหัสบดี','ศุกร์','เสาร์','อาทิตย์'];
-const today=()=>{const d=new Date();return [d.getFullYear(),String(d.getMonth()+1).padStart(2,'0'),String(d.getDate()).padStart(2,'0')].join('-');};
+const message=(e:unknown)=>(e as {message?:string})?.message??'ไม่สามารถโหลดข้อมูลได้';
+async function all<T>(query:(from:number,to:number)=>PromiseLike<{data:unknown[]|null;error:{message:string}|null}>){const rows:T[]=[];for(let from=0;;from+=500){const r=await query(from,from+499);if(r.error)throw r.error;rows.push(...(r.data??[]) as T[]);if((r.data?.length??0)<500)return rows;}}
 export default function TeacherActivitiesPage(){
  const db=getSupabaseBrowserClient();
- const [schedules,setSchedules]=useState<Schedule[]>([]),[rooms,setRooms]=useState<Room[]>([]),[terms,setTerms]=useState<Term[]>([]),[students,setStudents]=useState<Student[]>([]),[enrollments,setEnrollments]=useState<Enrollment[]>([]);
- const [scheduleId,setScheduleId]=useState(''),[date,setDate]=useState(today()),[statuses,setStatuses]=useState<Record<string,string>>({}),[grades,setGrades]=useState<Record<string,string>>({}),[loading,setLoading]=useState(true),[busy,setBusy]=useState(false),[error,setError]=useState(''),[notice,setNotice]=useState('');
+ const [school,setSchool]=useState(''),[schedules,setSchedules]=useState<ActivitySchedule[]>([]),[allowed,setAllowed]=useState<Set<string>>(new Set()),[rooms,setRooms]=useState<ActivityRoom[]>([]),[terms,setTerms]=useState<ActivityTerm[]>([]),[years,setYears]=useState<Year[]>([]),[students,setStudents]=useState<TeacherStudent[]>([]),[enrollments,setEnrollments]=useState<Enrollment[]>([]);
+ const [yearId,setYearId]=useState(''),[groupKey,setGroupKey]=useState(''),[grades,setGrades]=useState<Record<string,string>>({}),[saved,setSaved]=useState<Record<string,string>>({}),[loaded,setLoaded]=useState(''),[loading,setLoading]=useState(true),[fetching,setFetching]=useState(false),[busy,setBusy]=useState(false),[error,setError]=useState(''),[loadError,setLoadError]=useState(''),[notice,setNotice]=useState(''),[saveError,setSaveError]=useState(''),[retry,setRetry]=useState(0);
  useEffect(()=>{let live=true;(async()=>{try{
-  if(!db)throw Error('ไม่สามารถเชื่อมต่อฐานข้อมูล');
-  const u=await db.auth.getUser();if(!u.data.user)throw Error('กรุณาเข้าสู่ระบบ');
-  const m=await db.from('school_memberships').select('school_id,role').eq('user_id',u.data.user.id).eq('active',true);
-  if(m.error)throw m.error;const membership=m.data?.[0];if(!membership)throw Error('ไม่พบสิทธิ์โรงเรียน');
-  const id=membership.school_id;
-  const [sc,h,rm,t,st,en]=await Promise.all([
-   db.from('school_activity_schedules').select('id,school_id,term_id,classroom_id,activity_type,weekday_no,period_no,teacher_user_id').eq('school_id',id),
-   db.from('homeroom_assignments').select('classroom_id,teacher_user_id').eq('school_id',id),
-   db.from('classrooms').select('id,level_code,room_code').eq('school_id',id),
-   db.from('terms').select('id,academic_year_id,term_no').eq('school_id',id),
-   db.from('students').select('id,name_prefix_th,first_name_th,last_name_th').eq('school_id',id),
-   db.from('enrollments').select('student_id,classroom_id,academic_year_id,status').eq('school_id',id).in('status',['active','completed'])
+  if(!db)throw Error('ไม่สามารถเชื่อมต่อฐานข้อมูล');const auth=await db.auth.getUser();if(auth.error)throw auth.error;if(!auth.data.user)throw Error('กรุณาเข้าสู่ระบบ');const user=auth.data.user;
+  const m=await db.from('school_memberships').select('school_id,role').eq('user_id',user.id).eq('active',true).in('role',['teacher','school_admin','academic']).order('school_id');if(m.error)throw m.error;const schoolId=m.data?.[0]?.school_id;if(!schoolId)throw Error('ไม่พบสิทธิ์โรงเรียน');
+  const admin=m.data!.some(x=>x.school_id===schoolId&&['school_admin','academic'].includes(x.role));
+  const [sc,h,rm,t,y,st,en]=await Promise.all([
+   all<ActivitySchedule>((a,b)=>db.from('school_activity_schedules').select('id,school_id,term_id,classroom_id,activity_type,teacher_user_id').eq('school_id',schoolId).order('id').range(a,b)),
+   all<{classroom_id:string;teacher_user_id:string}>((a,b)=>db.from('homeroom_assignments').select('classroom_id,teacher_user_id').eq('school_id',schoolId).order('id').range(a,b)),
+   all<ActivityRoom>((a,b)=>db.from('classrooms').select('id,academic_year_id,level_code,room_code').eq('school_id',schoolId).order('id').range(a,b)),
+   all<ActivityTerm>((a,b)=>db.from('terms').select('id,academic_year_id,term_no').eq('school_id',schoolId).order('id').range(a,b)),
+   all<Year>((a,b)=>db.from('academic_years').select('id,year_be,is_active').eq('school_id',schoolId).order('year_be',{ascending:false}).range(a,b)),
+   all<TeacherStudent>((a,b)=>db.from('students').select('id,student_no,name_prefix_th,first_name_th,last_name_th').eq('school_id',schoolId).order('id').range(a,b)),
+   all<Enrollment>((a,b)=>db.from('enrollments').select('student_id,classroom_id,academic_year_id,status').eq('school_id',schoolId).in('status',['active','completed']).order('id').range(a,b))
   ]);
-  const failure=[sc,h,rm,t,st,en].find(x=>x.error)?.error;if(failure)throw failure;
-  const authorized=(sc.data??[]).filter(s=>membership.role==='school_admin'||membership.role==='academic'||(s.activity_type==='club'||s.activity_type==='scout'?h.data?.some(x=>x.classroom_id===s.classroom_id&&x.teacher_user_id===u.data.user?.id):s.teacher_user_id===u.data.user?.id));
-  if(!live)return;setSchedules(authorized);setRooms(rm.data??[]);setTerms(t.data??[]);setStudents(st.data??[]);setEnrollments(en.data??[]);setScheduleId(authorized[0]?.id??'');
- }catch(e){if(live)setError(e instanceof Error?e.message:'อ่านข้อมูลกิจกรรมไม่ได้');}finally{if(live)setLoading(false);}})();return()=>{live=false};},[db]);
- const chosen=schedules.find(x=>x.id===scheduleId);
- const selectedTerm=terms.find(t=>t.id===chosen?.term_id);
- const roster=students.filter(s=>enrollments.some(e=>e.student_id===s.id&&e.classroom_id===chosen?.classroom_id&&e.academic_year_id===selectedTerm?.academic_year_id)).sort((a,b)=>a.first_name_th.localeCompare(b.first_name_th,'th'));
- useEffect(()=>{let live=true;(async()=>{if(!db||!chosen)return;try{
-  const [r,g]=await Promise.all([db.from('school_activity_attendance').select('student_id,status').eq('schedule_id',chosen.id).eq('class_date',date),db.from('school_activity_assessments').select('student_id,result').eq('schedule_id',chosen.id)]);
-  if(r.error||g.error)throw r.error??g.error;if(live){setStatuses(Object.fromEntries((r.data??[] as RecordRow[]).map(x=>[x.student_id,x.status])));setGrades(Object.fromEntries((g.data??[] as GradeRow[]).map(x=>[x.student_id,x.result])));}
- }catch(e){if(live)setError(e instanceof Error?e.message:'อ่านการเช็กชื่อไม่ได้');}})();return()=>{live=false};},[db,chosen?.id,date]);
- async function saveAll(){if(!db||!chosen||busy||wrongDay)return;setBusy(true);setError('');setNotice('');try{
-  const records=roster.map(student=>({student_id:student.id,status:statuses[student.id]||null,result:grades[student.id]||null})).filter(record=>record.status||record.result);
-  if(!records.length){setNotice('ยังไม่มีข้อมูลที่ต้องบันทึก');return;}
-  const response=await db.rpc('save_school_activity_records',{p_schedule:chosen.id,p_date:date,p_records:records});
-  if(response.error)throw response.error;
-  setNotice('บันทึกข้อมูลนักเรียน '+response.data+' คนเรียบร้อยแล้ว');
- }catch(e){setError('ไม่สามารถบันทึกข้อมูลได้ ข้อมูลทั้งชุดไม่ถูกบันทึก: '+(e instanceof Error?e.message:'บันทึกไม่ได้'))}finally{setBusy(false);}}
-
- const wrongDay=chosen&&new Date(date+'T12:00:00').getDay()!==chosen.weekday_no%7;
- return <main className="wichakan-page mx-auto max-w-5xl px-5 py-6"><PageHeader title="บันทึกกิจกรรม"/><p className="mb-4 text-sm text-slate-500">กิจกรรมแยกจากรายวิชา ครูผู้สอนดูแล สสส. แนะแนว อบรมคุณธรรม ส่วนชุมนุมและลูกเสือครูประจำชั้นทั้งสองคนบันทึกได้</p>
- {error&&<p role="alert" className="mb-3 rounded-lg bg-red-50 p-3 text-sm text-red-700">{error}</p>}{notice&&<p role="status" className="mb-3 rounded-lg bg-green-50 p-3 text-sm text-green-800">{notice}</p>}
- {loading?<p>กำลังโหลด...</p>:!schedules.length?<div className="ui-panel p-5"><p>ยังไม่มีกิจกรรมที่ได้รับมอบหมายสำหรับบัญชีนี้</p><p className="mt-2 text-sm text-slate-500">ฝ่ายวิชาการต้องกำหนดกิจกรรมในตารางสอนก่อน จึงจะเริ่มเช็กชื่อได้</p></div>:<>
- <section className="ui-panel mb-4 flex flex-wrap items-end gap-3 p-4"><label className="text-sm">กิจกรรม<select className="mt-1 block max-w-full rounded-lg border p-2" value={scheduleId} onChange={e=>{setScheduleId(e.target.value);setNotice('');}}>{schedules.map(s=>{const room=rooms.find(r=>r.id===s.classroom_id);return <option value={s.id} key={s.id}>{kinds[s.activity_type]} · {room?.level_code}/{room?.room_code} · {weekdays[s.weekday_no]} คาบ {s.period_no}</option>})}</select></label><label className="text-sm">วันที่เช็กชื่อ<input type="date" value={date} onChange={e=>setDate(e.target.value)} className="mt-1 block rounded-lg border p-2"/></label></section>
- {wrongDay&&<p role="alert" className="mb-3 rounded-lg bg-amber-50 p-3 text-sm text-amber-800">วันที่เลือกไม่ตรงกับวันประจำกิจกรรม ({weekdays[chosen?.weekday_no??0]}) กรุณาเลือกวันที่ถูกต้องก่อนบันทึกเวลาเรียน</p>}
- <section className="ui-panel overflow-x-auto p-4"><table className="w-full min-w-[650px] text-sm"><thead><tr className="border-b bg-slate-50"><th className="p-3 text-left">นักเรียน</th><th className="p-3 text-left">เวลาเข้าร่วม</th><th className="p-3 text-left">ผลประเมิน</th></tr></thead><tbody>{roster.map(s=><tr key={s.id} className="border-b"><td className="p-3">{s.name_prefix_th??''}{s.first_name_th} {s.last_name_th}</td><td className="p-3"><select aria-label={'เวลาเข้าเรียน '+s.first_name_th} className="w-full rounded-lg border p-2" value={statuses[s.id]??''} onChange={e=>setStatuses(prev=>({...prev,[s.id]:e.target.value}))}><option value="">ยังไม่บันทึก</option><option value="present">มา</option><option value="absent">ขาด</option><option value="late">สาย</option><option value="leave">ลา</option></select></td><td className="p-3"><select aria-label={'ผลประเมิน '+s.first_name_th} className="w-full rounded-lg border p-2" value={grades[s.id]??''} onChange={e=>setGrades(prev=>({...prev,[s.id]:e.target.value}))}><option value="">ยังไม่ประเมิน</option><option value="pending">รอประเมิน</option><option value="pass">ผ่าน</option><option value="fail">ไม่ผ่าน</option></select></td></tr>)}</tbody></table>
- <div className="mt-4 flex justify-end"><button type="button" className="ui-primary" disabled={busy||!roster.length||!!wrongDay} onClick={()=>void saveAll()}>{busy?'กำลังบันทึก...':'บันทึกข้อมูลกิจกรรม'}</button></div></section></>}
- <p className="mt-3 text-xs text-slate-500"><Link href="/teacher">← หน้าหลักครู</Link></p></main>;
+  const allowed=new Set(sc.filter(s=>admin||(s.activity_type==='club'||s.activity_type==='scout'?h.some(x=>x.classroom_id===s.classroom_id&&x.teacher_user_id===user.id):s.teacher_user_id===user.id)).map(s=>s.id));
+  if(!live)return;setSchool(schoolId);setSchedules(sc);setAllowed(allowed);setRooms(rm);setTerms(t);setYears(y);setStudents(st);setEnrollments(en);setYearId(y.find(y=>y.is_active)?.id??y[0]?.id??'');
+ }catch(e){if(live)setError(message(e));}finally{if(live)setLoading(false);}})();return()=>{live=false;};},[db]);
+ const groups=useMemo(()=>activityGroups(schedules,rooms,terms,allowed).filter(g=>g.academic_year_id===yearId),[schedules,rooms,terms,allowed,yearId]);
+ const chosen=groups.find(g=>g.key===groupKey)??groups[0];
+ const room=rooms.find(r=>r.id===chosen?.classroom_id);
+ const roster=useMemo(()=>orderStudents(students.filter(s=>enrollments.some(e=>e.student_id===s.id&&e.classroom_id===chosen?.classroom_id&&e.academic_year_id===yearId))),[students,enrollments,chosen?.classroom_id,yearId]);
+ useEffect(()=>{let live=true;setGrades({});setSaved({});setLoaded('');setLoadError('');setSaveError('');setNotice('');setFetching(false);if(!db||!chosen)return;setFetching(true);
+ (async()=>{try{const rows=await all<ActivityGrade>((a,b)=>db.from('school_activity_period_assessments').select('student_id,result').eq('school_id',school).eq('academic_year_id',chosen.academic_year_id).eq('classroom_id',chosen.classroom_id).eq('activity_type',chosen.activity_type).eq('period_no',chosen.period_no).order('student_id').range(a,b));if(!live)return;const values=Object.fromEntries(rows.map(r=>[r.student_id,r.result??'']));setGrades(values);setSaved(values);setLoaded(chosen.key);}catch(e){if(live)setLoadError(message(e));}finally{if(live)setFetching(false);}})();return()=>{live=false;};},[db,school,chosen?.key,retry]);
+ const ready=!!chosen&&loaded===chosen.key&&!fetching&&!error&&!loadError,dirty=roster.some(s=>(grades[s.id]??'')!==(saved[s.id]??''));
+ function canLeave(){return !dirty||window.confirm('มีผลประเมินที่ยังไม่บันทึก ต้องการเปลี่ยนรายการหรือไม่?');}
+ async function save(){if(!db||!chosen||!ready||busy||!roster.length)return;setBusy(true);setSaveError('');setNotice('');try{const r=await db.rpc('save_school_activity_period',{p_room:chosen.classroom_id,p_kind:chosen.activity_type,p_period:chosen.period_no,p_rows:roster.map(s=>({student_id:s.id,result:grades[s.id]||null}))});if(r.error)throw r.error;setSaved({...grades});setNotice('บันทึกผลประเมิน '+r.data+' คนเรียบร้อยแล้ว');}catch(e){setNotice('');setSaveError('บันทึกไม่สำเร็จ: '+message(e));}finally{setBusy(false);}}
+ return <main className="wichakan-page mx-auto max-w-5xl px-5 py-6"><PageHeader title="บันทึกกิจกรรม"/>
+ {error&&<p role="alert" className="teacher-error">{error}</p>}{loadError&&<p role="alert" className="teacher-error">{loadError}<button type="button" onClick={()=>setRetry(r=>r+1)} disabled={busy}>โหลดใหม่</button></p>}{saveError&&<p role="alert" className="teacher-error">{saveError}</p>}{notice&&<p role="status" className="teacher-success">{notice}</p>}
+ {loading?<p role="status">กำลังโหลด...</p>:<><section className="ui-panel mb-4 flex flex-wrap items-end gap-3"><label>ปีการศึกษา<select aria-label="ปีการศึกษา" className="block rounded-lg border p-2" value={yearId} disabled={busy} onChange={e=>{if(canLeave()){setYearId(e.target.value);setGroupKey('');}}}>{years.map(y=><option value={y.id} key={y.id}>{y.year_be}</option>)}</select></label><label className="min-w-0 flex-1">กิจกรรม / ห้อง / ช่วงประเมิน<select aria-label="กิจกรรม / ห้อง / ช่วงประเมิน" className="block w-full rounded-lg border p-2" value={chosen?.key??''} disabled={busy||!groups.length} onChange={e=>{if(canLeave())setGroupKey(e.target.value);}}>{groups.map(g=>{const r=rooms.find(r=>r.id===g.classroom_id)!;const label=r.room_code.startsWith(r.level_code+'/')?r.room_code:r.level_code+'/'+r.room_code;return <option value={g.key} key={g.key}>{ACTIVITY_NAMES[g.activity_type]} · {label} · {g.period_no?'ภาคเรียนที่ '+g.period_no:'รายปี'}</option>;})}</select></label></section>
+ {!chosen?<p className="ui-panel">ไม่มีกิจกรรมที่ได้รับมอบหมายในปีการศึกษานี้</p>:<section className="ui-panel"><div className="mb-4 flex flex-wrap items-center justify-between gap-3"><h2>{ACTIVITY_NAMES[chosen.activity_type]} · {room?.level_code} · {chosen.period_no?'ภาคเรียนที่ '+chosen.period_no:'ประเมินรายปี'} {years.find(y=>y.id===yearId)?.year_be}</h2><button className="ui-secondary" disabled={!ready||busy||!roster.length} onClick={()=>setGrades(old=>({...old,...Object.fromEntries(roster.map(s=>[s.id,'pass']))}))}>กำหนดผ่านทั้งห้อง</button></div>
+ {fetching&&<p role="status">กำลังโหลดผลประเมิน...</p>}<div className="overflow-x-auto"><table className="w-full text-sm"><thead><tr className="border-b"><th className="p-3">เลขที่</th><th className="p-3 text-left">นักเรียน</th><th className="p-3">ผลประเมิน</th></tr></thead><tbody>{roster.map((s,i)=><tr key={s.id} className="border-b"><td className="p-3 text-center">{i+1}</td><th className="p-3 text-left font-normal">{s.student_no} {fullName(s)}</th><td className="p-3"><select aria-label={'ผลประเมิน '+s.student_no} className="w-full rounded-lg border p-2" value={grades[s.id]??''} disabled={!ready||busy} onChange={e=>setGrades(old=>({...old,[s.id]:e.target.value}))}><option value="">ยังไม่ประเมิน</option><option value="pending">รอประเมิน</option><option value="pass">ผ่าน</option><option value="fail">ไม่ผ่าน</option></select></td></tr>)}</tbody></table></div>{!roster.length&&<p className="py-4 text-sm">ไม่มีนักเรียนที่ลงทะเบียนในห้องนี้</p>}<div className="mt-4 flex justify-end"><button className="ui-primary" disabled={!ready||busy||!roster.length||!dirty} onClick={()=>void save()}>{busy?'กำลังบันทึก...':'บันทึกผลประเมินทั้งห้อง'}</button></div></section>}</>}
+ <p className="mt-4 text-sm"><Link href="/teacher">← หน้าหลักครู</Link></p></main>;
 }
