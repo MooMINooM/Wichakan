@@ -10,7 +10,7 @@ import {useTeacherWorkspace,teacherRoomLabel} from '@/lib/use-teacher-workspace'
 import {pp6Matrix,provisionalGpa,type Pp6Subject,type Pp6Offering} from '@/lib/pp6-grades';
 import type {ScoreRecord,ScoreSetting} from '@/lib/teacher-scores';
 type Assessment={student_id:string;term_no:number;desirable_traits:string|null;reading_thinking_writing:string|null;learner_activities:string|null;comment:string|null};
-type Report={subjects:Pp6Subject[];offerings:Pp6Offering[];scores:ScoreRecord[];settings:ScoreSetting[]};
+type Report={directorName:string;subjects:Pp6Subject[];offerings:Pp6Offering[];scores:ScoreRecord[];settings:ScoreSetting[]};
 export default function HomeroomPp6(){
  const {data,loading,error}=useTeacherWorkspace();
  const [printerName,setPrinterName]=useState(''),[printerError,setPrinterError]=useState('');
@@ -36,13 +36,14 @@ export default function HomeroomPp6(){
   setReport(null);setAssessments([]);setEditingId('');setFetchError('');if(!id||!data.schoolId)return;
   const db=getSupabaseBrowserClient();if(!db)return;setFetching(true);
   const roomFound=data.rooms.find(r=>r.id===id);if(!roomFound)return;
-  const [s,o,set]=await Promise.all([
+  const [s,o,set,signerConfig]=await Promise.all([
     db.from('subjects').select('id,subject_code,name_th,grade_level,category,learning_hours').eq('school_id',data.schoolId).eq('grade_level',roomFound.level_code),
     db.from('course_offerings').select('id,subject_id,classroom_id,term_id').eq('school_id',data.schoolId).eq('classroom_id',id),
-    db.from('subject_score_settings').select('subject_id,academic_year_id,term1_coursework,term1_midterm,term1_final,term2_coursework,term2_midterm,term2_final').eq('school_id',data.schoolId).eq('academic_year_id',roomFound.academic_year_id)
+    db.from('subject_score_settings').select('subject_id,academic_year_id,term1_coursework,term1_midterm,term1_final,term2_coursework,term2_midterm,term2_final').eq('school_id',data.schoolId).eq('academic_year_id',roomFound.academic_year_id),
+    db.from('pp5_signatories').select('director_name').eq('school_id',data.schoolId).eq('academic_year_id',roomFound.academic_year_id).maybeSingle()
   ]);
   if(!active)return;
-  const fail=s.error||o.error||set.error;
+  const fail=s.error||o.error||set.error||signerConfig.error;
   if(fail){setFetchError(fail.message);setFetching(false);return;}
   const offerings=(o.data??[]).filter(x=>data.terms.some(t=>t.id===x.term_id&&t.academic_year_id===roomFound.academic_year_id));
   const filteredSubjects=(s.data??[]).filter(x=>offerings.some(y=>y.subject_id===x.id)&&(!roomFound.level_code.startsWith('ม.')||offerings.some(y=>y.subject_id===x.id&&data.terms.some(t=>t.id===y.term_id&&t.term_no===termNo)))) as Pp6Subject[];
@@ -56,7 +57,7 @@ export default function HomeroomPp6(){
   }
   const ass=await db.from('pp6_student_assessments').select('student_id,term_no,desirable_traits,reading_thinking_writing,learner_activities,comment').eq('classroom_id',id).eq('academic_year_id',roomFound.academic_year_id);
   if(!active)return;if(ass.error){setFetchError(ass.error.message);setFetching(false);return;}
-  setAssessments(ass.data??[]);setReport({subjects:filteredSubjects,offerings,scores,settings:set.data??[]});setFetching(false);
+  setAssessments(ass.data??[]);setReport({directorName:signerConfig.data?.director_name?.trim()??'',subjects:filteredSubjects,offerings,scores,settings:set.data??[]});setFetching(false);
  })();return()=>{active=false;};},[id,data,termNo]);
  const enrolled=actualRoom?data.enrollments.filter(e=>e.classroom_id===actualRoom.id&&e.academic_year_id===actualRoom.academic_year_id).map(e=>e.student_id):[];
  const roster=data.students.filter(s=>enrolled.includes(s.id));
@@ -88,6 +89,6 @@ export default function HomeroomPp6(){
  <p className="mt-4 text-sm text-amber-800">พิมพ์ ปพ.6 ได้แม้ผลการเรียนหรือผลประเมินยังไม่ครบ โดยระบบจะไม่เติมคะแนน เกรด หรือ GPA ที่ไม่มีข้อมูล และหน้าตัวอย่างจะแจ้งสถานะที่ยังไม่ผ่านการรับรอง</p></>}
  </div>
  {editingId&&draft&&<div className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-4 print:hidden"><div className="w-full max-w-xl rounded-2xl bg-white p-5 shadow-xl"><h2 className="text-lg font-bold">บันทึกผลการประเมินนักเรียน</h2><p className="my-2 text-sm text-slate-600">ภาคเรียนที่ {termNo} · {students.find(s=>s.id===editingId)?.name_prefix_th??''}{students.find(s=>s.id===editingId)?.first_name_th} {students.find(s=>s.id===editingId)?.last_name_th}</p>{([{key:'desirable_traits',label:'คุณลักษณะอันพึงประสงค์',options:['ดีเยี่ยม','ดี','ผ่าน','ไม่ผ่าน']},{key:'reading_thinking_writing',label:'การอ่าน คิดวิเคราะห์และเขียน',options:['ดีเยี่ยม','ดี','ผ่าน','ไม่ผ่าน']},{key:'learner_activities',label:'กิจกรรมพัฒนาผู้เรียน',options:['ผ่าน','ไม่ผ่าน']}] as const).map(field=><label key={field.key} className="mt-3 block text-sm font-semibold">{field.label}<select className="mt-1 w-full rounded-lg border p-2" value={draft[field.key]??''} onChange={e=>setDraft(old=>old?{...old,[field.key]:e.target.value||null}:old)}><option value="">ยังไม่ประเมิน</option>{field.options.map(v=><option key={v} value={v}>{v}</option>)}</select></label>)}<div className="mt-4 border-t border-slate-200 pt-3"><label className="block text-sm font-semibold">ความคิดเห็นครูประจำชั้น<textarea className="mt-1 w-full rounded-lg border p-2" rows={2} maxLength={1000} value={draft.comment??''} onChange={e=>setDraft(old=>old?{...old,comment:e.target.value}:old)}/></label></div>{assessmentMsg&&<p role="alert" className="mt-2 text-sm text-red-700">{assessmentMsg}</p>}<div className="mt-4 flex justify-end gap-2"><button className="ui-secondary" disabled={saving} onClick={()=>setEditingId('')}>ยกเลิก</button><button className="ui-primary" disabled={saving} onClick={()=>void saveAssessment()}>{saving?'กำลังบันทึก':'บันทึกผลประเมิน'}</button></div></div></div>}
- {printId&&actualRoom&&printerName&&createPortal(<div className="pp6-print-modal" role="dialog" aria-modal="true" aria-label="ตัวอย่าง ปพ.6"><div className="pp6-print-sheet"><div className="pp6-print-toolbar"><span>ข้อมูลยังไม่ผ่านการรับรอง</span><button className="ui-secondary" disabled={printing} onClick={()=>{setPrintId('');setPrintError('');}}>ปิดตัวอย่าง</button><button className="ui-secondary" disabled={printing} onClick={()=>void printReport()}>{printing?'กำลังเตรียมเอกสาร…':'พิมพ์ ปพ.6 / บันทึก PDF'}</button></div>{printError&&<p role="alert" className="pp6-print-error">{printError}</p>}{roster.filter(s=>printId==='__all__'||s.id===printId).map(s=><Pp6Report key={s.id} teacherName={printerName} student={s} room={actualRoom} year={year?.year_be} termNo={termNo} subjects={report?.subjects??[]} cells={matrix(s.id)} assessment={assess(s.id)} gpa={report?provisionalGpa(report.subjects,matrix(s.id),actualRoom.level_code,termNo):null} rosterCount={roster.length}/>)}</div></div>,document.body)}
+ {printId&&actualRoom&&printerName&&createPortal(<div className="pp6-print-modal" role="dialog" aria-modal="true" aria-label="ตัวอย่าง ปพ.6"><div className="pp6-print-sheet"><div className="pp6-print-toolbar"><span>ข้อมูลยังไม่ผ่านการรับรอง</span><button className="ui-secondary" disabled={printing} onClick={()=>{setPrintId('');setPrintError('');}}>ปิดตัวอย่าง</button><button className="ui-secondary" disabled={printing} onClick={()=>void printReport()}>{printing?'กำลังเตรียมเอกสาร…':'พิมพ์ ปพ.6 / บันทึก PDF'}</button></div>{printError&&<p role="alert" className="pp6-print-error">{printError}</p>}{roster.filter(s=>printId==='__all__'||s.id===printId).map(s=><Pp6Report key={s.id} teacherName={printerName} directorName={report?.directorName??''} student={s} room={actualRoom} year={year?.year_be} termNo={termNo} subjects={report?.subjects??[]} cells={matrix(s.id)} assessment={assess(s.id)} gpa={report?provisionalGpa(report.subjects,matrix(s.id),actualRoom.level_code,termNo):null} rosterCount={roster.length}/>)}</div></div>,document.body)}
  </main>;
 }

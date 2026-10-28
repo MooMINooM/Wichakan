@@ -19,3 +19,8 @@ To reproduce the browser print checks, build with the mock environment (`NEXT_PU
 PP5 and PP6 share `REPORT_TYPE` in `src/lib/report-typography.ts`: page titles 20 pt, section headings 16 pt, body/subject rows 14 pt, table headings/notes/page numbers 12 pt. PP6 retains the existing TH Sarabun New regular/bold family and the A4 reference geometry. SVG sizes map directly to print points; HTML continuation pages use equivalent point units. Inline comments use matching SVG-coordinate sizes and a 15-unit line height so three lines fit the reserved lower margin.
 
 Browser regression checks assert the rendered font family, shared sizes in headers/tables, short-comment bounds, continuation-page sizes, single/class page counts and authenticated homeroom signature.
+
+
+## Director signature
+
+The school director name uses the existing `pp5_signatories.director_name` configuration for the report school and academic year. It is loaded together with the room report, and appears in parentheses between the administrator signature line and the ผู้บริหารสถานศึกษา label on every student/subject continuation page. Missing configuration leaves the name blank. Homeroom signatures still use the authenticated printing teacher.
