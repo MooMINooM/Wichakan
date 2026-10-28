@@ -8,7 +8,7 @@ import './pp6-report.css';
 const printTypeStyle={'--pp6-title':REPORT_TYPE.title+'pt','--pp6-body':REPORT_TYPE.body+'pt','--pp6-inline-body':REPORT_TYPE.body+'px','--pp6-inline-heading':REPORT_TYPE.section+'px'} as CSSProperties;
 
 type Assessment={desirable_traits:string|null;reading_thinking_writing:string|null;learner_activities:string|null;comment:string|null};
-type Props={student:TeacherStudent;room:TeacherRoom;year:number|undefined;termNo:number;subjects:Pp6Subject[];cells:Pp6Cell[];assessment?:Assessment;gpa:string|null;rosterCount:number;teacherName:string};
+type Props={student:TeacherStudent;room:TeacherRoom;year:number|undefined;termNo:number;subjects:Pp6Subject[];cells:Pp6Cell[];assessment?:Assessment;gpa:string|null;rosterCount:number;teacherName:string;directorName?:string};
 function Text({children,maxWidth,...props}:Omit<SVGProps<SVGTextElement>,'children'> & {children:string|number;maxWidth?:number}){
  const ref=useRef<SVGTextElement>(null),[length,setLength]=useState<number>();
  useEffect(()=>{let active=true;const fit=()=>{if(!active||!ref.current)return;const clone=ref.current.cloneNode(true) as SVGTextElement;clone.removeAttribute('textLength');clone.removeAttribute('lengthAdjust');clone.style.visibility='hidden';ref.current.parentNode?.appendChild(clone);const width=clone.getComputedTextLength();clone.remove();setLength(maxWidth&&width>maxWidth?maxWidth:undefined);};fit();void document.fonts.ready.then(fit);return()=>{active=false;};},[children,maxWidth]);
@@ -18,7 +18,8 @@ const xs=[42.89,83.929,141.761,334.341,392.173,442.385,500.217,566.563];
 const rowYs=[187.657,...Array.from({length:16},(_,i)=>187.657+(i+1)*16.7355),...Array.from({length:8},(_,i)=>455.425+(i+1)*14.95825)];
 const fmt=(n:number|null)=>n===null?'—':n.toFixed(2);
 const base=process.env.NEXT_PUBLIC_BASE_PATH||'';
-export default function Pp6Report({student,room,year,termNo,subjects,cells,assessment,gpa,rosterCount,teacherName}:Props){
+export default function Pp6Report({student,room,year,termNo,subjects,cells,assessment,gpa,rosterCount,teacherName,directorName}:Props){
+ const schoolDirector=directorName?.trim()??'';
  const fullName=[(student.name_prefix_th??'').trim()+student.first_name_th.trim(),student.last_name_th.trim()].filter(Boolean).join(' ');
  const ordered=pp6PrintOrder(subjects),pages=Math.max(1,Math.ceil(ordered.length/24)),summary=pp6PrintSummary(subjects,cells);
  const shortComment=assessment?.comment?.trim()??'',extraComment=shortComment.length>180||shortComment.split("\n").length>3;
@@ -73,7 +74,7 @@ export default function Pp6Report({student,room,year,termNo,subjects,cells,asses
      <Text x="189.195" y="699.185" textAnchor="middle" fontWeight="700" fontSize={REPORT_TYPE.section}>การประเมินคุณลักษณะ</Text>
      {(['desirable_traits','reading_thinking_writing','learner_activities'] as const).map((key,i)=><g key={key}><Text x="43.26" y={715.921+i*16.7355}>{[' ผลการประเมินคุณลักษณะอันพึงประสงค์',' ผลการประเมินการอ่าน คิดวิเคราะห์ และเขียน',' ผลการประเมินกิจกรรมพัฒนาผู้เรียน'][i]}</Text><Text x="298.852" y={715.921+i*16.7355} textAnchor="middle" maxWidth={68}>{assessment?.[key]??'—'}</Text></g>)}
      <Text x="43.26" y="766.127">{' อันดับที่ในห้องเรียน จากนักเรียนจำนวน '+rosterCount+' คน'}</Text>
-     {([618.337,680.54,740.965]).map((y,i)=><g key={y}><Text x="352.8" y={y}>ลงชื่อ..........................................................................................</Text><Text x="451.288" y={y+(i===0?31.99:15.995)} textAnchor="middle" fontWeight="700">{['ครูที่ปรึกษา','ผู้บริหารสถานศึกษา','ผู้ปกครอง'][i]}</Text>{i===0&&<Text x="451.288" y={y+15.995} textAnchor="middle" maxWidth={205}>{'('+teacherName+')'}</Text>}</g>)}
+     {([618.337,680.54,740.965]).map((y,i)=><g key={y}><Text x="352.8" y={y}>ลงชื่อ..........................................................................................</Text><Text x="451.288" y={y+(i<2?31.99:15.995)} textAnchor="middle" fontWeight="700">{['ครูที่ปรึกษา','ผู้บริหารสถานศึกษา','ผู้ปกครอง'][i]}</Text>{(i===0||(i===1&&schoolDirector))&&<Text x="451.288" y={y+15.995} textAnchor="middle" maxWidth={205}>{'('+(i===0?teacherName:schoolDirector)+')'}</Text>}</g>)}
     </g>
     {shortComment&&!extraComment&&<foreignObject x="42.89" y="783" width="523.673" height="48"><div className="pp6-inline-comment"><b>ความคิดเห็นครูประจำชั้น</b> {shortComment}</div></foreignObject>}
     {pages>1&&<Text x="566.563" y="832" textAnchor="end" fontSize={REPORT_TYPE.note}>{'หน้า '+(page+1)+' / '+pages}</Text>}
