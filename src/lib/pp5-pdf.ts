@@ -77,28 +77,46 @@ export async function createPp5Pdf(book:Pp5Book){
  const counts=['present','absent','late','leave'].map(v=>values.filter(a=>a===v).length),total=values.length,present=counts[0]+counts[2];let xx=summaryX;[...counts,total,total?(100*present/total).toFixed(0):'',''].forEach((v,j)=>{cell(p,s?v:'',xx,yy,summaryWidths[j],15.5,PP5_TYPE.body);xx+=summaryWidths[j];});}
  text(p,'/ มาเรียน   ข ขาดเรียน   ส มาสาย   ล ลา | หลายคาบในวันเดียวเรียงตามแถวชั่วโมง | ช่องสีเทาไม่มีคาบ',18,577,PP5_TYPE.note,805);
  }});
- // Primary: two term groups on one row; secondary: only the selected term.
+ // Keep scores, traits and reading on separate sheets, with the same roster chunks.
  const annual=!room.level_code.startsWith('ม.');
- for(const chunk of chunks){const p=addPage(annual),x=18,y=54,rowHeight=annual?14.25:21,ws=annual?[22,174,...Array(8).fill(31),34,30,...Array(8).fill(16),24,...Array(5).fill(16),24,32]:[18,172,...Array(5).fill(29),...Array(8).fill(12),18,...Array(5).fill(12),18,32],xs=[x];ws.forEach(w=>xs.push(xs[xs.length-1]+w));
- const traitStart=annual?12:7,traitResult=traitStart+8,readingStart=traitResult+1,readingResult=readingStart+5,note=readingResult+1,width=ws.reduce((a,b)=>a+b,0),center=p.getWidth()/2;
- text(p,`บันทึกผลการพัฒนาผู้เรียนและการประเมินคุณลักษณะอันพึงประสงค์/อ่านคิดวิเคราะห์และเขียน`,center,3,PP5_TYPE.title,width,'center',true);text(p,`${annual?'ปีการศึกษา '+year.year_be+' · คะแนนภาคเรียนที่ 1 และ 2':period} รายวิชา ${subject.subject_code} ${subject.name_th} ครูผู้สอน ${book.teacherName}`,center,27,PP5_TYPE.body,width,'center');
- const merged=(v:string,a:number,b:number,yy:number,h:number,size:number=PP5_TYPE.tableHeader)=>{const w=xs[b]-xs[a],lines=v.split('\n').flatMap(part=>wrap(part,w-4,size,bold)),leading=size;box(p,xs[a],yy,w,h);lines.forEach((part,j)=>text(p,part,xs[a]+w/2,yy+(h-leading*lines.length)/2-1+j*leading,size,w-4,'center',true));};
- const scoreHeader=(label:string,j:number)=>{const w=ws[j],parts=label.split('\n');box(p,xs[j],y+20,w,44);parts.forEach((part,k)=>text(p,part,xs[j]+w/2,y+21+(44-parts.length*12)/2+k*12,PP5_TYPE.tableHeader,w-4,'center',true));};
- merged('เลขที่',0,1,y,84,PP5_TYPE.tableHeader);merged('ชื่อ-สกุล',1,2,y,84,PP5_TYPE.tableHeader);
- if(annual){merged('ภาคเรียนที่ 1',2,6,y,20,PP5_TYPE.tableHeader);merged('ภาคเรียนที่ 2',6,10,y,20,PP5_TYPE.tableHeader);for(const start of [2,6])['คะแนน\nเก็บ','กลาง\nภาค','ปลาย\nภาค','รวม\nภาคเรียน'].forEach((label,i)=>scoreHeader(label,start+i));vertical(p,'รวมทั้งปี',xs[10],y,ws[10],64,PP5_TYPE.tableHeader);vertical(p,'ระดับผลการเรียน',xs[11],y,ws[11],64,PP5_TYPE.tableHeader);
- const yc=scores[0].yearCaps;[...yc.slice(0,3),yc.slice(0,3).reduce((a,b)=>a+b,0),...yc.slice(3),yc.slice(3).reduce((a,b)=>a+b,0),yc.reduce((a,b)=>a+b,0),'—'].forEach((cap,i)=>cell(p,cap,xs[i+2],y+64,ws[i+2],20,PP5_TYPE.body));
- }else{merged('คะแนนผลการเรียน',2,7,y,20,PP5_TYPE.tableHeader);['คะแนน\nเก็บ','กลาง\nภาค','ปลาย\nภาค','รวม\nคะแนน','ระดับผล\nการเรียน'].forEach((label,i)=>scoreHeader(label,i+2));[...caps,caps.reduce((a,b)=>a+b,0),'—'].forEach((cap,i)=>cell(p,cap,xs[i+2],y+64,ws[i+2],20,PP5_TYPE.body));}
- merged('ผลการประเมินภาคเรียนที่ '+term.term_no,traitStart,note,y,20,PP5_TYPE.tableHeader);
- vertical(p,'หมายเหตุ',xs[note],y,ws[note],84,PP5_TYPE.tableHeader);merged('คุณลักษณะอันพึงประสงค์',traitStart,traitResult,y+20,28,PP5_TYPE.tableHeader);merged('อ่าน คิดวิเคราะห์\nและเขียน',readingStart,readingResult,y+20,28,PP5_TYPE.tableHeader);
- vertical(p,'ผลการประเมิน',xs[traitResult],y+20,ws[traitResult],64,PP5_TYPE.tableHeader);vertical(p,'ผลการประเมิน',xs[readingResult],y+20,ws[readingResult],64,PP5_TYPE.tableHeader);
- for(let i=traitStart;i<traitResult;i++)cell(p,i-traitStart+1,xs[i],y+48,ws[i],16,PP5_TYPE.body);for(let i=readingStart;i<readingResult;i++)cell(p,i-readingStart+1,xs[i],y+48,ws[i],16,PP5_TYPE.body);
- for(const i of [...Array.from({length:8},(_,i)=>i+traitStart),...Array.from({length:5},(_,i)=>i+readingStart)])cell(p,3,xs[i],y+64,ws[i],20,PP5_TYPE.body);
- for(let i=0;i<rowsPerPage;i++){const s=chunk[i],score=s?pp5Score(data,o,s.id):null,a=s?assessments.find(a=>a.student_id===s.id):null,row=Array<string|number>(ws.length).fill('');row[0]=roster.indexOf(chunk[0])+i+1;
- if(s&&score&&a){row[1]=fullName(s);if(annual){for(let j=0;j<3;j++){row[2+j]=score.yearScores[j]??'—';row[6+j]=score.yearScores[j+3]??'—';}row[5]=score.termTotals[0]??'—';row[9]=score.termTotals[1]??'—';row[10]=score.annualTotal??'—';row[11]=score.grade;}else{score.scores.forEach((v,j)=>row[j+2]=v??'—');row[5]=score.total??'—';row[6]=score.grade;}
- for(let j=0;j<8;j++)row[traitStart+j]=a.trait_scores![j];row[traitResult]=assessmentQuality(a.trait_scores,'traits')!;for(let j=0;j<5;j++)row[readingStart+j]=a.reading_scores![j];row[readingResult]=assessmentQuality(a.reading_scores,'reading')!;row[note]=['ร','มส'].includes(score.grade)?score.grade:'';}
- row.forEach((v,j)=>cell(p,v,xs[j],y+84+i*rowHeight,ws[j],rowHeight,PP5_TYPE.body,false,j===1?'left':'center'));}
- text(p,'คุณภาพ 0 ไม่ผ่าน 1 ผ่าน 2 ดี 3 ดีเยี่ยม'+(annual?' | รวมปีและเกรดสรุปเมื่อคะแนนครบทั้งสองภาคเรียน':''),18,annual?577:785,PP5_TYPE.note,width-110);
+ function sheetHeader(p:PDFPage,title:string,width:number,scoreSheet=false){
+  const center=p.getWidth()/2;
+  text(p,title,center,3,PP5_TYPE.title,width,'center',true);
+  text(p,`${scoreSheet&&annual?'ปีการศึกษา '+year.year_be+' · คะแนนภาคเรียนที่ 1 และ 2':period} ชั้น ${roomLabel} รายวิชา ${subject.subject_code} ${subject.name_th}`,center,25,PP5_TYPE.body,width,'center');
+  text(p,'ครูผู้สอน '+book.teacherName,center,41,PP5_TYPE.body,width,'center');
  }
+ function mergedCell(p:PDFPage,v:string,x:number,y:number,w:number,h:number){
+  const lines=wrap(v,w-4,PP5_TYPE.tableHeader,bold);box(p,x,y,w,h);
+  lines.forEach((part,j)=>text(p,part,x+w/2,y+(h-PP5_TYPE.tableHeader*lines.length)/2-1+j*PP5_TYPE.tableHeader,PP5_TYPE.tableHeader,w-4,'center',true));
+ }
+ for(const chunk of chunks){const p=addPage(annual),x=18,y=64,rowHeight=annual?14.25:21,ws=annual?[24,210,...Array(8).fill(50),70,60,32]:[24,210,...Array(5).fill(55),50],xs=[x];ws.forEach(w=>xs.push(xs[xs.length-1]+w));
+ const note=ws.length-1,width=xs[ws.length]-x;
+ sheetHeader(p,'บันทึกผลการพัฒนาผู้เรียน',width,true);
+ const merged=(v:string,a:number,b:number,yy:number,h:number)=>mergedCell(p,v,xs[a],yy,xs[b]-xs[a],h);
+ const scoreHeader=(label:string,j:number)=>merged(label,j,j+1,y+20,44);
+ merged('เลขที่',0,1,y,84);merged('ชื่อ-สกุล',1,2,y,84);
+ if(annual){merged('ภาคเรียนที่ 1',2,6,y,20);merged('ภาคเรียนที่ 2',6,10,y,20);for(const start of [2,6])['คะแนน\nเก็บ','กลาง\nภาค','ปลาย\nภาค','รวม\nภาคเรียน'].forEach((label,i)=>scoreHeader(label,start+i));vertical(p,'รวมทั้งปี',xs[10],y,ws[10],64);vertical(p,'ระดับผลการเรียน',xs[11],y,ws[11],64);
+ const yc=scores[0].yearCaps;[...yc.slice(0,3),yc.slice(0,3).reduce((a,b)=>a+b,0),...yc.slice(3),yc.slice(3).reduce((a,b)=>a+b,0),yc.reduce((a,b)=>a+b,0),'—'].forEach((cap,i)=>cell(p,cap,xs[i+2],y+64,ws[i+2],20));
+ }else{merged('คะแนนผลการเรียน',2,7,y,20);['คะแนน\nเก็บ','กลาง\nภาค','ปลาย\nภาค','รวม\nคะแนน','ระดับผล\nการเรียน'].forEach((label,i)=>scoreHeader(label,i+2));[...caps,caps.reduce((a,b)=>a+b,0),'—'].forEach((cap,i)=>cell(p,cap,xs[i+2],y+64,ws[i+2],20));}
+ vertical(p,'หมายเหตุ',xs[note],y,ws[note],84);
+ for(let i=0;i<rowsPerPage;i++){const s=chunk[i],score=s?pp5Score(data,o,s.id):null,row=Array<string|number>(ws.length).fill('');row[0]=roster.indexOf(chunk[0])+i+1;
+ if(s&&score){row[1]=fullName(s);if(annual){for(let j=0;j<3;j++){row[2+j]=score.yearScores[j]??'—';row[6+j]=score.yearScores[j+3]??'—';}row[5]=score.termTotals[0]??'—';row[9]=score.termTotals[1]??'—';row[10]=score.annualTotal??'—';row[11]=score.grade;}else{score.scores.forEach((v,j)=>row[j+2]=v??'—');row[5]=score.total??'—';row[6]=score.grade;}row[note]=['ร','มส'].includes(score.grade)?score.grade:'';}
+ row.forEach((v,j)=>cell(p,v,xs[j],y+84+i*rowHeight,ws[j],rowHeight,PP5_TYPE.body,false,j===1?'left':'center'));}
+ if(annual)text(p,'รวมปีและเกรดสรุปเมื่อคะแนนครบทั้งสองภาคเรียน',18,577,PP5_TYPE.note,width-110);
+ }
+ // Assessments retain the selected offering's term; do not copy scores between terms.
+ for(const kind of ['traits','reading'] as const){const labels=kind==='traits'?TRAITS:READING,title=kind==='traits'?'ประเมินคุณลักษณะอันพึงประสงค์':'ประเมินการอ่าน คิดวิเคราะห์ และเขียน';
+ for(const chunk of chunks){const p=addPage(),x=18,y=64,headerHeight=120,rowHeight=19.5,ws=[24,195,...labels.map(()=>240/labels.length),60,40],xs=[x];ws.forEach(w=>xs.push(xs[xs.length-1]+w));
+ const result=labels.length+2,note=result+1,width=xs[ws.length]-x;sheetHeader(p,title,width);
+ mergedCell(p,'เลขที่',xs[0],y,ws[0],headerHeight);mergedCell(p,'ชื่อ-สกุล',xs[1],y,ws[1],headerHeight);
+ mergedCell(p,'ผลการประเมินภาคเรียนที่ '+term.term_no,xs[2],y,xs[result]-xs[2],20);
+ labels.forEach((label,i)=>{vertical(p,label,xs[i+2],y+20,ws[i+2],80);cell(p,3,xs[i+2],y+100,ws[i+2],20);});
+ vertical(p,'ผลการประเมิน',xs[result],y,ws[result],100);cell(p,'—',xs[result],y+100,ws[result],20);vertical(p,'หมายเหตุ',xs[note],y,ws[note],headerHeight);
+ for(let i=0;i<rowsPerPage;i++){const s=chunk[i],a=s?assessments.find(a=>a.student_id===s.id):null,row=Array<string|number>(ws.length).fill('');row[0]=roster.indexOf(chunk[0])+i+1;
+ if(s&&a){const values=kind==='traits'?a.trait_scores:a.reading_scores;row[1]=fullName(s);labels.forEach((_,j)=>row[j+2]=values?.[j]??'—');row[result]=assessmentQuality(values,kind)??'—';}
+ row.forEach((v,j)=>cell(p,v,xs[j],y+headerHeight+i*rowHeight,ws[j],rowHeight,PP5_TYPE.body,false,j===1?'left':'center'));}
+ text(p,'ระดับคุณภาพ 0 ไม่ผ่าน   1 ผ่าน   2 ดี   3 ดีเยี่ยม',18,790,PP5_TYPE.note,width);
+ }}
  // 5.พิมพ์ ตชว: metadata first, then the original numbered writing lines.
  let targetPage:PDFPage;let ty=0;
  function targetSheet(continued=false){const p=addPage();text(p,'ตัวชี้วัด/ผลการเรียนรู้'+(continued?' (ต่อ)':''),297.5,63,PP5_TYPE.title,540,'center',true);text(p,'รหัสวิชา '+subject.subject_code,35,111,PP5_TYPE.body,240);text(p,'รายวิชา '+subject.name_th,300,111,PP5_TYPE.body,260);text(p,'กลุ่มสาระการเรียนรู้ '+group,35,139,PP5_TYPE.body,260);text(p,'ครูผู้สอน '+book.teacherName,300,139,PP5_TYPE.body,260);text(p,'ตัวชี้วัด/ผลการเรียนรู้ จำนวน '+targets.length+' ตัว',35,179,PP5_TYPE.body,525);return p;}
