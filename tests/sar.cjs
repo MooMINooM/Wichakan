@@ -17,7 +17,7 @@ assert(sql.includes("m.role='teacher'"),'teacher role validation required');
 assert(sql.includes("auth.uid()"),'authentication required');
 assert(sql.includes('all_sar_items_required'),'partial draft must not be submitted as complete');
 assert(sql.includes('published_targets_are_locked'),'published targets should be locked');
-assert(admin.includes('sar_set_year_targets'),'admin must set yearly targets through authorized RPC');
+assert(admin.includes('sar_save_indicator_targets'),'admin must set yearly consideration targets through authorized RPC');
 assert(admin.includes('sar_reopen_teacher_assessment'),'admin must be able to reopen teacher work');
 assert(teacher.includes('sar_save_teacher_assessment'),'teacher page should save via authorized RPC');
 assert(nav.includes("href:'/admin/sar'"));
