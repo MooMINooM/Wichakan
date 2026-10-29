@@ -2,6 +2,7 @@
 import {useEffect,useState} from 'react';
 import Link from 'next/link';
 import PageHeader from '@/components/page-header';
+import {createSarDocx} from '@/lib/sar-docx';
 import {getSupabaseBrowserClient} from '@/lib/supabase/browser';
 type Year={id:string;year_be:number;is_active:boolean};
 type Topic={code:string;title:string;standard_no:number;sort_order:number};
@@ -80,9 +81,12 @@ function makeHtml(report:Report,topics:Topic[],details:DetailItem[],version:numb
  parts.push('<p class="small">จัดทำด้วย Wichakan โดยข้อมูลที่ไม่มีหลักฐานแสดงว่าไม่มีข้อมูล ไม่ใช้ค่า 0 โดยอัตโนมัติ</p></body></html>');
  return parts.join('');
 }
-function downloadDoc(html:string,year:number){
- const blob=new Blob(['\ufeff',html],{type:'application/msword;charset=utf-8'});
- const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download='SAR_'+year+'.doc';document.body.appendChild(a);a.click();a.remove();URL.revokeObjectURL(url);
+function downloadDocx(report:Report,topics:Topic[],details:DetailItem[],version:number|null){
+ const data=createSarDocx(report,topics,details,version);
+ const blob=new Blob([new Uint8Array(data)],{type:'application/vnd.openxmlformats-officedocument.wordprocessingml.document'});
+ const url=URL.createObjectURL(blob);
+ const a=document.createElement('a');a.href=url;a.download='SAR_'+report.year+(version?'_v'+version:'_draft')+'.docx';
+ document.body.appendChild(a);a.click();a.remove();URL.revokeObjectURL(url);
 }
 export default function SarReportPage(){
  const db=getSupabaseBrowserClient();
@@ -165,10 +169,10 @@ export default function SarReportPage(){
    <label className="text-sm">ฉบับรายงาน <select className="ml-2 rounded-md border border-slate-300 bg-white px-3 py-2" value={selected} onChange={e=>setSelected(e.target.value)}>
     <option value="draft">ฉบับร่าง (ข้อมูลปัจจุบัน)</option>{versions.map(v=><option value={v.id} key={v.id}>ฉบับรับรอง รุ่น {v.version_no} — {new Date(v.approved_at).toLocaleDateString('th-TH')}</option>)}
    </select></label>
-   <button className="ui-secondary" disabled={!report} onClick={()=>downloadDoc(html,report!.year)}>ส่งออก Word (.doc)</button>
+   <button className="ui-secondary" disabled={!report} onClick={()=>downloadDocx(report!,topics,details,selectedVersion?.version_no??null)}>ส่งออก Word (.docx)</button>
    <button className="ui-secondary" disabled={!report} onClick={printPdf}>พิมพ์ / บันทึก PDF</button>
   </div>
-  <p className="mb-4 text-xs text-slate-500">Word เป็นเอกสาร HTML ที่เปิดแก้ไขด้วย Word ได้ ส่วน PDF ใช้คำสั่งพิมพ์ของเบราว์เซอร์ การสร้างเอกสารไม่ส่งคะแนนรายบุคคลออกไปภายนอก</p>
+  <p className="mb-4 text-xs text-slate-500">Word เป็นไฟล์ DOCX ที่แก้ไขต่อได้ ส่วน PDF ใช้คำสั่งพิมพ์ของเบราว์เซอร์ การสร้างเอกสารไม่ส่งคะแนนรายบุคคลออกไปภายนอก</p>
   <section className="mb-6 border-y border-slate-200 py-4">
    <div className="flex flex-wrap items-center justify-between gap-3"><h2 className="font-semibold">สถานะความพร้อมรายงาน</h2>
     <button className="ui-primary" disabled={busy||!complete||!hasPublished} onClick={()=>void approve()}>รับรองรายงานฉบับใหม่</button></div>
