@@ -12,12 +12,16 @@ type Profile={user_id:string;display_name:string|null};
 type Answer={teacher_user_id:string;item_code:string;rating:number|null};
 type Submission={teacher_user_id:string;submitted_at:string};
 type Progress={id:string;name:string;standard2:number;standard3:number;submitted_at:string|null};
+type StudentTotal={level:string;male:number;female:number;unknown:number;total:number};
+type TeacherLoad={teacher_id:string;term_no:number;course_periods:number;activity_periods:number;total_periods:number};
+type SarSnapshot={students:StudentTotal[];teaching_load:TeacherLoad[];activities_without_teacher:number;period_unit:string};
 const levels:Record<number,string>={1:'กำลังพัฒนา',2:'ปานกลาง',3:'ดี',4:'ดีเลิศ',5:'ยอดเยี่ยม'};
 const total2=6,total3=9;
 export default function SarAdminPage(){
  const [school,setSchool]=useState(''),[years,setYears]=useState<Year[]>([]),[yearId,setYearId]=useState('');
  const [items,setItems]=useState<Item[]>([]),[teachers,setTeachers]=useState<Teacher[]>([]),[profiles,setProfiles]=useState<Profile[]>([]);
  const [setting,setSetting]=useState<Setting|null>(null),[scores,setScores]=useState<Answer[]>([]),[submissions,setSubmissions]=useState<Submission[]>([]);
+ const [snapshot,setSnapshot]=useState<SarSnapshot|null>(null);
  const [target2,setTarget2]=useState(''),[target3,setTarget3]=useState(''),[notes,setNotes]=useState('');
  const [initialLoading,setInitialLoading]=useState(true),[yearLoading,setYearLoading]=useState(false),[busy,setBusy]=useState(false),[error,setError]=useState(''),[notice,setNotice]=useState('');
  useEffect(()=>{let active=true;(async()=>{try{
@@ -48,15 +52,17 @@ export default function SarAdminPage(){
  finally{if(active)setInitialLoading(false);}})();return()=>{active=false};},[]);
  const loadYear=useCallback(async(selected:string,schoolId:string)=>{
   const db=getSupabaseBrowserClient();if(!db)throw Error('ไม่พบการเชื่อมต่อ Supabase');
-  const [s,a,u]=await Promise.all([
+  const [s,a,u,aggregated]=await Promise.all([
    db.from('sar_year_settings').select('status,target_standard_2,target_standard_3,notes,published_at')
     .eq('school_id',schoolId).eq('academic_year_id',selected).maybeSingle(),
    db.from('sar_teacher_assessments').select('teacher_user_id,item_code,rating').eq('school_id',schoolId).eq('academic_year_id',selected),
-   db.from('sar_teacher_submissions').select('teacher_user_id,submitted_at').eq('school_id',schoolId).eq('academic_year_id',selected)
+   db.from('sar_teacher_submissions').select('teacher_user_id,submitted_at').eq('school_id',schoolId).eq('academic_year_id',selected),
+   db.rpc('sar_admin_auto_snapshot',{p_year:selected})
   ]);
-  if(s.error||a.error||u.error)throw Error(s.error?.message||a.error?.message||u.error?.message);
+  if(s.error||a.error||u.error||aggregated.error)throw Error(s.error?.message||a.error?.message||u.error?.message||aggregated.error?.message);
   const value=(s.data??null) as Setting|null;
   setSetting(value);setScores(a.data as Answer[]);setSubmissions(u.data as Submission[]);
+  setSnapshot(aggregated.data as SarSnapshot);
   setTarget2(value?.target_standard_2?.toString()??'');
   setTarget3(value?.target_standard_3?.toString()??'');
   setNotes(value?.notes??'');
@@ -74,6 +80,9 @@ export default function SarAdminPage(){
    submitted_at:submissions.find(s=>s.teacher_user_id===t.user_id)?.submitted_at??null};
  }).sort((a,b)=>a.name.localeCompare(b.name,'th')),[teachers,profiles,items,scores,submissions]);
  const submittedCount=progress.filter(x=>x.submitted_at).length;
+ const studentSummary=snapshot?.students.reduce((sum,v)=>({male:sum.male+v.male,female:sum.female+v.female,unknown:sum.unknown+v.unknown,total:sum.total+v.total}),{male:0,female:0,unknown:0,total:0});
+ const termNumbers=[...new Set(snapshot?.teaching_load.map(row=>row.term_no)??[])].sort((a,b)=>a-b);
+ const nameOf=(id:string)=>profiles.find(p=>p.user_id===id)?.display_name||'บัญชี '+id.slice(0,8);
  const locked=setting?.status==='published';
  async function saveTargets(publish:boolean){
   if(!school||!yearId||busy||locked)return;
@@ -166,8 +175,43 @@ export default function SarAdminPage(){
      </tr>)}</tbody>
     </table>{!teachers.length&&<p className="p-4 text-sm text-slate-500">ยังไม่พบบัญชีครูที่เปิดใช้งาน</p>}</div>
    </section>
+   <section className="mb-8" aria-labelledby="sar-automatic-heading">
+    <h2 id="sar-automatic-heading" className="mb-2 text-lg font-semibold text-slate-900">3. ข้อมูลพื้นฐานจาก Wichakan อัตโนมัติ</h2>
+    <p className="mb-4 text-sm text-slate-600">แสดงข้อมูลปัจจุบันจากทะเบียนปีการศึกษาที่เลือก ยังไม่ใช่ตัวเลขที่รับรองหรือล็อกเป็นรายงาน SAR ฉบับสุดท้าย</p>
+    <h3 className="mb-2 font-semibold">จำนวนนักเรียนชาย–หญิง ตามคำนำหน้าชื่อ</h3>
+    <p className="mb-3 text-sm text-slate-600">ชาย: เด็กชาย / นาย · หญิง: เด็กหญิง / นางสาว · คำนำหน้าอื่นหรือว่าง: รอตรวจสอบ</p>
+    <div className="mb-4 grid grid-cols-2 gap-3 border-y border-slate-200 py-4 sm:grid-cols-4">
+     <div><strong className="block text-xl">{studentSummary?.male??'—'}</strong><span className="text-xs text-slate-500">ชาย</span></div>
+     <div><strong className="block text-xl">{studentSummary?.female??'—'}</strong><span className="text-xs text-slate-500">หญิง</span></div>
+     <div><strong className="block text-xl">{studentSummary?.unknown??'—'}</strong><span className="text-xs text-slate-500">รอตรวจสอบ</span></div>
+     <div><strong className="block text-xl">{studentSummary?.total??'—'}</strong><span className="text-xs text-slate-500">รวมตามทะเบียนปีนี้</span></div>
+    </div>
+    <div className="mb-6 overflow-x-auto border-y border-slate-200">
+     <table className="w-full min-w-[480px] text-sm"><thead><tr className="bg-slate-50"><th className="p-3 text-left">ชั้นเรียน</th><th className="p-3 text-center">ชาย</th><th className="p-3 text-center">หญิง</th><th className="p-3 text-center">รอตรวจสอบ</th><th className="p-3 text-center">รวม</th></tr></thead>
+      <tbody>{snapshot?.students.map(row=><tr key={row.level} className="border-t border-slate-100"><td className="p-3 font-medium">{row.level}</td><td className="p-3 text-center">{row.male}</td><td className="p-3 text-center">{row.female}</td><td className="p-3 text-center">{row.unknown}</td><td className="p-3 text-center">{row.total}</td></tr>)}</tbody>
+     </table>
+     {!snapshot?.students.length&&<p className="p-4 text-sm text-slate-500">ยังไม่มีข้อมูลการลงทะเบียนนักเรียนในปีนี้</p>}
+    </div>
+    <h3 className="mb-2 font-semibold">ภาระสอนจากตารางสอนจริง</h3>
+    <p className="mb-3 text-sm text-slate-600">แยกรายภาคเรียน นับคาบต่อสัปดาห์แบบไม่ซ้ำวัน–คาบของครูคนเดียวกัน และแยกคาบรายวิชาออกจากกิจกรรม ไม่อนุมานว่าหนึ่งคาบเท่ากับหนึ่งชั่วโมง</p>
+    <div className="overflow-x-auto border-y border-slate-200">
+     <table className="w-full min-w-[620px] text-sm"><thead><tr className="bg-slate-50"><th className="p-3 text-left">ภาคเรียน</th><th className="p-3 text-left">ครู</th><th className="p-3 text-center">รายวิชา</th><th className="p-3 text-center">กิจกรรม</th><th className="p-3 text-center">รวมคาบ/สัปดาห์</th></tr></thead>
+      <tbody>{termNumbers.flatMap(term=>teachers.map(t=>{
+       const info=snapshot?.teaching_load.find(row=>row.teacher_id===t.user_id&&row.term_no===term);
+       return <tr className="border-t border-slate-100" key={term+':'+t.user_id}>
+        <td className="p-3">{term}</td><td className="p-3 font-medium">{nameOf(t.user_id)}</td>
+        <td className="p-3 text-center">{info?.course_periods??0}</td>
+        <td className="p-3 text-center">{info?.activity_periods??0}</td>
+        <td className="p-3 text-center font-semibold">{info?.total_periods??0}</td>
+       </tr>;
+      }))}</tbody>
+     </table>
+     {!termNumbers.length&&<p className="p-4 text-sm text-slate-500">ยังไม่มีคาบเรียนที่จัดไว้ในปีการศึกษานี้</p>}
+    </div>
+    {!!snapshot?.activities_without_teacher&&<p className="mt-3 text-sm text-amber-800">มีกิจกรรม {snapshot.activities_without_teacher} รายการที่ยังหาครูผู้รับผิดชอบไม่พบ จึงยังไม่รวมในภาระสอน กรุณาตรวจสอบตารางกิจกรรม</p>}
+   </section>
    <section aria-labelledby="sar-items-heading">
-    <h2 id="sar-items-heading" className="mb-2 text-lg font-semibold text-slate-900">3. รายการประเมินตามเอกสารต้นแบบ</h2>
+    <h2 id="sar-items-heading" className="mb-2 text-lg font-semibold text-slate-900">4. รายการประเมินตามเอกสารต้นแบบ</h2>
     <p className="mb-4 text-sm text-slate-600">ข้อมูลต้นแบบยังไม่ระบุสูตรรวมคะแนนเป็นร้อยละ ระบบจึงเก็บคะแนนดิบรายข้อและความครบถ้วนไว้ก่อน ไม่ตีความเป็นระดับคุณภาพของสถานศึกษาอัตโนมัติ</p>
     {[2,3].map(no=><div key={no} className="mb-4">
      <h3 className="mb-2 font-semibold">มาตรฐานที่ {no} — {no===2?'กระบวนการบริหารและการจัดการ':'กระบวนการจัดการเรียนการสอนที่เน้นผู้เรียนเป็นสำคัญ'}</h3>
