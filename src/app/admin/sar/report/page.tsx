@@ -12,16 +12,20 @@ type Context={category:string;title:string;narrative:string;source_note:string};
 type National={test_kind:string;grade_level:string;component:string;participants:number|null;school_average:number|null;area_average:number|null;national_average:number|null};
 type Evidence={kind:string;title:string;activity_year_be:number;target_codes:string[];verification_status:string};
 type TeacherAverage={item_code:string;n:number;mean_rating:number};
+type DetailTarget={indicator_code:string;target_percent:number};
+type StaffInfo={user_id?:string;display_name?:string|null;employment_type:string;position_title:string;qualification:string;major:string;academic_rank:string};
+type DetailItem={code:string;parent_code:string;description:string};
 type Version={id:string;version_no:number;snapshot:Report;approved_at:string};
 type GradeSummary={rows:{level:string;term:number;subject_code:string;expected:number;recorded:number;grade3plus:number;pct_of_recorded:number|null}[]};
 type Gender={students:{level:string;male:number;female:number;unknown:number;total:number}[];teaching_load:{teacher_id:string;term_no:number;total_periods:number}[]};
-type Report={year:number;school:string;targets:Target[];reviews:Review[];measurements:Measure[];context:Context[];national_tests:National[];evidence:Evidence[];teacher_summary:TeacherAverage[];academic_summary?:GradeSummary;roster?:Gender};
+type Report={year:number;school:string;targets:Target[];success_targets?:DetailTarget[];staff_profiles?:StaffInfo[];reviews:Review[];measurements:Measure[];context:Context[];national_tests:National[];evidence:Evidence[];teacher_summary:TeacherAverage[];academic_summary?:GradeSummary;roster?:Gender};
 const safe=(v:unknown)=>String(v??'—').replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('"','&quot;');
 const pct=(m:Measure|undefined)=>!m?null:m.denominator&&m.denominator>0&&m.numerator!==null?
   Math.round(10000*m.numerator/m.denominator)/100:m.manually_observed_percent;
-function makeHtml(report:Report,topics:Topic[],version:number|null){
+function makeHtml(report:Report,topics:Topic[],details:DetailItem[],version:number|null){
  const tar=new Map(report.targets.map(t=>[t.section_code,t.target_percent]));
  const rev=new Map(report.reviews.map(x=>[x.code,x]));
+ const success=new Map((report.success_targets??[]).map(x=>[x.indicator_code,x.target_percent]));
  const met=new Map(report.measurements.map(x=>[x.code,x]));
  const esc=safe;
  const table=(headers:string[],rows:string[][])=>'<table><thead><tr>'+headers.map(x=>'<th>'+esc(x)+'</th>').join('')+'</tr></thead><tbody>'+rows.map(row=>'<tr>'+row.map(x=>'<td>'+esc(x)+'</td>').join('')+'</tr>').join('')+'</tbody></table>';
@@ -37,6 +41,7 @@ function makeHtml(report:Report,topics:Topic[],version:number|null){
   parts.push('<h3>'+esc(c.title||c.category)+'</h3><div>'+esc(c.narrative)+'</div>');
   if(c.source_note)parts.push('<p class="small">แหล่งข้อมูล: '+esc(c.source_note)+'</p>');
  }
+ if(report.staff_profiles?.length)parts.push('<h3>ข้อมูลวุฒิการศึกษาและวิชาชีพบุคลากร</h3>',table(['บุคลากร','ตำแหน่ง','วุฒิ','สาขา','วิทยฐานะ'],report.staff_profiles.map(s=>[s.display_name??s.user_id??'—',s.position_title,s.qualification,s.major,s.academic_rank])));
  if(report.roster?.students?.length)parts.push('<h3>สรุปจำนวนนักเรียนรายระดับชั้น (จากทะเบียน)</h3>',
   table(['ชั้น','ชาย','หญิง','รอตรวจสอบ','รวม'],report.roster.students.map(s=>[s.level,String(s.male),String(s.female),String(s.unknown),String(s.total)])));
  if(report.roster?.teaching_load?.length)parts.push('<h3>ภาระสอนรายครูจากตารางสอน (จำนวนคาบต่อสัปดาห์)</h3>',
@@ -51,6 +56,8 @@ function makeHtml(report:Report,topics:Topic[],version:number|null){
   parts.push('<h3>มาตรฐานที่ '+standard+' '+esc(group.find(t=>t.code===String(standard))?.title??'')+'</h3>');
   parts.push(table(['ข้อ','ประเด็นพิจารณา','ค่าเป้าหมาย','ผลประเมิน','สถานะ'],group.map(t=>[t.code,t.title,tar.has(t.code)?tar.get(t.code)+'%':'—',fmt(t.code),rev.get(t.code)?.review_status==='reviewed'?'ตรวจแล้ว':'ยังไม่ตรวจ'])));
   for(const t of group){
+   const related=details.filter(d=>d.parent_code===t.code);
+   if(related.length)parts.push('<p class="small">ตัวชี้วัดความสำเร็จรายข้อ</p>',table(['รายการ','รายละเอียด','เป้าหมาย'],related.map(x=>[x.code,x.description,success.has(x.code)?success.get(x.code)+'%':'—'])));
    const q=rev.get(t.code);if(!q||!q.narrative.trim())continue;
    parts.push('<h3>'+esc(t.code+' '+t.title)+'</h3><p>'+esc(q.narrative)+'</p>');
    if(q.strength)parts.push('<p><strong>จุดเด่น:</strong> '+esc(q.strength)+'</p>');
@@ -79,7 +86,7 @@ function downloadDoc(html:string,year:number){
 }
 export default function SarReportPage(){
  const db=getSupabaseBrowserClient();
- const [school,setSchool]=useState(''),[years,setYears]=useState<Year[]>([]),[year,setYear]=useState(''),[topics,setTopics]=useState<Topic[]>([]);
+ const [school,setSchool]=useState(''),[years,setYears]=useState<Year[]>([]),[year,setYear]=useState(''),[topics,setTopics]=useState<Topic[]>([]),[details,setDetails]=useState<DetailItem[]>([]);
  const [draft,setDraft]=useState<Report|null>(null),[versions,setVersions]=useState<Version[]>([]),[selected,setSelected]=useState('draft');
  const [loading,setLoading]=useState(true),[busy,setBusy]=useState(false),[error,setError]=useState(''),[notice,setNotice]=useState('');
  useEffect(()=>{let live=true;(async()=>{try{
@@ -88,14 +95,15 @@ export default function SarReportPage(){
   const m=await db.from('school_memberships').select('school_id').eq('user_id',user.id).eq('role','school_admin').eq('active',true).limit(1).maybeSingle();
   if(m.error||!m.data)throw Error('เฉพาะ Admin จึงจัดทำรายงานได้');
   const sid=m.data.school_id as string;
-  const [y,t]=await Promise.all([db.from('academic_years').select('id,year_be,is_active').eq('school_id',sid).order('year_be',{ascending:false}),
-   db.from('sar_target_topics').select('code,title,standard_no,sort_order').order('sort_order')]);
-  if(y.error||t.error)throw Error(y.error?.message||t.error?.message);
-  if(!live)return;const list=y.data as Year[];setSchool(sid);setYears(list);setTopics(t.data as Topic[]);setYear(list.find(x=>x.is_active)?.id??list[0]?.id??'');
+  const [y,t,z]=await Promise.all([db.from('academic_years').select('id,year_be,is_active').eq('school_id',sid).order('year_be',{ascending:false}),
+   db.from('sar_target_topics').select('code,title,standard_no,sort_order').order('sort_order'),
+   db.from('sar_success_indicators').select('code,parent_code,description').order('code')]);
+  if(y.error||t.error||z.error)throw Error(y.error?.message||t.error?.message||z.error?.message);
+  if(!live)return;const list=y.data as Year[];setSchool(sid);setYears(list);setTopics(t.data as Topic[]);setDetails(z.data as DetailItem[]);setYear(list.find(x=>x.is_active)?.id??list[0]?.id??'');
  }catch(e){if(live)setError(e instanceof Error?e.message:'โหลดไม่สำเร็จ')}finally{if(live)setLoading(false);}})();return()=>{live=false};},[db]);
  async function reload(){
   if(!db||!school||!year)return;
-  const [a,b,c,d,e,f,g,h,k,y]=await Promise.all([
+  const [a,b,c,d,e,f,g,h,k,y,detailRows,staffRows]=await Promise.all([
    db.from('sar_indicator_targets').select('section_code,target_percent').eq('school_id',school).eq('academic_year_id',year),
    db.from('sar_quality_reviews').select('code,narrative,strength,improvement,action_plan,review_status').eq('school_id',school).eq('academic_year_id',year),
    db.from('sar_indicator_measurements').select('code,numerator,denominator,manually_observed_percent,source_note').eq('school_id',school).eq('academic_year_id',year),
@@ -104,9 +112,11 @@ export default function SarReportPage(){
    db.from('sar_evidence').select('kind,title,activity_year_be,target_codes,verification_status').eq('school_id',school).eq('academic_year_id',year).eq('verification_status','verified'),
    db.from('sar_report_versions').select('id,version_no,snapshot,approved_at').eq('school_id',school).eq('academic_year_id',year).order('version_no',{ascending:false}),
    db.rpc('sar_admin_auto_snapshot',{p_year:year}),db.rpc('sar_admin_academic_summary',{p_year:year}),
-   db.from('academic_years').select('year_be,schools(name_th)').eq('id',year).single()
+   db.from('academic_years').select('year_be,schools(name_th)').eq('id',year).single(),
+   db.from('sar_success_targets').select('indicator_code,target_percent').eq('school_id',school).eq('academic_year_id',year),
+   db.from('sar_staff_profiles').select('user_id,employment_type,position_title,qualification,major,academic_rank').eq('school_id',school)
   ]);
-  const errors=[a,b,c,d,e,f,g,h,k,y].find(x=>x.error);
+  const errors=[a,b,c,d,e,f,g,h,k,y,detailRows,staffRows].find(x=>x.error);
   if(errors?.error)throw Error(errors.error.message);
   const yearRow=y.data as unknown as {year_be:number;schools:{name_th:string}|null};
   const summary=(await db.from('sar_teacher_submissions').select('teacher_user_id').eq('school_id',school).eq('academic_year_id',year)).data??[];
@@ -117,7 +127,7 @@ export default function SarReportPage(){
    return {item_code:code,n:v.length,mean_rating:v.length?Math.round(100*v.reduce((sum,x)=>sum+(x.rating??0),0)/v.length)/100:0}
   }).filter(x=>x.n>0);
   setDraft({year:yearRow.year_be,school:yearRow.schools?.name_th??'สถานศึกษา',
-   targets:a.data as Target[],reviews:b.data as Review[],measurements:c.data as Measure[],
+   targets:a.data as Target[],success_targets:detailRows.data as DetailTarget[],staff_profiles:staffRows.data as StaffInfo[],reviews:b.data as Review[],measurements:c.data as Measure[],
    context:d.data as Context[],national_tests:e.data as National[],evidence:f.data as Evidence[],
    teacher_summary:means,roster:h.data as Gender,academic_summary:k.data as GradeSummary});
   setVersions(g.data as Version[]);
@@ -128,7 +138,7 @@ export default function SarReportPage(){
  },[school,year]);
  const selectedVersion=versions.find(x=>x.id===selected);
  const report=selectedVersion?.snapshot??draft;
- const html=report?makeHtml(report,topics,selectedVersion?.version_no??null):'';
+ const html=report?makeHtml(report,topics,details,selectedVersion?.version_no??null):'';
  async function approve(){
   if(!db||!year||busy||!window.confirm('ยืนยันจัดทำรายงาน SAR ฉบับรับรอง? ระบบจะล็อกภาพรวมข้อมูลในวันที่อนุมัติ และไม่แก้ไขรายงานรุ่นก่อน'))return;
   setBusy(true);setError('');setNotice('');
@@ -169,6 +179,7 @@ export default function SarReportPage(){
    <h2 className="mb-3 text-lg font-semibold">สารบัญข้อมูลในรายงาน</h2>
    <div className="grid gap-3 sm:grid-cols-3">{([
     ['รายการค่าเป้าหมาย',report.targets.length],
+    ['ตัวชี้วัดความสำเร็จ',report.success_targets?.length??0],
     ['ผลการประเมินที่บันทึก',report.measurements.length],
     ['หลักฐานที่รับรอง',report.evidence.length],
     ['ผลทดสอบระดับชาติ',report.national_tests.length],
