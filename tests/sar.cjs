@@ -30,4 +30,18 @@ assert(snapshot.includes("'เด็กชาย','นาย'"),'male prefixes m
 assert(snapshot.includes("'เด็กหญิง','นางสาว'"),'female prefixes must include เด็กหญิง and นางสาว');
 assert(snapshot.includes("'unknown'"),'unrecognized prefixes must remain reviewable');
 assert(adminCurrent.includes("sar_admin_auto_snapshot"),'Admin SAR dashboard should load calculated school data');
+const perIndicatorSql=fs.readFileSync('supabase/migrations/202610300003_sar_indicator_targets.sql','utf8');
+const adminPerIndicator=fs.readFileSync('src/app/admin/sar/page.tsx','utf8');
+const teacherPerIndicator=fs.readFileSync('src/app/teacher/sar/page.tsx','utf8');
+assert(perIndicatorSql.includes('target_percent numeric(5,2)'),'SAR target must support percent with two decimal places');
+assert(perIndicatorSql.includes('section_code text not null'),'annual SAR target needs one row per consideration');
+assert(perIndicatorSql.includes('all_indicator_targets_required'),'cannot publish incomplete target set');
+assert(perIndicatorSql.includes("v_old_status='published'"),'published annual targets must remain locked');
+assert(perIndicatorSql.includes("revoke execute on function public.sar_set_year_targets"),'legacy standard-wide target API must be revoked');
+assert(perIndicatorSql.includes('alter table public.sar_indicator_targets enable row level security'));
+assert(adminPerIndicator.includes("sar_save_indicator_targets"),'admin must save each topic target');
+assert(adminPerIndicator.includes('sections.length===11'),'admin must check 11 topics');
+assert(adminPerIndicator.includes('target_percent:Number(raw)'),'numeric percentages saved per topic');
+assert(teacherPerIndicator.includes('sar_indicator_targets'),'teacher must read the same published indicator targets');
+assert(!teacherPerIndicator.includes('target_standard_2'),'teacher must not use obsolete global target');
 console.log('PASS: SAR 2–3 seed, access controls, year targets and assessment UI');
