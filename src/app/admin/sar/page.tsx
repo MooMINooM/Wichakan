@@ -129,6 +129,14 @@ export default function SarAdminPage(){
  const yearLabel=years.find(x=>x.id===yearId)?.year_be;
  return <main className="wichakan-page mx-auto max-w-6xl px-4 pb-12">
   <PageHeader title="SAR ขั้นพื้นฐาน" context="จัดการมาตรฐาน ค่าเป้าหมายรายปี และติดตามผลประเมินจากครูทุกคน"/>
+  <nav aria-label="เมนูดำเนินงาน SAR" className="mb-6 grid gap-3 border-y border-slate-200 py-4 sm:grid-cols-2 lg:grid-cols-4">
+   {([
+    ['/admin/sar/data','ข้อมูลพื้นฐาน / RT NT O-NET','จัดเก็บสถิติ โครงการ และตัวชี้วัด'],
+    ['/admin/sar/management','บุคลากรและคลังหลักฐาน','รับรองผลงาน อบรมและนวัตกรรม'],
+    ['/admin/sar/review','ตรวจรับรองมาตรฐาน','วิเคราะห์จุดเด่น จุดควรพัฒนา'],
+    ['/admin/sar/report','รายงาน SAR','ตรวจฉบับร่างและส่งออก Word / PDF']
+   ] as const).map(([href,title,desc])=><Link key={href} href={href} className="rounded-lg border border-slate-200 p-4 transition hover:bg-sky-50"><strong className="block text-sm text-blue-900">{title}</strong><span className="mt-1 block text-xs text-slate-500">{desc}</span></Link>)}
+  </nav>
   <div className="mb-6 flex flex-wrap items-end justify-between gap-3 border-b border-slate-200 pb-5">
    <label className="text-sm font-medium text-slate-700">ปีการศึกษา
     <select value={yearId} disabled={initialLoading||busy} onChange={e=>setYearId(e.target.value)} className="mt-1 block min-w-44 rounded-lg border border-slate-300 bg-white px-3 py-2">
