@@ -123,7 +123,7 @@ export default function SarReportPage(){
   setVersions(g.data as Version[]);
  }
  useEffect(()=>{if(!school||!year)return;let live=true;setLoading(true);setError('');setSelected('draft');
-  void reload().catch(e=>{if(live)setError(e instanceof Error?e.message)}).finally(()=>{if(live)setLoading(false)});
+  void reload().catch(e=>{if(live)setError(e instanceof Error?e.message:'โหลดรายงานไม่สำเร็จ')}).finally(()=>{if(live)setLoading(false)});
   return()=>{live=false};
  },[school,year]);
  const selectedVersion=versions.find(x=>x.id===selected);
