@@ -6,7 +6,8 @@ import {getSupabaseBrowserClient} from '@/lib/supabase/browser';
 
 type Item={code:string;standard_no:number;section_code:string;title:string;item_order:number};
 type Year={id:string;year_be:number;is_active:boolean};
-type Target={academic_year_id:string;status:'draft'|'published';target_standard_2:number|null;target_standard_3:number|null};
+type Target={academic_year_id:string;status:'draft'|'published'};
+type IndicatorTarget={academic_year_id:string;section_code:string;target_percent:number};
 type Response={item_code:string;rating:number|null;note:string};
 type Submitted={submitted_at:string};
 const levelLabel:Record<number,string>={1:'กำลังพัฒนา',2:'ปานกลาง',3:'ดี',4:'ดีเลิศ',5:'ยอดเยี่ยม'};
@@ -19,11 +20,14 @@ const sectionLabels:Record<string,string>={
 };
 export default function TeacherSarAssessment(){
  const [school,setSchool]=useState(''),[uid,setUid]=useState(''),[years,setYears]=useState<Year[]>([]),[year,setYear]=useState('');
- const [items,setItems]=useState<Item[]>([]),[targets,setTargets]=useState<Target[]>([]),
+ const [items,setItems]=useState<Item[]>([]),[targets,setTargets]=useState<Target[]>([]),[indicatorTargets,setIndicatorTargets]=useState<IndicatorTarget[]>([]),
  [answers,setAnswers]=useState<Record<string,Response>>({}),[submitted,setSubmitted]=useState<Submitted|null>(null);
  const [loading,setLoading]=useState(true),[reading,setReading]=useState(false),[busy,setBusy]=useState(false),[error,setError]=useState(''),[notice,setNotice]=useState('');
  const selectedTarget=targets.find(t=>t.academic_year_id===year);
- const published=selectedTarget?.status==='published';
+ const sections=[...new Set(items.map(i=>i.section_code))];
+ const yearTargets=indicatorTargets.filter(t=>t.academic_year_id===year);
+ const published=selectedTarget?.status==='published'&&yearTargets.length===sections.length&&sections.length===11;
+ const targetFor=(code:string)=>yearTargets.find(t=>t.section_code===code)?.target_percent;
  const yearLabel=years.find(y=>y.id===year)?.year_be;
  useEffect(()=>{let live=true;(async()=>{try{
   const db=getSupabaseBrowserClient();if(!db)throw Error('ไม่พบการเชื่อมต่อ Supabase');
@@ -32,30 +36,32 @@ export default function TeacherSarAssessment(){
   const m=await db.from('school_memberships').select('school_id').eq('user_id',user.id).eq('role','teacher').eq('active',true).limit(1).maybeSingle();
   if(m.error||!m.data)throw Error('เฉพาะบัญชีครูที่เปิดใช้งานเท่านั้นจึงประเมิน SAR ได้');
   const schoolId=m.data.school_id as string;
-  const [y,i,t]=await Promise.all([
+  const [y,i,t,perItem]=await Promise.all([
    db.from('academic_years').select('id,year_be,is_active').eq('school_id',schoolId).order('year_be',{ascending:false}),
    db.from('sar_assessment_items').select('code,standard_no,section_code,title,item_order').order('standard_no').order('item_order'),
-   db.from('sar_year_settings').select('academic_year_id,status,target_standard_2,target_standard_3').eq('school_id',schoolId)
+   db.from('sar_year_settings').select('academic_year_id,status').eq('school_id',schoolId),
+   db.from('sar_indicator_targets').select('academic_year_id,section_code,target_percent').eq('school_id',schoolId)
   ]);
-  if(y.error||i.error||t.error)throw Error(y.error?.message||i.error?.message||t.error?.message);
+  if(y.error||i.error||t.error||perItem.error)throw Error(y.error?.message||i.error?.message||t.error?.message||perItem.error?.message);
   if(!live)return;
   const yearsList=(y.data??[]) as Year[];
   setSchool(schoolId);setUid(user.id);setYears(yearsList);
-  setItems(i.data as Item[]);setTargets(t.data as Target[]);
+  setItems(i.data as Item[]);setTargets(t.data as Target[]);setIndicatorTargets(perItem.data as IndicatorTarget[]);
   setYear(yearsList.find(x=>x.is_active)?.id??yearsList[0]?.id??'');
  }catch(e){if(live)setError(e instanceof Error?e.message:'โหลดข้อมูลไม่สำเร็จ');}
  finally{if(live)setLoading(false);}})();return()=>{live=false;};},[]);
  const reload=useCallback(async(id:string,schoolId:string,teacherId:string)=>{
   const db=getSupabaseBrowserClient();if(!db)throw Error('ไม่พบการเชื่อมต่อ');
-  const [r,s,t]=await Promise.all([
+  const [r,s,t,perItem]=await Promise.all([
    db.from('sar_teacher_assessments').select('item_code,rating,note').eq('school_id',schoolId).eq('academic_year_id',id).eq('teacher_user_id',teacherId),
    db.from('sar_teacher_submissions').select('submitted_at').eq('school_id',schoolId).eq('academic_year_id',id).eq('teacher_user_id',teacherId).maybeSingle(),
-   db.from('sar_year_settings').select('academic_year_id,status,target_standard_2,target_standard_3').eq('school_id',schoolId)
+   db.from('sar_year_settings').select('academic_year_id,status').eq('school_id',schoolId),
+   db.from('sar_indicator_targets').select('academic_year_id,section_code,target_percent').eq('school_id',schoolId)
   ]);
-  if(r.error||s.error||t.error)throw Error(r.error?.message||s.error?.message||t.error?.message);
+  if(r.error||s.error||t.error||perItem.error)throw Error(r.error?.message||s.error?.message||t.error?.message||perItem.error?.message);
   setAnswers(Object.fromEntries(((r.data??[]) as Response[]).map(a=>[a.item_code,{item_code:a.item_code,rating:a.rating,note:a.note??''}])));
   setSubmitted((s.data??null) as Submitted|null);
-  setTargets(t.data as Target[]);
+  setTargets(t.data as Target[]);setIndicatorTargets(perItem.data as IndicatorTarget[]);
  },[]);
  useEffect(()=>{if(!school||!uid||!year)return;let live=true;setReading(true);setNotice('');setError('');
   void reload(year,school,uid).catch(e=>{if(live)setError((e as Error).message);}).finally(()=>{if(live)setReading(false);});
@@ -100,11 +106,11 @@ export default function TeacherSarAssessment(){
   {notice&&<p role="status" className="teacher-success mb-4">{notice}</p>}
   {(loading||reading)&&<p className="mb-5 text-sm text-slate-600" role="status">กำลังโหลดแบบประเมิน...</p>}
   {!loading&&!reading&&!!school&&!!year&&<>
-   {!published?<p className="mb-5 border-l-4 border-amber-400 bg-amber-50 p-4 text-sm text-amber-900">Admin ยังไม่ได้ประกาศค่าเป้าหมาย SAR ประจำปีการศึกษา {yearLabel} จึงยังไม่เปิดให้บันทึกแบบประเมิน</p>:
+   {!published?<p className="mb-5 border-l-4 border-amber-400 bg-amber-50 p-4 text-sm text-amber-900">Admin ยังไม่ได้ประกาศค่าเป้าหมายรายประเด็น SAR ครบทั้ง 11 หัวข้อ ประจำปีการศึกษา {yearLabel} จึงยังไม่เปิดให้บันทึกแบบประเมิน</p>:
     <div className="mb-5 border-y border-slate-200 py-3 text-sm">
-     <span className="font-medium">ค่าเป้าหมายที่ Admin ประกาศ:</span>
-     <span className="ml-3">มาตรฐานที่ 2: ระดับ {selectedTarget?.target_standard_2} — {levelLabel[selectedTarget?.target_standard_2??0]}</span>
-     <span className="ml-3">มาตรฐานที่ 3: ระดับ {selectedTarget?.target_standard_3} — {levelLabel[selectedTarget?.target_standard_3??0]}</span>
+     <span className="font-medium">ค่าเป้าหมายที่ประกาศ:</span>
+     <p className="mt-1 text-slate-600">แสดงเป็นร้อยละรายประเด็น 2.1–2.6 และ 3.1–3.5 ไม่ใช่เกณฑ์ระดับ 1–5 เพียงค่ารวมต่อมาตรฐาน</p>
+     <div className="mt-2 flex flex-wrap gap-x-5 gap-y-1">{sections.map(code=><span key={code} className="tabular-nums">{code}: <strong>{targetFor(code)}%</strong></span>)}</div>
     </div>}
    {locked&&<p className="mb-5 border-l-4 border-green-600 bg-green-50 p-4 text-sm text-green-900">ส่งแบบประเมินแล้วเมื่อ {new Date(submitted!.submitted_at).toLocaleString('th-TH')} — หากต้องการแก้ไขให้ติดต่อ Admin เพื่อเปิดแบบประเมินอีกครั้ง</p>}
    {[2,3].map(no=><section key={no} className="mb-8" aria-labelledby={'sar-standard-'+no}>
@@ -119,7 +125,7 @@ export default function TeacherSarAssessment(){
       <div className="min-w-0">
        <div className="flex items-start gap-3"><span className="shrink-0 text-sm font-semibold text-blue-900">{item.code}</span>
         <div className="text-sm leading-relaxed text-slate-800">{item.standard_no===3&&sectionLabels[item.section_code]&&
-         <span className="mb-1 block text-xs font-semibold text-slate-500">{sectionLabels[item.section_code]}</span>}{item.title}</div>
+         <span className="mb-1 block text-xs font-semibold text-slate-500">{item.section_code} {sectionLabels[item.section_code]} · ค่าเป้าหมาย {targetFor(item.section_code)??'—'}%</span>}{item.title}{item.standard_no===2&&<span className="mt-1 block text-xs font-medium text-blue-700">ค่าเป้าหมาย {targetFor(item.section_code)??'—'}%</span>}</div>
        </div>
        <label className="mt-2 block text-xs text-slate-600">หมายเหตุ / หลักฐานประกอบ (ถ้ามี)
         <input type="text" value={answer?.note??''} maxLength={2000} disabled={disabled}
