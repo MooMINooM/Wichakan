@@ -8,6 +8,7 @@ type Year={id:string;year_be:number;is_active:boolean};
 type Setting={status:'draft'|'published';notes:string;published_at:string|null};
 type IndicatorTarget={section_code:string;target_percent:number};
 type Item={code:string;standard_no:number;section_code:string;title:string;item_order:number};
+type TargetTopic={code:string;standard_no:number;parent_code:string|null;sort_order:number;title:string};
 type Teacher={user_id:string};
 type Profile={user_id:string;display_name:string|null};
 type Answer={teacher_user_id:string;item_code:string;rating:number|null};
@@ -17,17 +18,10 @@ type StudentTotal={level:string;male:number;female:number;unknown:number;total:n
 type TeacherLoad={teacher_id:string;term_no:number;course_periods:number;activity_periods:number;total_periods:number};
 type SarSnapshot={students:StudentTotal[];teaching_load:TeacherLoad[];activities_without_teacher:number;period_unit:string};
 const quality=(n:number):string=>n>=80?'ยอดเยี่ยม':n>=70?'ดีเลิศ':n>=60?'ดี':n>=50?'ปานกลาง':'กำลังพัฒนา';
-const sectionTitles:Record<string,string>={
- '3.1':'จัดการเรียนรู้ผ่านกระบวนการคิดและปฏิบัติจริง และนำไปประยุกต์ใช้ในชีวิต',
- '3.2':'ใช้สื่อ เทคโนโลยีสารสนเทศ และแหล่งเรียนรู้ที่เอื้อต่อการเรียนรู้',
- '3.3':'มีการบริหารจัดการชั้นเรียนเชิงบวก',
- '3.4':'ตรวจสอบและประเมินผู้เรียนอย่างเป็นระบบและนำผลมาพัฒนาผู้เรียน',
- '3.5':'แลกเปลี่ยนเรียนรู้และให้ข้อมูลสะท้อนกลับเพื่อพัฒนาการจัดการเรียนรู้'
-};
 const total2=6,total3=9;
 export default function SarAdminPage(){
  const [school,setSchool]=useState(''),[years,setYears]=useState<Year[]>([]),[yearId,setYearId]=useState('');
- const [items,setItems]=useState<Item[]>([]),[teachers,setTeachers]=useState<Teacher[]>([]),[profiles,setProfiles]=useState<Profile[]>([]);
+ const [items,setItems]=useState<Item[]>([]),[topics,setTopics]=useState<TargetTopic[]>([]),[teachers,setTeachers]=useState<Teacher[]>([]),[profiles,setProfiles]=useState<Profile[]>([]);
  const [setting,setSetting]=useState<Setting|null>(null),[scores,setScores]=useState<Answer[]>([]),[submissions,setSubmissions]=useState<Submission[]>([]);
  const [snapshot,setSnapshot]=useState<SarSnapshot|null>(null);
  const [targetDraft,setTargetDraft]=useState<Record<string,string>>({}),[notes,setNotes]=useState('');
@@ -39,12 +33,13 @@ export default function SarAdminPage(){
   const m=await db.from('school_memberships').select('school_id').eq('user_id',user.id).eq('role','school_admin').eq('active',true).limit(1).maybeSingle();
   if(m.error||!m.data)throw Error('หน้านี้ใช้ได้เฉพาะ Admin ของโรงเรียน');
   const schoolId=m.data.school_id as string;
-  const [y,i,t]=await Promise.all([
+  const [y,i,t,topicList]=await Promise.all([
    db.from('academic_years').select('id,year_be,is_active').eq('school_id',schoolId).order('year_be',{ascending:false}),
    db.from('sar_assessment_items').select('code,standard_no,section_code,title,item_order').order('standard_no').order('item_order'),
-   db.from('school_memberships').select('user_id').eq('school_id',schoolId).eq('role','teacher').eq('active',true)
+   db.from('school_memberships').select('user_id').eq('school_id',schoolId).eq('role','teacher').eq('active',true),
+   db.from('sar_target_topics').select('code,standard_no,parent_code,sort_order,title').order('sort_order')
   ]);
-  if(y.error||i.error||t.error)throw Error(y.error?.message||i.error?.message||t.error?.message);
+  if(y.error||i.error||t.error||topicList.error)throw Error(y.error?.message||i.error?.message||t.error?.message||topicList.error?.message);
   const staffIds=[...new Set((t.data??[]).map(x=>x.user_id))];
   const ps:Profile[]=[];
   for(let from=0;from<staffIds.length;from+=100){
@@ -54,7 +49,7 @@ export default function SarAdminPage(){
   }
   if(!active)return;
   const list=y.data as Year[];setSchool(schoolId);setYears(list);setItems(i.data as Item[]);
-  setTeachers(staffIds.map(user_id=>({user_id})));setProfiles(ps);
+  setTeachers(staffIds.map(user_id=>({user_id})));setProfiles(ps);setTopics(topicList.data as TargetTopic[]);
   setYearId(list.find(x=>x.is_active)?.id??list[0]?.id??'');
  }catch(e){if(active)setError(e instanceof Error?e.message:'โหลดข้อมูลไม่สำเร็จ');}
  finally{if(active)setInitialLoading(false);}})();return()=>{active=false};},[]);
@@ -88,9 +83,9 @@ export default function SarAdminPage(){
    submitted_at:submissions.find(s=>s.teacher_user_id===t.user_id)?.submitted_at??null};
  }).sort((a,b)=>a.name.localeCompare(b.name,'th')),[teachers,profiles,items,scores,submissions]);
  const submittedCount=progress.filter(x=>x.submitted_at).length;
- const sections=useMemo(()=>[...new Set(items.map(i=>i.section_code))].sort((a,b)=>a.localeCompare(b,'en')),[items]);
+ const sections=useMemo(()=>topics.map(t=>t.code),[topics]);
  const filledCount=sections.filter(code=>targetDraft[code]?.trim()!=='').length;
- const allValid=sections.length===11&&sections.every(code=>{const raw=targetDraft[code];return raw!==undefined&&raw.trim()!==''&&Number.isFinite(Number(raw))&&Number(raw)>=0&&Number(raw)<=100&&/^\d{1,3}(?:\.\d{1,2})?$/.test(raw.trim());});
+ const allValid=sections.length===27&&sections.every(code=>{const raw=targetDraft[code];return raw!==undefined&&raw.trim()!==''&&Number.isFinite(Number(raw))&&Number(raw)>=0&&Number(raw)<=100&&/^\d{1,3}(?:\.\d{1,2})?$/.test(raw.trim());});
  const studentSummary=snapshot?.students.reduce((sum,v)=>({male:sum.male+v.male,female:sum.female+v.female,unknown:sum.unknown+v.unknown,total:sum.total+v.total}),{male:0,female:0,unknown:0,total:0});
  const termNumbers=[...new Set(snapshot?.teaching_load.map(row=>row.term_no)??[])].sort((a,b)=>a-b);
  const nameOf=(id:string)=>profiles.find(p=>p.user_id===id)?.display_name||'บัญชี '+id.slice(0,8);
@@ -106,8 +101,8 @@ export default function SarAdminPage(){
    }
    targets.push({section_code:code,target_percent:Number(raw)});
   }
-  if(publish&&!allValid){setError('กรุณากำหนดค่าเป้าหมายให้ครบทั้ง 11 ประเด็นก่อนประกาศ');return;}
-  if(publish&&!window.confirm('ยืนยันประกาศค่าเป้าหมายทั้ง 11 ประเด็นของปีการศึกษา '+yearLabel+'? หลังประกาศแล้วไม่สามารถแก้ไขเกณฑ์ของปีนี้ได้'))return;
+  if(publish&&!allValid){setError('กรุณากำหนดค่าเป้าหมายให้ครบทั้ง 3 มาตรฐาน รวม 27 รายการตามตารางก่อนประกาศ');return;}
+  if(publish&&!window.confirm('ยืนยันประกาศค่าเป้าหมายทั้ง 3 มาตรฐาน (27 รายการ) ของปีการศึกษา '+yearLabel+'? หลังประกาศแล้วไม่สามารถแก้ไขเกณฑ์ของปีนี้ได้'))return;
   setBusy(true);setNotice('');setError('');
   try{
    const db=getSupabaseBrowserClient();if(!db)throw Error('ไม่พบการเชื่อมต่อ Supabase');
@@ -116,7 +111,7 @@ export default function SarAdminPage(){
    });
    if(e)throw Error(e.message);
    await loadYear(yearId,school);
-   setNotice(publish?'ประกาศค่าเป้าหมายครบ 11 ประเด็นแล้ว ครูทุกคนเริ่มประเมินได้':'บันทึกค่าเป้าหมายรายประเด็นเป็นฉบับร่างแล้ว');
+   setNotice(publish?'ประกาศค่าเป้าหมายครบทั้ง 3 มาตรฐานแล้ว ครูทุกคนเริ่มประเมินได้':'บันทึกค่าเป้าหมายรายข้อทั้ง 3 มาตรฐานเป็นฉบับร่างแล้ว');
   }catch(e){setError((e as Error).message)}
   finally{setBusy(false)}
  }
@@ -149,43 +144,56 @@ export default function SarAdminPage(){
   {!!school&&!!yearId&&!yearLoading&&<>
    <section className="mb-8" aria-labelledby="sar-targets-heading">
     <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
-     <h2 id="sar-targets-heading" className="text-lg font-semibold text-slate-900">1. ค่าเป้าหมายรายประเด็น ปีการศึกษา {yearLabel}</h2>
+     <h2 id="sar-targets-heading" className="text-lg font-semibold text-slate-900">1. ตารางค่าเป้าหมาย SAR ปีการศึกษา {yearLabel}</h2>
      <span className={'rounded-full px-3 py-1 text-xs font-medium '+(locked?'bg-green-50 text-green-800':'bg-slate-100 text-slate-700')}>{locked?'ประกาศแล้ว':'ฉบับร่าง / ยังไม่ประกาศ'}</span>
     </div>
-    <p className="mb-3 text-sm text-slate-600">Admin กำหนดเป้าหมายเป็น <strong>ร้อยละของแต่ละประเด็น</strong> แยก 2.1–2.6 และ 3.1–3.5 ตามรูปแบบตาราง SAR ของโรงเรียน ไม่ใช่ระดับคุณภาพรวมเพียงค่าหนึ่งต่อมาตรฐาน</p>
-    <p className="mb-4 text-xs text-slate-500">กำหนดแล้ว {filledCount} / {sections.length||11} ประเด็น · ร้อยละ 80–100 = ยอดเยี่ยม, 70–79.99 = ดีเลิศ, 60–69.99 = ดี, 50–59.99 = ปานกลาง, ต่ำกว่า 50 = กำลังพัฒนา</p>
-    {[2,3].map(no=><div key={no} className="mb-5">
-     <h3 className="mb-2 font-semibold text-slate-900">มาตรฐานที่ {no} — {no===2?'กระบวนการบริหารและการจัดการ':'การจัดการเรียนการสอนที่เน้นผู้เรียนเป็นสำคัญ'}</h3>
-     <div className="border-y border-slate-200">
-      {sections.filter(code=>code.startsWith(no+'.')).map(code=>{
-       const item=items.find(i=>i.section_code===code);
-       const value=targetDraft[code]??'';
-       const valid=value.trim()!==''&&Number.isFinite(Number(value))&&Number(value)>=0&&Number(value)<=100;
-       return <div key={code} className="grid grid-cols-[1fr_116px] items-center gap-3 border-b border-slate-100 py-3 sm:grid-cols-[1fr_140px_116px]">
-        <label htmlFor={'sar-target-'+code} className="flex min-w-0 items-start gap-3 text-sm">
-         <span className="shrink-0 font-semibold text-blue-900">{code}</span><span>{sectionTitles[code]??item?.title??code}</span>
-        </label>
-        <div className="relative">
-         <input id={'sar-target-'+code} aria-label={'ค่าเป้าหมายร้อยละข้อ '+code}
-          inputMode="decimal" type="number" min={0} max={100} step="0.01"
-          className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 pr-8 text-right text-sm tabular-nums disabled:bg-slate-50"
-          placeholder="—" disabled={locked||busy} value={value}
-          onChange={e=>{setTargetDraft(old=>({...old,[code]:e.target.value}));setNotice('');}}/>
-         <span className="pointer-events-none absolute right-3 top-2 text-sm text-slate-500">%</span>
-        </div>
-        <span className="col-span-2 text-right text-xs text-slate-500 sm:col-span-1 sm:text-left">{valid?quality(Number(value)):'ยังไม่กำหนด'}</span>
-       </div>;
-      })}
+    <p className="mb-3 text-sm text-slate-600">กำหนดค่าเป้าหมายเป็นร้อยละ <strong>รายมาตรฐานและรายประเด็นย่อย</strong> ตามตารางประกาศของโรงเรียน รวมมาตรฐานที่ 1, 2 และ 3 พร้อมค่าเป้าหมายภาพรวม รายการที่ยังไม่กำหนดจะไม่ถูกคิดเป็นศูนย์</p>
+    <div className="mb-4 flex flex-wrap items-center justify-between gap-3 text-xs text-slate-500">
+     <span>กำหนดแล้ว <strong className="text-slate-900">{filledCount} / {sections.length||27}</strong> รายการ · ร้อยละ 80 ขึ้นไป = ยอดเยี่ยม, 70–79.99 = ดีเลิศ, 60–69.99 = ดี, 50–59.99 = ปานกลาง, ต่ำกว่า 50 = กำลังพัฒนา</span>
+     {years.some(y=>y.year_be===2568)&&yearLabel!==2568&&<button type="button" className="ui-secondary" onClick={()=>{const y=years.find(x=>x.year_be===2568);if(y)setYearId(y.id);}}>ตรวจตัวอย่างปี 2568</button>}
+    </div>
+    {[1,2,3].map(no=><div key={no} className="mb-6">
+     <h3 className="mb-2 text-base font-semibold text-slate-900">มาตรฐานที่ {no} — {no===1?'คุณภาพของผู้เรียน':no===2?'กระบวนการบริหารและการจัดการ':'กระบวนการจัดการเรียนการสอนที่เน้นผู้เรียนเป็นสำคัญ'}</h3>
+     <div className="overflow-x-auto border-y border-slate-200">
+      <table className="w-full min-w-[620px] border-separate border-spacing-0 text-sm">
+       <thead><tr className="bg-slate-50 text-slate-700"><th className="w-20 border-b border-slate-200 p-3 text-left">ข้อ</th><th className="border-b border-slate-200 p-3 text-left">มาตรฐาน / ประเด็นพิจารณา</th><th className="w-36 border-b border-slate-200 p-3 text-right">เป้าหมาย (%)</th><th className="w-32 border-b border-slate-200 p-3 text-left">ระดับคุณภาพ</th></tr></thead>
+       <tbody>{topics.filter(t=>t.standard_no===no).map(t=>{
+        const value=targetDraft[t.code]??'';
+        const valid=value.trim()!==''&&/^\\d{1,3}(?:\\.\\d{1,2})?$/.test(value.trim())&&Number(value)<=100;
+        const topLevel=t.parent_code===null;
+        const depth=t.code.split('.').length-1;
+        return <tr key={t.code} className={topLevel?'bg-sky-50/70':'hover:bg-slate-50'}>
+         <td className={'border-b border-slate-100 px-3 py-2 align-middle tabular-nums '+(topLevel?'font-bold':'font-medium')}>{t.code}</td>
+         <td className={'border-b border-slate-100 py-2 pr-3 align-middle '+(topLevel?'font-semibold text-slate-900':'text-slate-800')} style={{paddingLeft:12+depth*14}}>{t.title}</td>
+         <td className="border-b border-slate-100 px-3 py-2 text-right align-middle">
+          <input aria-label={'ค่าเป้าหมายข้อ '+t.code} type="number" inputMode="decimal" min={0} max={100} step="0.01"
+           value={value} disabled={locked||busy} placeholder="—"
+           onChange={e=>{setTargetDraft(old=>({...old,[t.code]:e.target.value}));setNotice('');}}
+           className="w-full rounded-md border border-slate-300 bg-white px-2 py-2 text-right tabular-nums disabled:bg-transparent disabled:border-transparent"/>
+         </td>
+         <td className="border-b border-slate-100 px-3 py-2 text-xs">{valid?quality(Number(value)):<span className="text-slate-400">ยังไม่กำหนด</span>}</td>
+        </tr>;
+       })}</tbody>
+      </table>
      </div>
     </div>)}
-    <label className="mt-3 block text-sm font-medium text-slate-800">คำอธิบายการกำหนดค่าเป้าหมาย / เอกสารอ้างอิง
+    {topics.filter(t=>t.standard_no===0).map(t=><div key={t.code} className="mb-4 grid grid-cols-[1fr_120px_112px] items-center gap-3 border-y border-slate-200 bg-slate-50 px-3 py-3 text-sm">
+     <label htmlFor="sar-overall" className="font-semibold">{t.title}</label>
+     <input id="sar-overall" type="number" inputMode="decimal" min={0} max={100} step="0.01"
+      className="w-full rounded-md border border-slate-300 bg-white p-2 text-right tabular-nums disabled:bg-transparent disabled:border-transparent"
+      value={targetDraft[t.code]??''} disabled={locked||busy} placeholder="—"
+      onChange={e=>{setTargetDraft(old=>({...old,[t.code]:e.target.value}));setNotice('');}}/>
+     <span className="text-right text-xs text-slate-600">{targetDraft[t.code]!==undefined&&targetDraft[t.code]!==''?quality(Number(targetDraft[t.code])):'ยังไม่กำหนด'}</span>
+    </div>)}
+    <label className="mt-3 block text-sm font-medium text-slate-800">คำอธิบาย / เอกสารอ้างอิง
      <textarea rows={3} maxLength={2000} disabled={locked||busy} value={notes}
-      onChange={e=>setNotes(e.target.value)} className="mt-2 block w-full rounded-lg border border-slate-300 bg-white p-3" placeholder="อ้างอิงข้อมูลพื้นฐานหรือผลการดำเนินงานปีก่อน (ถ้ามี)"/>
+      onChange={e=>setNotes(e.target.value)} className="mt-2 block w-full rounded-lg border border-slate-300 bg-white p-3" placeholder="ระบุเอกสารประกาศ ค่าเป้าหมายที่กำหนดหรือที่มาของข้อมูล"/>
     </label>
-    {locked?<p className="mt-4 text-sm text-green-800">ประกาศเมื่อ {setting?.published_at?new Date(setting.published_at).toLocaleString('th-TH'):'—'} และล็อกค่าเป้าหมายรายประเด็นของปีนี้แล้ว</p>:
+    {yearLabel===2568&&<p className="mt-3 text-sm text-blue-800">ค่าเป้าหมายปี 2568 นำเข้าจากตารางประกาศค่าเป้าหมายใน SAR ขั้นพื้นฐาน หน้า 150–152 เพื่อใช้ตรวจสอบย้อนหลัง โดยยังเป็นฉบับร่างในระบบ Wichakan</p>}
+    {locked?<p className="mt-4 text-sm text-green-800">ประกาศเมื่อ {setting?.published_at?new Date(setting.published_at).toLocaleString('th-TH'):'—'} และล็อกค่าเป้าหมายของปีนี้แล้ว</p>:
      <div className="mt-4 flex flex-wrap gap-3">
       <button className="ui-secondary" type="button" disabled={busy} onClick={()=>void saveTargets(false)}>บันทึกฉบับร่าง</button>
-      <button className="ui-primary" type="button" disabled={busy||!allValid} onClick={()=>void saveTargets(true)}>{busy?'กำลังดำเนินการ...':'ประกาศเป้าหมายทั้ง 11 ประเด็น'}</button>
+      <button className="ui-primary" type="button" disabled={busy||!allValid} onClick={()=>void saveTargets(true)}>{busy?'กำลังดำเนินการ...':'ประกาศค่าเป้าหมายทั้ง 3 มาตรฐาน'}</button>
      </div>}
    </section>
    <section className="mb-8" aria-labelledby="sar-progress-heading">
