@@ -18,3 +18,13 @@ export function evaluateScore(values:string[],special:string,caps:number[],mode:
  return {numbers,invalid,valid,complete,term1,term2,total:selected,grade:valid?(special||(selected===null?'—':numericGrade(selected))):'—'};
 }
 export function recordComplete(record:ScoreRecord|undefined,setting:ScoreSetting|undefined,mode:ScoreMode='annual',termNo=2){return !!record?.is_complete&&evaluateScore(SCORE_FIELDS.map(f=>record[f]===null?'':String(record[f])),record.special_result??'',settingCaps(setting),mode,termNo).complete;}
+
+// Dashboard progress follows the selected semester, independently of annual
+// grading and the persisted annual is_complete flag.
+export function recordTermProgress(record:ScoreRecord|undefined,setting:ScoreSetting|undefined,mode:ScoreMode='annual',termNo=1){
+ const offset=termNo===2?3:0,special=record?.special_result??'';
+ const started=!!record&&(SCORE_FIELDS.slice(offset,offset+3).some(f=>record[f]!=null)||['ร','มส'].includes(special));
+ const values=SCORE_FIELDS.map((f,i)=>i>=offset&&i<offset+3&&record?.[f]!=null?String(record[f]):'');
+ const result=evaluateScore(values,special,settingCaps(setting),mode,termNo);
+ return {started,complete:!!record&&result.valid&&(!!special||(termNo===2?result.term2:result.term1)!==null)};
+}
