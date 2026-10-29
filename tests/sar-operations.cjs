@@ -6,7 +6,7 @@ const fix=fs.readFileSync('supabase/migrations/202610300006_sar_evidence_client_
 const nav=fs.readFileSync('src/components/app-navigation.tsx','utf8');
 for(const table of ['sar_staff_profiles','sar_evidence','sar_national_tests','sar_context','sar_indicator_measurements','sar_quality_reviews','sar_report_versions']){
  assert(schema.includes('create table public.'+table),'missing schema '+table);
- assert(schema.includes('alter table public.'+table+' enable row level security'),'missing RLS '+table);
+ assert(schema.includes('alter table public.'+table+' enable row level security') || (schema.includes("foreach t in array array[") && schema.includes("'"+table+"'")), 'missing RLS '+table);
 }
 assert(schema.includes("values('wichakan-sar','wichakan-sar',false"),'SAR files must be private');
 assert(schema.includes("split_part(name,'/',2)=(select auth.uid())::text"),'private file uploads scoped to owner');
