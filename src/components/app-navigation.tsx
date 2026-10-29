@@ -36,7 +36,8 @@ const teacherSections:NavSection[]=[
   {href:'/teacher/scores',label:'บันทึกคะแนน',icon:'chart'},
   {href:'/teacher/activities',label:'บันทึกกิจกรรม',icon:'check'},
   {href:'/teacher/sar',label:'ประเมิน SAR มาตรฐาน 2–3',icon:'file'},
-  {href:'/teacher/sar/evidence',label:'ผลงาน อบรม และนวัตกรรม',icon:'book'}
+  {href:'/teacher/sar/evidence',label:'ผลงาน อบรม และนวัตกรรม',icon:'book'},
+  {href:'/teacher/sar/students',label:'ประเมินผู้เรียนมาตรฐานที่ 1',icon:'check'}
  ]},
  {title:'งานประจำชั้น',items:[{href:'/teacher/pp6',label:'ห้องประจำชั้นและ ปพ.6',icon:'users'}]}
 ];
