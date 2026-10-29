@@ -26,6 +26,7 @@ export default function SarAdminPage(){
  const [snapshot,setSnapshot]=useState<SarSnapshot|null>(null);
  const [targetDraft,setTargetDraft]=useState<Record<string,string>>({}),[notes,setNotes]=useState('');
  const [successTargetCount,setSuccessTargetCount]=useState(0);
+ const [periodMinutes,setPeriodMinutes]=useState(''),[savedPeriodMinutes,setSavedPeriodMinutes]=useState('');
  const [initialLoading,setInitialLoading]=useState(true),[yearLoading,setYearLoading]=useState(false),[busy,setBusy]=useState(false),[error,setError]=useState(''),[notice,setNotice]=useState('');
  useEffect(()=>{let active=true;(async()=>{try{
   const db=getSupabaseBrowserClient();if(!db)throw Error('ยังไม่ได้ตั้งค่าการเชื่อมต่อ Supabase');
@@ -56,21 +57,23 @@ export default function SarAdminPage(){
  finally{if(active)setInitialLoading(false);}})();return()=>{active=false};},[]);
  const loadYear=useCallback(async(selected:string,schoolId:string)=>{
   const db=getSupabaseBrowserClient();if(!db)throw Error('ไม่พบการเชื่อมต่อ Supabase');
-  const [s,a,u,aggregated,targets,successList]=await Promise.all([
+  const [s,a,u,aggregated,targets,successList,period]=await Promise.all([
    db.from('sar_year_settings').select('status,notes,published_at')
     .eq('school_id',schoolId).eq('academic_year_id',selected).maybeSingle(),
    db.from('sar_teacher_assessments').select('teacher_user_id,item_code,rating').eq('school_id',schoolId).eq('academic_year_id',selected),
    db.from('sar_teacher_submissions').select('teacher_user_id,submitted_at').eq('school_id',schoolId).eq('academic_year_id',selected),
    db.rpc('sar_admin_auto_snapshot',{p_year:selected}),
    db.from('sar_indicator_targets').select('section_code,target_percent').eq('school_id',schoolId).eq('academic_year_id',selected),
-   db.from('sar_success_targets').select('indicator_code').eq('school_id',schoolId).eq('academic_year_id',selected)
+   db.from('sar_success_targets').select('indicator_code').eq('school_id',schoolId).eq('academic_year_id',selected),
+   db.from('sar_period_durations').select('minutes_per_period').eq('school_id',schoolId).eq('academic_year_id',selected).maybeSingle()
   ]);
-  if(s.error||a.error||u.error||aggregated.error||targets.error||successList.error)throw Error(s.error?.message||a.error?.message||u.error?.message||aggregated.error?.message||targets.error?.message||successList.error?.message);
+  if(s.error||a.error||u.error||aggregated.error||targets.error||successList.error||period.error)throw Error(s.error?.message||a.error?.message||u.error?.message||aggregated.error?.message||targets.error?.message||successList.error?.message||period.error?.message);
   const value=(s.data??null) as Setting|null;
   setSetting(value);setScores(a.data as Answer[]);setSubmissions(u.data as Submission[]);
   setSnapshot(aggregated.data as SarSnapshot);
   setTargetDraft(Object.fromEntries(((targets.data??[]) as IndicatorTarget[]).map(t=>[t.section_code,String(t.target_percent)])));
   setNotes(value?.notes??'');setSuccessTargetCount((successList.data??[]).length);
+  setPeriodMinutes(period.data?.minutes_per_period?.toString()??'');setSavedPeriodMinutes(period.data?.minutes_per_period?.toString()??'');
  },[]);
  useEffect(()=>{if(!school||!yearId)return;let active=true;setYearLoading(true);setError('');setNotice('');
   void loadYear(yearId,school).catch(e=>{if(active)setError((e as Error).message);})
@@ -116,6 +119,17 @@ export default function SarAdminPage(){
    setNotice(publish?'ประกาศค่าเป้าหมายครบทั้ง 3 มาตรฐานแล้ว ครูทุกคนเริ่มประเมินได้':'บันทึกค่าเป้าหมายรายข้อทั้ง 3 มาตรฐานเป็นฉบับร่างแล้ว');
   }catch(e){setError((e as Error).message)}
   finally{setBusy(false)}
+ }
+ async function savePeriodDuration(){
+  if(!yearId||!school||busy)return;
+  const value=Number(periodMinutes);
+  if(!Number.isInteger(value)||value<20||value>120){setError('กรุณากำหนดความยาวคาบระหว่าง 20–120 นาที');return;}
+  const db=getSupabaseBrowserClient();if(!db)return;
+  setBusy(true);setNotice('');setError('');
+  try{const {error:e}=await db.from('sar_period_durations').upsert({school_id:school,academic_year_id:yearId,minutes_per_period:value},{onConflict:'school_id,academic_year_id'});
+   if(e)throw Error(e.message);
+   setSavedPeriodMinutes(String(value));setNotice('บันทึกความยาวคาบแล้ว สรุปภาระสอนแสดงชั่วโมงต่อสัปดาห์ได้');
+  }catch(e){setError(e instanceof Error?e.message:'บันทึกระยะเวลาคาบไม่สำเร็จ');}finally{setBusy(false)}
  }
  async function reopen(t:Progress){
   if(!yearId||!school||busy||!t.submitted_at)return;
@@ -249,9 +263,10 @@ export default function SarAdminPage(){
      {!snapshot?.students.length&&<p className="p-4 text-sm text-slate-500">ยังไม่มีข้อมูลการลงทะเบียนนักเรียนในปีนี้</p>}
     </div>
     <h3 className="mb-2 font-semibold">ภาระสอนจากตารางสอนจริง</h3>
-    <p className="mb-3 text-sm text-slate-600">แยกรายภาคเรียน นับคาบต่อสัปดาห์แบบไม่ซ้ำวัน–คาบของครูคนเดียวกัน และแยกคาบรายวิชาออกจากกิจกรรม ไม่อนุมานว่าหนึ่งคาบเท่ากับหนึ่งชั่วโมง</p>
+    <p className="mb-3 text-sm text-slate-600">แยกรายภาคเรียน นับคาบต่อสัปดาห์แบบไม่ซ้ำวัน–คาบของครูคนเดียวกัน และแยกคาบรายวิชาออกจากกิจกรรม ระบบจะแปลงเป็นชั่วโมงเมื่อ Admin ระบุความยาวคาบจริงเท่านั้น</p>
+    <div className="mb-4 flex flex-wrap items-end gap-3"><label className="text-sm">ความยาว 1 คาบ (นาที)<input className="ml-2 w-24 rounded-md border border-slate-300 bg-white px-3 py-2 text-right" type="number" min={20} max={120} step={1} value={periodMinutes} onChange={e=>setPeriodMinutes(e.target.value)} placeholder="—"/></label><button className="ui-secondary" type="button" disabled={busy||!periodMinutes||periodMinutes===savedPeriodMinutes} onClick={()=>void savePeriodDuration()}>บันทึกความยาวคาบ</button></div>
     <div className="overflow-x-auto border-y border-slate-200">
-     <table className="w-full min-w-[620px] text-sm"><thead><tr className="bg-slate-50"><th className="p-3 text-left">ภาคเรียน</th><th className="p-3 text-left">ครู</th><th className="p-3 text-center">รายวิชา</th><th className="p-3 text-center">กิจกรรม</th><th className="p-3 text-center">รวมคาบ/สัปดาห์</th></tr></thead>
+     <table className="w-full min-w-[620px] text-sm"><thead><tr className="bg-slate-50"><th className="p-3 text-left">ภาคเรียน</th><th className="p-3 text-left">ครู</th><th className="p-3 text-center">รายวิชา</th><th className="p-3 text-center">กิจกรรม</th><th className="p-3 text-center">รวมคาบ/สัปดาห์</th><th className="p-3 text-center">ชั่วโมง/สัปดาห์</th></tr></thead>
       <tbody>{termNumbers.flatMap(term=>teachers.map(t=>{
        const info=snapshot?.teaching_load.find(row=>row.teacher_id===t.user_id&&row.term_no===term);
        return <tr className="border-t border-slate-100" key={term+':'+t.user_id}>
@@ -259,6 +274,7 @@ export default function SarAdminPage(){
         <td className="p-3 text-center">{info?.course_periods??0}</td>
         <td className="p-3 text-center">{info?.activity_periods??0}</td>
         <td className="p-3 text-center font-semibold">{info?.total_periods??0}</td>
+        <td className="p-3 text-center tabular-nums">{savedPeriodMinutes?(((info?.total_periods??0)*Number(savedPeriodMinutes))/60).toFixed(2):'—'}</td>
        </tr>;
       }))}</tbody>
      </table>
@@ -278,7 +294,7 @@ export default function SarAdminPage(){
      </div>
     </div>)}
    </section>
-   <p className="mt-6 text-sm text-slate-500">ระบบยังอยู่ในระยะฐานข้อมูลและแบบประเมิน SAR มาตรฐานที่ 2–3: ส่วนหลักฐาน Google Drive รายงาน SAR และมาตรฐานที่ 1 จะพัฒนาต่อเป็นลำดับถัดไป</p>
+   <p className="mt-6 text-sm text-slate-500">ข้อมูลพื้นฐาน ภาระงานสอน และผลการประเมินเป็นข้อมูลปัจจุบันที่ต้องตรวจสอบหลักฐานก่อนนำเข้ารายงานฉบับรับรอง ส่วนการอัปโหลด Google Drive ต้องให้โรงเรียนเชื่อมบัญชี Google ของตนเอง</p>
    <p className="mt-2 text-sm"><Link className="text-blue-700 underline" href="/teacher/sar">ดูหน้าประเมิน SAR สำหรับครู</Link></p>
   </>}
  </main>;
