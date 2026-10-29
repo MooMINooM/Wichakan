@@ -3,6 +3,7 @@ import {useEffect,useState} from 'react';
 import Link from 'next/link';
 import PageHeader from '@/components/page-header';
 import {getSupabaseBrowserClient} from '@/lib/supabase/browser';
+import {callSarDrive} from '@/lib/sar-drive';
 type Year={id:string;year_be:number;is_active:boolean};
 type Evidence={id:string;title:string;kind:string;owner_user_id:string;activity_year_be:number;description:string;target_codes:string[];storage_path:string|null;drive_url:string|null;verification_status:string};
 type Staff={user_id:string;display_name:string|null;learning_area:string|null};
@@ -15,6 +16,7 @@ export default function SarManagement(){
  const [evidence,setEvidence]=useState<Evidence[]>([]),[staffId,setStaffId]=useState(''),[form,setForm]=useState<StaffInfo|null>(null);
  const [tab,setTab]=useState<'evidence'|'staff'>('evidence');
  const [loading,setLoading]=useState(true),[busy,setBusy]=useState(false),[error,setError]=useState(''),[notice,setNotice]=useState('');
+ const [driveConnected,setDriveConnected]=useState(false),[driveConfigured,setDriveConfigured]=useState(false),[driveMessage,setDriveMessage]=useState('');
  const input='w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm';
  useEffect(()=>{let live=true;(async()=>{try{
   if(!db)throw Error('ไม่มีการเชื่อมต่อ Supabase');
@@ -42,6 +44,30 @@ export default function SarManagement(){
   setEvidence(ev.data as Evidence[]);setStaffInfo(profile.data as StaffInfo[]);
  }
  useEffect(()=>{if(!school||!year)return;let live=true;void reload().catch(e=>{if(live)setError((e as Error).message)});return()=>{live=false};},[school,year]);
+ useEffect(()=>{if(!school)return;let live=true;
+  const params=new URLSearchParams(window.location.search);
+  if(params.get('drive')==='connected')setNotice('เชื่อม Google Drive ของโรงเรียนเรียบร้อยแล้ว');
+  if(params.get('drive')==='error')setError('เชื่อม Google Drive ไม่สำเร็จ กรุณาตรวจการอนุญาต OAuth');
+  void callSarDrive('status',school).then(v=>{if(live){setDriveConnected(!!v.connected);setDriveConfigured(!!v.configured);}})
+   .catch(e=>{if(live){setDriveConnected(false);setDriveConfigured(false);setDriveMessage(e instanceof Error?e.message:'Google Drive ยังไม่พร้อม');}});
+  return()=>{live=false};
+ },[school]);
+ async function connectDrive(){
+  if(!school||busy)return;
+  setBusy(true);setError('');setDriveMessage('');
+  try{const v=await callSarDrive('connect',school);
+   if(!v.authorization_url)throw Error('ไม่พบลิงก์ Google OAuth');
+   window.location.assign(v.authorization_url);
+  }catch(e){setError(e instanceof Error?e.message:'เชื่อม Google Drive ไม่สำเร็จ');setBusy(false)}
+ }
+ async function syncDrive(item:Evidence){
+  if(!school||busy)return;setBusy(true);setError('');setNotice('');
+  try{const x=await callSarDrive('sync',school,item.id);
+   if(!x.uploaded)throw Error('Google Drive ยังไม่ได้ตอบรับไฟล์');
+   await reload();setNotice('ส่งหลักฐานเข้า Google Drive แล้ว: '+item.title);
+  }catch(e){setError(e instanceof Error?e.message:'ส่งไฟล์ไม่สำเร็จ')}finally{setBusy(false)}
+ }
+
  useEffect(()=>{if(staffId)setForm(staffInfo.find(s=>s.user_id===staffId)??blank(school,staffId))},[staffId,staffInfo,school]);
  async function review(item:Evidence,status:string){
   if(!db||busy)return;
@@ -69,6 +95,14 @@ export default function SarManagement(){
    <Link href="/admin/sar" className="text-sm text-blue-700 underline">← กลับหน้าหลัก SAR</Link>
   </div>
   {error&&<p className="teacher-error mb-3" role="alert">{error}</p>}{notice&&<p role="status" className="teacher-success mb-3">{notice}</p>}
+  <section className="mb-5 flex flex-wrap items-center justify-between gap-3 border-y border-slate-200 py-4">
+   <div><h2 className="font-semibold">Google Drive สำหรับหลักฐาน SAR</h2>
+    <p className="mt-1 text-sm text-slate-600">{driveConnected?'เชื่อมบัญชี Google Drive โรงเรียนแล้ว':driveConfigured?'ยังไม่เชื่อม Google Drive ของโรงเรียน':'ยังไม่ตั้งค่า Google OAuth สำหรับโรงเรียน'}</p>
+    {driveMessage&&<p className="mt-1 text-xs text-amber-800">{driveMessage}</p>}
+    <p className="mt-1 text-xs text-slate-500">จัดโฟลเดอร์ Wichakan SAR / บุคลากร / ครูรายบุคคล / ประเภทหลักฐาน โดยไฟล์ยังเป็นส่วนตัวตามสิทธิ์บัญชี Google</p>
+   </div>
+   <button className="ui-secondary" type="button" disabled={busy||!driveConfigured} onClick={()=>void connectDrive()}>{driveConnected?'เชื่อมบัญชีใหม่':'เชื่อม Google Drive'}</button>
+  </section>
   <div className="mb-5 flex gap-2 border-b border-slate-200 pb-3">
    <button className={tab==='evidence'?'ui-primary':'ui-secondary'} onClick={()=>setTab('evidence')}>ตรวจหลักฐาน ({evidence.filter(x=>x.verification_status==='draft').length} รอรับรอง)</button>
    <button className={tab==='staff'?'ui-primary':'ui-secondary'} onClick={()=>setTab('staff')}>ประวัติบุคลากร</button>
@@ -83,6 +117,7 @@ export default function SarManagement(){
     </div><span className="text-xs">{x.verification_status==='verified'?'รับรองแล้ว':x.verification_status==='rejected'?'ส่งกลับแก้ไข':'รอตรวจสอบ'}</span></div>
     <div className="mt-3 flex flex-wrap items-center gap-3 text-sm">
      {x.storage_path&&<button className="text-blue-700 underline" onClick={()=>void openStorage(x.storage_path!)}>เปิดไฟล์</button>}
+     {x.storage_path&&driveConnected&&<button className="text-blue-700 underline" disabled={busy} onClick={()=>void syncDrive(x)}>{x.drive_url?'ส่งไฟล์เข้า Drive อีกครั้ง':'ส่งไฟล์เข้า Google Drive'}</button>}
      {x.drive_url&&<a href={x.drive_url} target="_blank" rel="noopener noreferrer" className="text-blue-700 underline">ดู Google Drive</a>}
      {x.verification_status!=='verified'&&<button className="ui-primary" disabled={busy} onClick={()=>void review(x,'verified')}>รับรองหลักฐาน</button>}
      {x.verification_status!=='rejected'&&<button className="ui-secondary" disabled={busy} onClick={()=>void review(x,'rejected')}>ส่งกลับแก้ไข</button>}
