@@ -17,6 +17,10 @@ export async function createPp5Pdf(book:Pp5Book){
  const pdf=await PDFDocument.create();pdf.registerFontkit(fontkit);
  const [regularBytes,boldBytes,emblemBytes]=await Promise.all([asset('/pp6/THSarabunNew.ttf'),asset('/pp6/THSarabunNew-Bold.ttf'),asset('/pp5/obec-emblem.png')]);
  const regular=await pdf.embedFont(regularBytes,{subset:true}),bold=await pdf.embedFont(boldBytes,{subset:true}),emblem=await pdf.embedPng(emblemBytes);
+ const regularMetrics=fontkit.create(new Uint8Array(regularBytes)),boldMetrics=fontkit.create(new Uint8Array(boldBytes));
+ const boundsCache=new Map<string,{min:number;max:number}>();
+ // Match the shaped glyphs encoded by pdf-lib; spaces have no visible bounds.
+ function inkBounds(value:string,size:number,strong=false){const key=Number(strong)+'#'+value;let bounds=boundsCache.get(key);if(!bounds){const metric=strong?boldMetrics:regularMetrics,glyphs=metric.layout(value).glyphs.filter(g=>Number.isFinite(g.bbox.minY)&&Number.isFinite(g.bbox.maxY));bounds={min:glyphs.length?Math.min(...glyphs.map(g=>g.bbox.minY))/metric.unitsPerEm:0,max:glyphs.length?Math.max(...glyphs.map(g=>g.bbox.maxY))/metric.unitsPerEm:0};boundsCache.set(key,bounds);}return {min:bounds.min*size,max:bounds.max*size};}
  const subject=data.subjects.find(s=>s.id===o.subject_id)!,room=data.rooms.find(r=>r.id===o.classroom_id)!,term=data.terms.find(t=>t.id===o.term_id)!,year=data.years.find(y=>y.id===room.academic_year_id)!;
  const roomLabel=room.room_code.startsWith(room.level_code+'/')?room.room_code:room.level_code+'/'+room.room_code,period=`ภาคเรียนที่ ${term.term_no}/${year.year_be}`;
  pdf.setTitle('ปพ.5 '+subject.subject_code+' '+subject.name_th);pdf.setAuthor(book.teacherName);
@@ -27,8 +31,20 @@ export async function createPp5Pdf(book:Pp5Book){
  }
  function line(p:PDFPage,x:number,y:number,w:number,dashed=false){p.drawLine({start:{x,y:p.getHeight()-y},end:{x:x+w,y:p.getHeight()-y},thickness:.45,color:ink,...(dashed?{dashArray:[1.5,1.5]}:{})});}
  function box(p:PDFPage,x:number,y:number,w:number,h:number,shade=false){p.drawRectangle({x,y:p.getHeight()-y-h,width:w,height:h,borderWidth:.45,borderColor:ink,...(shade?{color:pale}:{})});}
- function cell(p:PDFPage,v:string|number,x:number,y:number,w:number,h:number,size:number=PP5_TYPE.body,strong=false,align:'left'|'center'='center',shade=false){box(p,x,y,w,h,shade);const lines=wrap(String(v),w-4,size,strong?bold:regular),multiline=lines.length>1&&lines.length*size<=h;if(multiline){lines.forEach((part,i)=>text(p,part,align==='left'?x+3:x+w/2,y+(h-lines.length*size)/2-1+i*size,size,w-4,align,strong));}else text(p,v,align==='left'?x+3:x+w/2,y+(h-size)/2-1,size,w-4,align,strong);}
- function vertical(p:PDFPage,v:string,x:number,y:number,w:number,h:number,size:number=PP5_TYPE.tableHeader){box(p,x,y,w,h);const fit=size;p.drawText(v,{x:x+w/2+fit/3,y:p.getHeight()-y-h+3,rotate:degrees(90),font:bold,size:fit,color:ink});}
+ function cell(p:PDFPage,v:string|number,x:number,y:number,w:number,h:number,size:number=PP5_TYPE.body,strong=false,align:'left'|'center'='center',shade=false){
+  box(p,x,y,w,h,shade);const font=strong?bold:regular,value=String(v),padding=1;
+  let fit=size,lines=wrap(value,w-6,fit,font);
+  const layout=()=>{const bounds=lines.map(part=>inkBounds(part,fit,strong));return {min:Math.min(...bounds.map((b,i)=>b.min-i*fit)),max:Math.max(...bounds.map((b,i)=>b.max-i*fit))};};
+  let bounds=layout();
+  // Retain the shared 14/12 pt hierarchy; fit exceptionally tall Thai names
+  // within the row instead of letting upper/lower vowel marks cross a rule.
+  if(bounds.max-bounds.min>h-padding*2&&fit>PP5_TYPE.note){fit=PP5_TYPE.note;lines=wrap(value,w-6,fit,font);bounds=layout();}
+  if(bounds.max-bounds.min>h-padding*2&&lines.length>1){lines=[value.replace(/\n/g,' ')];bounds=layout();}
+  if(lines.some(part=>font.widthOfTextAtSize(part,fit)>w-6)&&fit>PP5_TYPE.note){fit=PP5_TYPE.note;bounds=layout();}
+  const baseline=p.getHeight()-y-h/2-(bounds.max+bounds.min)/2;
+  lines.forEach((part,i)=>{const width=font.widthOfTextAtSize(part,fit);p.drawText(part,{x:align==='left'?x+3:x+(w-width)/2,y:baseline-i*fit,font,size:fit,color:ink});});
+ }
+ function vertical(p:PDFPage,v:string,x:number,y:number,w:number,h:number,size:number=PP5_TYPE.tableHeader){box(p,x,y,w,h);const bounds=inkBounds(v,size,true),width=bold.widthOfTextAtSize(v,size);p.drawText(v,{x:x+w/2+(bounds.max+bounds.min)/2,y:p.getHeight()-y-h/2-width/2,rotate:degrees(90),font:bold,size,color:ink});}
  function wrap(value:string,width:number,size:number=PP5_TYPE.body,font:PDFFont=regular){const out:string[]=[];for(const para of value.split('\n')){let part='';for(const {segment} of new Intl.Segmenter('th',{granularity:'grapheme'}).segment(para)){if(font.widthOfTextAtSize(part+segment,size)>width&&part){out.push(part);part=segment;}else part+=segment;}out.push(part);}return out;}
  const addPage=(landscape=false)=>pdf.addPage(landscape?[841.89,595.28]:[595.28,841.89]);
  const groupNames:Record<string,string>={'ท':'ภาษาไทย','ค':'คณิตศาสตร์','ว':'วิทยาศาสตร์และเทคโนโลยี','ส':'สังคมศึกษา ศาสนา และวัฒนธรรม','พ':'สุขศึกษาและพลศึกษา','ศ':'ศิลปะ','ง':'การงานอาชีพ','อ':'ภาษาต่างประเทศ'},group=groupNames[subject.subject_code[0]]??'—';
@@ -85,23 +101,20 @@ export async function createPp5Pdf(book:Pp5Book){
   text(p,`${scoreSheet&&annual?'ปีการศึกษา '+year.year_be+' · คะแนนภาคเรียนที่ 1 และ 2':period} ชั้น ${roomLabel} รายวิชา ${subject.subject_code} ${subject.name_th}`,center,25,PP5_TYPE.body,width,'center');
   text(p,'ครูผู้สอน '+book.teacherName,center,41,PP5_TYPE.body,width,'center');
  }
- function mergedCell(p:PDFPage,v:string,x:number,y:number,w:number,h:number){
-  const lines=wrap(v,w-4,PP5_TYPE.tableHeader,bold);box(p,x,y,w,h);
-  lines.forEach((part,j)=>text(p,part,x+w/2,y+(h-PP5_TYPE.tableHeader*lines.length)/2-1+j*PP5_TYPE.tableHeader,PP5_TYPE.tableHeader,w-4,'center',true));
- }
- for(const chunk of chunks){const p=addPage(annual),x=18,y=64,rowHeight=annual?14.25:21,ws=annual?[24,210,...Array(8).fill(50),70,60,32]:[24,210,...Array(5).fill(55),50],xs=[x];ws.forEach(w=>xs.push(xs[xs.length-1]+w));
+ function mergedCell(p:PDFPage,v:string,x:number,y:number,w:number,h:number){cell(p,v,x,y,w,h,PP5_TYPE.tableHeader,true);}
+ for(const chunk of chunks){const p=addPage(annual),x=18,y=64,rowHeight=annual?15:21,headerHeight=annual?60:84,groupHeight=annual?16:20,labelHeight=annual?28:44,capHeight=annual?16:20,ws=annual?[24,210,...Array(8).fill(50),70,60,32]:[24,210,...Array(5).fill(55),50],xs=[x];ws.forEach(w=>xs.push(xs[xs.length-1]+w));
  const note=ws.length-1,width=xs[ws.length]-x;
  sheetHeader(p,'บันทึกผลการพัฒนาผู้เรียน',width,true);
  const merged=(v:string,a:number,b:number,yy:number,h:number)=>mergedCell(p,v,xs[a],yy,xs[b]-xs[a],h);
- const scoreHeader=(label:string,j:number)=>merged(label,j,j+1,y+20,44);
- merged('เลขที่',0,1,y,84);merged('ชื่อ-สกุล',1,2,y,84);
- if(annual){merged('ภาคเรียนที่ 1',2,6,y,20);merged('ภาคเรียนที่ 2',6,10,y,20);for(const start of [2,6])['คะแนน\nเก็บ','กลาง\nภาค','ปลาย\nภาค','รวม\nภาคเรียน'].forEach((label,i)=>scoreHeader(label,start+i));vertical(p,'รวมทั้งปี',xs[10],y,ws[10],64);vertical(p,'ระดับผลการเรียน',xs[11],y,ws[11],64);
- const yc=scores[0].yearCaps;[...yc.slice(0,3),yc.slice(0,3).reduce((a,b)=>a+b,0),...yc.slice(3),yc.slice(3).reduce((a,b)=>a+b,0),yc.reduce((a,b)=>a+b,0),'—'].forEach((cap,i)=>cell(p,cap,xs[i+2],y+64,ws[i+2],20));
- }else{merged('คะแนนผลการเรียน',2,7,y,20);['คะแนน\nเก็บ','กลาง\nภาค','ปลาย\nภาค','รวม\nคะแนน','ระดับผล\nการเรียน'].forEach((label,i)=>scoreHeader(label,i+2));[...caps,caps.reduce((a,b)=>a+b,0),'—'].forEach((cap,i)=>cell(p,cap,xs[i+2],y+64,ws[i+2],20));}
- vertical(p,'หมายเหตุ',xs[note],y,ws[note],84);
+ const scoreHeader=(label:string,j:number)=>merged(label,j,j+1,y+groupHeight,labelHeight);
+ merged('เลขที่',0,1,y,headerHeight);merged('ชื่อ-สกุล',1,2,y,headerHeight);
+ if(annual){merged('ภาคเรียนที่ 1',2,6,y,groupHeight);merged('ภาคเรียนที่ 2',6,10,y,groupHeight);for(const start of [2,6])['คะแนน\nเก็บ','กลาง\nภาค','ปลาย\nภาค','รวม\nภาคเรียน'].forEach((label,i)=>scoreHeader(label,start+i));merged('รวมทั้งปี',10,11,y,groupHeight+labelHeight);merged('ระดับผล\nการเรียน',11,12,y,groupHeight+labelHeight);
+ const yc=scores[0].yearCaps;[...yc.slice(0,3),yc.slice(0,3).reduce((a,b)=>a+b,0),...yc.slice(3),yc.slice(3).reduce((a,b)=>a+b,0),yc.reduce((a,b)=>a+b,0),'—'].forEach((cap,i)=>cell(p,cap,xs[i+2],y+headerHeight-capHeight,ws[i+2],capHeight));
+ }else{merged('คะแนนผลการเรียน',2,7,y,20);['คะแนน\nเก็บ','กลาง\nภาค','ปลาย\nภาค','รวม\nคะแนน','ระดับผล\nการเรียน'].forEach((label,i)=>scoreHeader(label,i+2));[...caps,caps.reduce((a,b)=>a+b,0),'—'].forEach((cap,i)=>cell(p,cap,xs[i+2],y+headerHeight-capHeight,ws[i+2],capHeight));}
+ vertical(p,'หมายเหตุ',xs[note],y,ws[note],headerHeight);
  for(let i=0;i<rowsPerPage;i++){const s=chunk[i],score=s?pp5Score(data,o,s.id):null,row=Array<string|number>(ws.length).fill('');row[0]=roster.indexOf(chunk[0])+i+1;
  if(s&&score){row[1]=fullName(s);if(annual){for(let j=0;j<3;j++){row[2+j]=score.yearScores[j]??'—';row[6+j]=score.yearScores[j+3]??'—';}row[5]=score.termTotals[0]??'—';row[9]=score.termTotals[1]??'—';row[10]=score.annualTotal??'—';row[11]=score.grade;}else{score.scores.forEach((v,j)=>row[j+2]=v??'—');row[5]=score.total??'—';row[6]=score.grade;}row[note]=['ร','มส'].includes(score.grade)?score.grade:'';}
- row.forEach((v,j)=>cell(p,v,xs[j],y+84+i*rowHeight,ws[j],rowHeight,PP5_TYPE.body,false,j===1?'left':'center'));}
+ row.forEach((v,j)=>cell(p,v,xs[j],y+headerHeight+i*rowHeight,ws[j],rowHeight,PP5_TYPE.body,false,j===1?'left':'center'));}
  if(annual)text(p,'รวมปีและเกรดสรุปเมื่อคะแนนครบทั้งสองภาคเรียน',18,577,PP5_TYPE.note,width-110);
  }
  // Assessments retain the selected offering's term; do not copy scores between terms.

@@ -34,3 +34,8 @@ The cover's semester, female student count, subject and total-hours labels share
 ขนาดอักษรจาก `PP5_TYPE`: หัวข้อหลักทุกหน้า 20 pt, หัวข้อส่วนในปก 16 pt, เนื้อหา/รายชื่อ/คะแนน 14 pt, หัวตารางและหมายเหตุ/เลขหน้า 12 pt ใช้การขึ้นบรรทัดในหัวตารางแทนการย่อหัวข้อแต่ละช่องเป็นขนาดต่างกัน ข้อมูลยาวปรับได้ถึงขนาด 12 pt
 
 หัวข้อหน้าเวลาเรียนแยกจากข้อมูลรายวิชาเป็นสองบรรทัด หน้าคะแนนมัธยมใช้ความกว้างกระดาษให้ครบเพื่อรักษาขนาดหัวข้อเดียวกับประถม บล็อกลงชื่อจัดชื่อและตำแหน่งคนละบรรทัดเพื่อให้อ่านได้ชัดเจน
+
+
+## Vertical cell alignment
+
+Cell text uses the visible bounds of the shaped TH Sarabun New glyphs, including upper/lower Thai vowels and tone marks, to place the block at the center of the cell. Multiline headers and rotated labels use the same visible-bounds centering. A one-point clearance is reserved from horizontal rules; unusually tall names use the existing 12 pt fallback instead of crossing a border. Primary result rows are 15 pt high with a compact 60 pt header, retaining 30 students and both terms on one landscape A4 page. Attendance and assessment rows keep their existing dimensions. Unit PDF checks compare actual glyph outlines with drawn cell rectangles and verify centered ink and clearance; full books are rendered for visual review.
