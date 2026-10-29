@@ -18,7 +18,7 @@ type StaffInfo={user_id?:string;display_name?:string|null;employment_type:string
 type DetailItem={code:string;parent_code:string;description:string};
 type Version={id:string;version_no:number;snapshot:Report;approved_at:string};
 type GradeSummary={rows:{level:string;term:number;subject_code:string;expected:number;recorded:number;grade3plus:number;pct_of_recorded:number|null}[]};
-type Gender={students:{level:string;male:number;female:number;unknown:number;total:number}[];teaching_load:{teacher_id:string;term_no:number;total_periods:number}[]};
+type Gender={students:{level:string;male:number;female:number;unknown:number;total:number}[];teaching_load:{teacher_id:string;teacher_name?:string|null;term_no:number;total_periods:number}[];minutes_per_period?:number|null};
 type Report={year:number;school:string;targets:Target[];success_targets?:DetailTarget[];staff_profiles?:StaffInfo[];reviews:Review[];measurements:Measure[];context:Context[];national_tests:National[];evidence:Evidence[];teacher_summary:TeacherAverage[];academic_summary?:GradeSummary;roster?:Gender};
 const safe=(v:unknown)=>String(v??'—').replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('"','&quot;');
 const pct=(m:Measure|undefined)=>!m?null:m.denominator&&m.denominator>0&&m.numerator!==null?
@@ -46,7 +46,7 @@ function makeHtml(report:Report,topics:Topic[],details:DetailItem[],version:numb
  if(report.roster?.students?.length)parts.push('<h3>สรุปจำนวนนักเรียนรายระดับชั้น (จากทะเบียน)</h3>',
   table(['ชั้น','ชาย','หญิง','รอตรวจสอบ','รวม'],report.roster.students.map(s=>[s.level,String(s.male),String(s.female),String(s.unknown),String(s.total)])));
  if(report.roster?.teaching_load?.length)parts.push('<h3>ภาระสอนรายครูจากตารางสอน (จำนวนคาบต่อสัปดาห์)</h3>',
-  table(['ครู (รหัสบัญชี)','ภาคเรียน','คาบ/สัปดาห์'],report.roster.teaching_load.map(s=>[s.teacher_id,s.term_no.toString(),s.total_periods.toString()])));
+  table(['ครู','ภาคเรียน','คาบ/สัปดาห์','ชั่วโมง/สัปดาห์'],report.roster.teaching_load.map(s=>[s.teacher_name??s.teacher_id,s.term_no.toString(),s.total_periods.toString(),report.roster!.minutes_per_period?((s.total_periods*report.roster!.minutes_per_period)/60).toFixed(2):'ยังไม่กำหนดความยาวคาบ'])));
  if(report.national_tests.length)parts.push('<h3>ผลการทดสอบระดับชาติ</h3>',
   table(['แบบทดสอบ','ชั้น','วิชา/ด้าน','จำนวน','โรงเรียน','เขต','ประเทศ'],report.national_tests.map(n=>[n.test_kind,n.grade_level,n.component,String(n.participants??'—'),String(n.school_average??'—'),String(n.area_average??'—'),String(n.national_average??'—')])));
  if(report.academic_summary?.rows?.length)parts.push('<h3>ผลสัมฤทธิ์ระดับ 3 ขึ้นไป (เฉพาะข้อมูลที่มีเกรดสมบูรณ์)</h3>',
