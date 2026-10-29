@@ -13,7 +13,7 @@ export type SarDocxReport={
  evidence:{kind:string;title:string;activity_year_be:number;target_codes:string[]}[];
  teacher_summary:{item_code:string;n:number;mean_rating:number}[];
  academic_summary?:{rows:{level:string;term:number;subject_code:string;expected:number;recorded:number;grade3plus:number;pct_of_recorded:number|null}[]};
- roster?:{students:{level:string;male:number;female:number;unknown:number;total:number}[];teaching_load:{teacher_id:string;term_no:number;total_periods:number}[]};
+ roster?:{students:{level:string;male:number;female:number;unknown:number;total:number}[];teaching_load:{teacher_id:string;teacher_name?:string|null;term_no:number;total_periods:number}[];minutes_per_period?:number|null};
  staff_profiles?:{display_name?:string|null;employment_type:string;position_title:string;qualification:string;major:string;academic_rank:string}[];
 };
 const xml=(value:unknown)=>String(value??'—').replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('"','&quot;').replaceAll("'",'&apos;');
@@ -48,6 +48,11 @@ function getReportXml(report:SarDocxReport,topics:SarDocxTopic[],details:SarDocx
   table(['ชื่อ','ตำแหน่ง','วุฒิ','สาขา','วิทยฐานะ'],report.staff_profiles.map(s=>[s.display_name??'—',s.position_title,s.qualification,s.major,s.academic_rank])));
  if(report.roster?.students?.length)parts.push(para('จำนวนนักเรียนรายระดับชั้น','Heading2'),
   table(['ชั้น','ชาย','หญิง','รอตรวจสอบ','รวม'],report.roster.students.map(x=>[x.level,x.male,x.female,x.unknown,x.total])));
+ if(report.roster?.teaching_load?.length)parts.push(para('ภาระงานสอนจากตารางสอนจริง','Heading2'),
+  table(['ครู','ภาคเรียน','คาบต่อสัปดาห์','ชั่วโมงต่อสัปดาห์'],report.roster.teaching_load.map(x=>[
+   x.teacher_name??x.teacher_id,x.term_no,x.total_periods,
+   report.roster?.minutes_per_period?((x.total_periods*report.roster.minutes_per_period)/60).toFixed(2):'ยังไม่กำหนดความยาวคาบ'
+  ])));
  if(report.national_tests.length)parts.push(para('ผล RT / NT / O-NET','Heading2'),
   table(['แบบทดสอบ','ชั้น','วิชา/ด้าน','จำนวนผู้เข้าสอบ','เฉลี่ยโรงเรียน','เฉลี่ยเขต','เฉลี่ยประเทศ'],
   report.national_tests.map(x=>[x.test_kind,x.grade_level,x.component,x.participants,x.school_average,x.area_average,x.national_average])));
