@@ -61,7 +61,7 @@ export async function createPp5Pdf(book:Pp5Book){
  field('นักเรียนชาย',male+' คน',columns[0],204,third);field('นักเรียนหญิง',female+' คน',columns[1],204,third);field('รวมทั้งหมด',roster.length+' คน',columns[2],204,third);
  field('รหัสวิชา',subject.subject_code,35,227,third);field('รายวิชา',subject.name_th,215,227,345);
  field('กลุ่มสาระการเรียนรู้',group,35,250,525);
- field('เวลาเรียนทั้งหมด',book.expected+' ชั่วโมง/ภาคเรียน',35,273,half);field('เวลาเรียน',book.expected/20+' ชั่วโมง/สัปดาห์',305,273,half);
+ field('เวลาเรียนทั้งหมด',book.expected+' ชั่วโมง/ภาคเรียน',35,273,345);field('เวลาเรียน',book.expected/20+' ชั่วโมง/สัปดาห์',395,273,third);
  field('อัตราส่วนคะแนน',`เก็บ ${caps[0]} : กลางภาค ${caps[1]} : ปลายภาค ${caps[2]}`,35,296,345);field('หน่วยกิต',room.level_code.startsWith('ม.')?(book.expected/40).toFixed(2):'—',395,296,third);
  field('ครูผู้สอน',book.teacherName,35,319,525);field('ครูที่ปรึกษา 1.',book.homeroomNames[0]??'—',35,342,half);field('ครูที่ปรึกษา 2.',book.homeroomNames[1]??'—',305,342,half);
  const gx=35,gy=377,gw=525;cell(cover,'สรุปผลการพัฒนาผู้เรียน',gx,gy,gw,22,PP5_TYPE.section,true);
@@ -74,7 +74,8 @@ export async function createPp5Pdf(book:Pp5Book){
  box(cover,35,617,255,176);box(cover,305,617,255,176);text(cover,'การอนุมัติผลการพัฒนาผู้เรียน',42,625,PP5_TYPE.section,240,'left',true);text(cover,'เรียนเสนอเพื่อพิจารณา',315,625,PP5_TYPE.section,235,'left',true);
  const coverName=(name:string)=>name.trim()||'........................................';
  for(const [i,role] of ['ครูผู้สอน','หัวหน้างานวัดและประเมินผล','หัวหน้าฝ่ายวิชาการ'].entries()){const y=648+i*46;const signer=[book.teacherName,book.signatories.assessment_head_name,book.signatories.academic_head_name][i];text(cover,'ลงชื่อ ...........................................',162.5,y,PP5_TYPE.body,240,'center');text(cover,'( '+coverName(signer)+' )',162.5,y+15,PP5_TYPE.body,240,'center');text(cover,role,162.5,y+29,PP5_TYPE.body,240,'center');}
- text(cover,'ลงชื่อ ............................................................',317,659,PP5_TYPE.body,235);text(cover,'( '+coverName(book.signatories.director_name)+' )',432,683,PP5_TYPE.body,235,'center');text(cover,'ผู้อำนวยการ'+book.schoolName,432,705,PP5_TYPE.body,235,'center');text(cover,'[  ] อนุมัติ     [  ] ไม่อนุมัติ',432,729,PP5_TYPE.body,235,'center');text(cover,'............... / ............... / ...............',432,758,PP5_TYPE.body,235,'center');
+ const directorCenter=305+255/2;
+ text(cover,'ลงชื่อ ............................................................',directorCenter,659,PP5_TYPE.body,235,'center');text(cover,'( '+coverName(book.signatories.director_name)+' )',directorCenter,683,PP5_TYPE.body,235,'center');text(cover,'ผู้อำนวยการ'+book.schoolName,directorCenter,705,PP5_TYPE.body,235,'center');text(cover,'[  ] อนุมัติ     [  ] ไม่อนุมัติ',directorCenter,729,PP5_TYPE.body,235,'center');text(cover,'............... / ............... / ...............',directorCenter,758,PP5_TYPE.body,235,'center');
  // Twenty-five weekday columns per five-week page, preserving the source's four header rows.
  const sessions=attendanceSessions(attendance),anchor=book.termStart&&book.termStart<=sessions[0].date?book.termStart:sessions[0].date,monday=new Date(anchor+'T00:00:00Z');monday.setUTCDate(monday.getUTCDate()-((monday.getUTCDay()+6)%7));
  const weeks=Math.max(20,...sessions.map(s=>weekOf(s.date,anchor)+1)),lookup=new Map(attendance.map(a=>[a.student_id+'#'+a.class_date+'#'+a.session_no,a.attendance_status]));
