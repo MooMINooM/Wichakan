@@ -26,5 +26,6 @@ jobs:
           node tests/pp5.cjs
           node tests/attendance-grid.cjs
           node tests/activity-assessments.cjs
+          node tests/director-overview.cjs
       - name: Build
         run: npm run build
