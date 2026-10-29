@@ -28,5 +28,6 @@ jobs:
           node tests/activity-assessments.cjs
           node tests/director-overview.cjs
           node tests/sar.cjs
+          node tests/sar-operations.cjs
       - name: Build
         run: npm run build
