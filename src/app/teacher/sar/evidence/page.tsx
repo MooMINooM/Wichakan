@@ -3,6 +3,7 @@ import {useEffect,useState} from 'react';
 import Link from 'next/link';
 import PageHeader from '@/components/page-header';
 import {getSupabaseBrowserClient} from '@/lib/supabase/browser';
+import {callSarDrive} from '@/lib/sar-drive';
 type Year={id:string;year_be:number;is_active:boolean};
 type Topic={code:string;title:string;standard_no:number;sort_order:number};
 type RecordItem={id:string;kind:string;title:string;activity_year_be:number;activity_date:string|null;description:string;target_codes:string[];storage_path:string|null;drive_url:string|null;verification_status:string;created_at:string};
@@ -22,6 +23,7 @@ export default function SarEvidencePage(){
  [date,setDate]=useState(''),[description,setDescription]=useState(''),[codes,setCodes]=useState<string[]>([]),[drive,setDrive]=useState(''),
  [file,setFile]=useState<File|null>(null),[editing,setEditing]=useState<string|null>(null),[loading,setLoading]=useState(true),
  [busy,setBusy]=useState(false),[error,setError]=useState(''),[notice,setNotice]=useState('');
+ const [driveConnected,setDriveConnected]=useState(false),[driveMessage,setDriveMessage]=useState('');
  const style='w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm';
  useEffect(()=>{let live=true;(async()=>{try{
   if(!db)throw Error('ยังไม่ได้ตั้งค่าฐานข้อมูล');
@@ -43,6 +45,21 @@ export default function SarEvidencePage(){
   if(r.error)throw r.error;setRecords(r.data as RecordItem[]);
  }
  useEffect(()=>{if(!year||!school||!uid)return;let live=true;setError('');void reload().catch(e=>{if(live)setError((e as Error).message)});return()=>{live=false};},[year,school,uid]);
+ useEffect(()=>{if(!school)return;let live=true;
+  void callSarDrive('status',school).then(s=>{if(live){setDriveConnected(!!s.connected);setDriveMessage(s.connected?'เชื่อม Google Drive ของโรงเรียนแล้ว':'Admin ยังไม่ได้เชื่อม Google Drive');}})
+   .catch(e=>{if(live){setDriveConnected(false);setDriveMessage(e instanceof Error?e.message:'ยังไม่พร้อมใช้งาน Google Drive');}});
+  return()=>{live=false};
+ },[school]);
+ async function syncDrive(id:string){
+  if(!school||busy)return;setBusy(true);setError('');setNotice('');
+  try{
+   const r=await callSarDrive('sync',school,id);
+   if(!r.uploaded)throw Error('Google Drive ไม่ได้ยืนยันการอัปโหลด');
+   await reload();setNotice('ส่งไฟล์เข้า Google Drive ของโรงเรียนสำเร็จ');
+  }catch(e){setError(e instanceof Error?e.message:'ส่งเข้า Drive ไม่สำเร็จ')}
+  finally{setBusy(false)}
+ }
+
  function reset(){setEditing(null);setKind('achievement');setName('');setDate('');setDescription('');setCodes([]);setDrive('');setFile(null);}
  function edit(record:RecordItem){
   setEditing(record.id);setKind(record.kind);setName(record.title);setActivityYear(String(record.activity_year_be));
@@ -71,7 +88,13 @@ export default function SarEvidencePage(){
    const r=await db.rpc('sar_save_evidence',{p_year:year,p_id:id,p_kind:kind,p_title:name.trim(),p_activity_year:Number(activityYear),
     p_activity_date:date||null,p_description:description,p_targets:codes,p_storage_path:path,p_drive_url:drive.trim()||null});
    if(r.error)throw Error(r.error.message);
-   await reload();reset();setNotice('บันทึกหลักฐานแล้ว และส่งเข้ารายการรอตรวจสอบของ Admin');
+   let message='บันทึกหลักฐานแล้ว และส่งเข้ารายการรอตรวจสอบของ Admin';
+   if(driveConnected&&path&&(!previous||previous.storage_path!==path)){
+    try{const synced=await callSarDrive('sync',school,id);
+     if(synced.uploaded)message='บันทึกหลักฐานและสำรองเข้า Google Drive ของโรงเรียนแล้ว';
+    }catch{message='บันทึกหลักฐานแล้ว แต่ยังส่งเข้า Google Drive ไม่สำเร็จ สามารถกดส่งอีกครั้งได้';}
+   }
+   await reload();reset();setNotice(message);
   }catch(e){setError(e instanceof Error?e.message:'บันทึกไม่สำเร็จ');}
   finally{setBusy(false)}
  }
@@ -84,6 +107,7 @@ export default function SarEvidencePage(){
  return <main className="wichakan-page mx-auto max-w-5xl px-4 pb-12">
   <PageHeader title="คลังผลงาน อบรม และหลักฐาน SAR" context="บันทึกผลงานรายบุคคล แยกประเภทและปีการศึกษา พร้อมไฟล์ส่วนตัว"/>
   {error&&<p role="alert" className="teacher-error mb-3">{error}</p>}{notice&&<p role="status" className="teacher-success mb-3">{notice}</p>}
+  <p className={'mb-3 text-sm '+(driveConnected?'text-green-700':'text-slate-600')}>Google Drive: {driveMessage||'กำลังตรวจสอบการเชื่อมต่อ...'}</p>
   <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
    <label className="text-sm font-medium">ปีการศึกษา <select className={style+' ml-2 inline-block w-auto'} value={year} onChange={e=>{setYear(e.target.value);reset();setActivityYear(String(years.find(y=>y.id===e.target.value)?.year_be??2569));}}>{years.map(y=><option key={y.id} value={y.id}>{y.year_be}</option>)}</select></label>
    <Link href="/teacher/sar" className="text-sm text-blue-700 underline">กลับหน้า SAR ของครู</Link>
@@ -104,7 +128,7 @@ export default function SarEvidencePage(){
      <input type="checkbox" className="mt-0.5" checked={codes.includes(t.code)} onChange={e=>setCodes(a=>e.target.checked?[...a,t.code]:a.filter(x=>x!==t.code))}/><span><b>{t.code}</b> {t.title}</span>
     </label>)}</div>
    </fieldset>
-   <p className="mt-3 text-xs text-slate-500">ไฟล์ที่อัปโหลดจะอยู่ในที่เก็บส่วนตัวของ Wichakan แยกตามผู้ใช้ ประเภทงาน และปีในชื่อไฟล์ หากใช้ Google Drive ให้แนบลิงก์ไฟล์ที่มีอยู่ก่อน ขณะนี้ยังไม่ได้เชื่อมสิทธิ์อัปโหลดเข้า Google Drive โดยตรง</p>
+   <p className="mt-3 text-xs text-slate-500">ไฟล์ที่อัปโหลดจะอยู่ในที่เก็บส่วนตัวของ Wichakan แยกตามผู้ใช้ ประเภทงาน และปีในชื่อไฟล์ หาก Admin เชื่อม Google Drive แล้ว ระบบจะส่งไฟล์ใหม่เข้าพื้นที่ Drive ของโรงเรียนอัตโนมัติ และมีปุ่มส่งซ้ำ หากยังไม่เชื่อมสามารถแนบลิงก์ Google Drive ที่มีอยู่ได้</p>
    <div className="mt-4 flex flex-wrap gap-3"><button className="ui-primary" type="submit" disabled={busy||loading||!name.trim()}>{busy?'กำลังบันทึก...':editing?'บันทึกการแก้ไข':'เพิ่มรายการ'}</button>
     {editing&&<button className="ui-secondary" type="button" disabled={busy} onClick={reset}>ยกเลิกแก้ไข</button>}</div>
   </form>
@@ -118,6 +142,7 @@ export default function SarEvidencePage(){
     {r.description&&<p className="mt-2 whitespace-pre-wrap text-sm text-slate-600">{r.description}</p>}
     <div className="mt-2 flex flex-wrap gap-4 text-sm">
      {r.storage_path&&<button className="text-blue-700 underline" onClick={()=>void viewFile(r.storage_path!)}>ดูหลักฐาน</button>}
+     {r.storage_path&&driveConnected&&<button type="button" disabled={busy} className="text-blue-700 underline" onClick={()=>void syncDrive(r.id)}>{r.drive_url?'ส่งสำรองอีกครั้ง':'ส่งเข้า Google Drive'}</button>}
      {r.drive_url&&<a href={r.drive_url} target="_blank" rel="noopener noreferrer" className="text-blue-700 underline">เปิด Google Drive</a>}
      {r.target_codes?.length>0&&<span className="text-xs text-slate-500">ประเด็น: {r.target_codes.join(', ')}</span>}
     </div>
