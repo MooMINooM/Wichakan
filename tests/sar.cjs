@@ -40,8 +40,30 @@ assert(perIndicatorSql.includes("v_old_status='published'"),'published annual ta
 assert(perIndicatorSql.includes("revoke execute on function public.sar_set_year_targets"),'legacy standard-wide target API must be revoked');
 assert(perIndicatorSql.includes('alter table public.sar_indicator_targets enable row level security'));
 assert(adminPerIndicator.includes("sar_save_indicator_targets"),'admin must save each topic target');
-assert(adminPerIndicator.includes('sections.length===11'),'admin must check 11 topics');
+assert(adminPerIndicator.includes('sections.length===27'),'admin must check all 27 three-standard targets');
 assert(adminPerIndicator.includes('target_percent:Number(raw)'),'numeric percentages saved per topic');
 assert(teacherPerIndicator.includes('sar_indicator_targets'),'teacher must read the same published indicator targets');
 assert(!teacherPerIndicator.includes('target_standard_2'),'teacher must not use obsolete global target');
+const completeSql=fs.readFileSync('supabase/migrations/202610300004_sar_full_target_table_2568.sql','utf8');
+const catalog=completeSql.slice(completeSql.indexOf('insert into public.sar_target_topics(code'),completeSql.indexOf('on conflict(code)'));
+const targetSeed=completeSql.slice(completeSql.indexOf('insert into public.sar_indicator_targets('),completeSql.indexOf('on conflict(school_id,academic_year_id,section_code)'));
+const expected=['1','1.1','1.1.1','1.1.2','1.1.3','1.1.4','1.1.5','1.1.6','1.2','1.2.1','1.2.2','1.2.3','1.2.4','2','2.1','2.2','2.3','2.4','2.5','2.6','3','3.1','3.2','3.3','3.4','3.5','overall'];
+for(const code of expected){
+ assert(catalog.includes("('"+code+"',"),'missing consideration catalog: '+code);
+ assert(targetSeed.includes("('"+code+"',"),'missing Word 2568 percentage: '+code);
+}
+assert.equal(expected.length,27);
+const known={'1':80,'1.1':70,'1.1.1':64,'1.1.2':73,'1.1.3':55,'1.1.4':80,'1.1.5':69,'1.1.6':80,'1.2':90,'2':88,'2.4':85,'3':91,'3.1':95,'overall':86};
+for(const [code,percent] of Object.entries(known)){
+ assert(targetSeed.includes("('"+code+"',"+percent+")"),'incorrect source Word target for '+code);
+}
+assert(completeSql.includes('not exists(select 1 from public.academic_years'),'archive 2568 must be idempotent');
+assert(completeSql.includes('2568 (รอตรวจสอบรายวิชา)'),'archival curriculum version must not pretend copied 2569 subjects');
+assert(completeSql.includes("and y.year_be=2568"),'seed must only populate 2568');
+assert(completeSql.includes("'draft'"),'archive must not auto-publish targets');
+assert(completeSql.includes('select count(*) into v_expected from public.sar_target_topics'),'publication needs all catalog targets');
+assert(completeSql.includes('v_target_count<>(select count(*) from public.sar_target_topics)'),'teacher assessment needs all targets');
+assert(adminPerIndicator.includes("sar_target_topics"),'admin must load full three-standard catalog');
+assert(adminPerIndicator.includes('topics.filter(t=>t.standard_no===no)'),'admin must display hierarchical tables');
+assert(teacherPerIndicator.includes('yearTargets.length===27'),'teacher gate must recognize all 27 targets');
 console.log('PASS: SAR 2–3 seed, access controls, year targets and assessment UI');
