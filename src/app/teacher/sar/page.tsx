@@ -26,7 +26,7 @@ export default function TeacherSarAssessment(){
  const selectedTarget=targets.find(t=>t.academic_year_id===year);
  const sections=[...new Set(items.map(i=>i.section_code))];
  const yearTargets=indicatorTargets.filter(t=>t.academic_year_id===year);
- const published=selectedTarget?.status==='published'&&yearTargets.length===sections.length&&sections.length===11;
+ const published=selectedTarget?.status==='published'&&yearTargets.length===27&&sections.length===11&&sections.every(code=>yearTargets.some(t=>t.section_code===code));
  const targetFor=(code:string)=>yearTargets.find(t=>t.section_code===code)?.target_percent;
  const yearLabel=years.find(y=>y.id===year)?.year_be;
  useEffect(()=>{let live=true;(async()=>{try{
@@ -106,7 +106,7 @@ export default function TeacherSarAssessment(){
   {notice&&<p role="status" className="teacher-success mb-4">{notice}</p>}
   {(loading||reading)&&<p className="mb-5 text-sm text-slate-600" role="status">กำลังโหลดแบบประเมิน...</p>}
   {!loading&&!reading&&!!school&&!!year&&<>
-   {!published?<p className="mb-5 border-l-4 border-amber-400 bg-amber-50 p-4 text-sm text-amber-900">Admin ยังไม่ได้ประกาศค่าเป้าหมายรายประเด็น SAR ครบทั้ง 11 หัวข้อ ประจำปีการศึกษา {yearLabel} จึงยังไม่เปิดให้บันทึกแบบประเมิน</p>:
+   {!published?<p className="mb-5 border-l-4 border-amber-400 bg-amber-50 p-4 text-sm text-amber-900">Admin ยังไม่ได้ประกาศค่าเป้าหมาย SAR ครบทั้ง 3 มาตรฐาน (27 รายการ) ประจำปีการศึกษา {yearLabel} จึงยังไม่เปิดให้บันทึกแบบประเมิน</p>:
     <div className="mb-5 border-y border-slate-200 py-3 text-sm">
      <span className="font-medium">ค่าเป้าหมายที่ประกาศ:</span>
      <p className="mt-1 text-slate-600">แสดงเป็นร้อยละรายประเด็น 2.1–2.6 และ 3.1–3.5 ไม่ใช่เกณฑ์ระดับ 1–5 เพียงค่ารวมต่อมาตรฐาน</p>
