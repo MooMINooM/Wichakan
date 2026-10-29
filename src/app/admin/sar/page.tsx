@@ -25,6 +25,7 @@ export default function SarAdminPage(){
  const [setting,setSetting]=useState<Setting|null>(null),[scores,setScores]=useState<Answer[]>([]),[submissions,setSubmissions]=useState<Submission[]>([]);
  const [snapshot,setSnapshot]=useState<SarSnapshot|null>(null);
  const [targetDraft,setTargetDraft]=useState<Record<string,string>>({}),[notes,setNotes]=useState('');
+ const [successTargetCount,setSuccessTargetCount]=useState(0);
  const [initialLoading,setInitialLoading]=useState(true),[yearLoading,setYearLoading]=useState(false),[busy,setBusy]=useState(false),[error,setError]=useState(''),[notice,setNotice]=useState('');
  useEffect(()=>{let active=true;(async()=>{try{
   const db=getSupabaseBrowserClient();if(!db)throw Error('ยังไม่ได้ตั้งค่าการเชื่อมต่อ Supabase');
@@ -55,20 +56,21 @@ export default function SarAdminPage(){
  finally{if(active)setInitialLoading(false);}})();return()=>{active=false};},[]);
  const loadYear=useCallback(async(selected:string,schoolId:string)=>{
   const db=getSupabaseBrowserClient();if(!db)throw Error('ไม่พบการเชื่อมต่อ Supabase');
-  const [s,a,u,aggregated,targets]=await Promise.all([
+  const [s,a,u,aggregated,targets,successList]=await Promise.all([
    db.from('sar_year_settings').select('status,notes,published_at')
     .eq('school_id',schoolId).eq('academic_year_id',selected).maybeSingle(),
    db.from('sar_teacher_assessments').select('teacher_user_id,item_code,rating').eq('school_id',schoolId).eq('academic_year_id',selected),
    db.from('sar_teacher_submissions').select('teacher_user_id,submitted_at').eq('school_id',schoolId).eq('academic_year_id',selected),
    db.rpc('sar_admin_auto_snapshot',{p_year:selected}),
-   db.from('sar_indicator_targets').select('section_code,target_percent').eq('school_id',schoolId).eq('academic_year_id',selected)
+   db.from('sar_indicator_targets').select('section_code,target_percent').eq('school_id',schoolId).eq('academic_year_id',selected),
+   db.from('sar_success_targets').select('indicator_code').eq('school_id',schoolId).eq('academic_year_id',selected)
   ]);
-  if(s.error||a.error||u.error||aggregated.error||targets.error)throw Error(s.error?.message||a.error?.message||u.error?.message||aggregated.error?.message||targets.error?.message);
+  if(s.error||a.error||u.error||aggregated.error||targets.error||successList.error)throw Error(s.error?.message||a.error?.message||u.error?.message||aggregated.error?.message||targets.error?.message||successList.error?.message);
   const value=(s.data??null) as Setting|null;
   setSetting(value);setScores(a.data as Answer[]);setSubmissions(u.data as Submission[]);
   setSnapshot(aggregated.data as SarSnapshot);
   setTargetDraft(Object.fromEntries(((targets.data??[]) as IndicatorTarget[]).map(t=>[t.section_code,String(t.target_percent)])));
-  setNotes(value?.notes??'');
+  setNotes(value?.notes??'');setSuccessTargetCount((successList.data??[]).length);
  },[]);
  useEffect(()=>{if(!school||!yearId)return;let active=true;setYearLoading(true);setError('');setNotice('');
   void loadYear(yearId,school).catch(e=>{if(active)setError((e as Error).message);})
@@ -101,7 +103,7 @@ export default function SarAdminPage(){
    }
    targets.push({section_code:code,target_percent:Number(raw)});
   }
-  if(publish&&!allValid){setError('กรุณากำหนดค่าเป้าหมายให้ครบทั้ง 3 มาตรฐาน รวม 27 รายการตามตารางก่อนประกาศ');return;}
+  if(publish&&(!allValid||successTargetCount!==57)){setError('ต้องมีเป้าหมายหลักครบ 27 และตัวชี้วัดย่อยครบ 57 รายการก่อนประกาศ');return;}
   if(publish&&!window.confirm('ยืนยันประกาศค่าเป้าหมายทั้ง 3 มาตรฐาน (27 รายการ) ของปีการศึกษา '+yearLabel+'? หลังประกาศแล้วไม่สามารถแก้ไขเกณฑ์ของปีนี้ได้'))return;
   setBusy(true);setNotice('');setError('');
   try{
@@ -131,6 +133,7 @@ export default function SarAdminPage(){
   <PageHeader title="SAR ขั้นพื้นฐาน" context="จัดการมาตรฐาน ค่าเป้าหมายรายปี และติดตามผลประเมินจากครูทุกคน"/>
   <nav aria-label="เมนูดำเนินงาน SAR" className="mb-6 grid gap-3 border-y border-slate-200 py-4 sm:grid-cols-2 lg:grid-cols-4">
    {([
+    ['/admin/sar/success-targets','เป้าหมายตัวชี้วัดรายข้อ','57 รายการจากภาคผนวก SAR'],
     ['/admin/sar/data','ข้อมูลพื้นฐาน / RT NT O-NET','จัดเก็บสถิติ โครงการ และตัวชี้วัด'],
     ['/admin/sar/management','บุคลากรและคลังหลักฐาน','รับรองผลงาน อบรมและนวัตกรรม'],
     ['/admin/sar/review','ตรวจรับรองมาตรฐาน','วิเคราะห์จุดเด่น จุดควรพัฒนา'],
@@ -156,6 +159,7 @@ export default function SarAdminPage(){
      <span className={'rounded-full px-3 py-1 text-xs font-medium '+(locked?'bg-green-50 text-green-800':'bg-slate-100 text-slate-700')}>{locked?'ประกาศแล้ว':'ฉบับร่าง / ยังไม่ประกาศ'}</span>
     </div>
     <p className="mb-3 text-sm text-slate-600">กำหนดค่าเป้าหมายเป็นร้อยละ <strong>รายมาตรฐานและรายประเด็นย่อย</strong> ตามตารางประกาศของโรงเรียน รวมมาตรฐานที่ 1, 2 และ 3 พร้อมค่าเป้าหมายภาพรวม รายการที่ยังไม่กำหนดจะไม่ถูกคิดเป็นศูนย์</p>
+    <p className="mb-4 text-sm">ค่าเป้าหมายตัวชี้วัดความสำเร็จรายข้อ: <strong>{successTargetCount}/57</strong> รายการ · <Link href="/admin/sar/success-targets" className="text-blue-700 underline">เปิดตารางตัวชี้วัดย่อย</Link></p>
     <div className="mb-4 flex flex-wrap items-center justify-between gap-3 text-xs text-slate-500">
      <span>กำหนดแล้ว <strong className="text-slate-900">{filledCount} / {sections.length||27}</strong> รายการ · ร้อยละ 80 ขึ้นไป = ยอดเยี่ยม, 70–79.99 = ดีเลิศ, 60–69.99 = ดี, 50–59.99 = ปานกลาง, ต่ำกว่า 50 = กำลังพัฒนา</span>
      {years.some(y=>y.year_be===2568)&&yearLabel!==2568&&<button type="button" className="ui-secondary" onClick={()=>{const y=years.find(x=>x.year_be===2568);if(y)setYearId(y.id);}}>ตรวจตัวอย่างปี 2568</button>}
@@ -201,7 +205,7 @@ export default function SarAdminPage(){
     {locked?<p className="mt-4 text-sm text-green-800">ประกาศเมื่อ {setting?.published_at?new Date(setting.published_at).toLocaleString('th-TH'):'—'} และล็อกค่าเป้าหมายของปีนี้แล้ว</p>:
      <div className="mt-4 flex flex-wrap gap-3">
       <button className="ui-secondary" type="button" disabled={busy} onClick={()=>void saveTargets(false)}>บันทึกฉบับร่าง</button>
-      <button className="ui-primary" type="button" disabled={busy||!allValid} onClick={()=>void saveTargets(true)}>{busy?'กำลังดำเนินการ...':'ประกาศค่าเป้าหมายทั้ง 3 มาตรฐาน'}</button>
+      <button className="ui-primary" type="button" disabled={busy||!allValid||successTargetCount!==57} onClick={()=>void saveTargets(true)}>{busy?'กำลังดำเนินการ...':'ประกาศค่าเป้าหมายทั้ง 3 มาตรฐาน'}</button>
      </div>}
    </section>
    <section className="mb-8" aria-labelledby="sar-progress-heading">
