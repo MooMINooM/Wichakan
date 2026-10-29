@@ -26,5 +26,6 @@ export default function Workspace(){
  {error&&<p role="alert" className="mt-5 text-red-700">{error}</p>}
  {!loading&&!error&&!roles.length&&<p className="mt-6 rounded-xl bg-amber-50 p-4">ยังไม่มีสิทธิ์ในโรงเรียน กรุณาติดต่อผู้ดูแลระบบ</p>}
  <div className="workspace-roles mt-6">{roles.map((m,i)=><Link key={m.school_id+m.role+i} href={routes[m.role]??'/workspace'} className="ui-panel workspace-role"><div className="workspace-role-icon"><AcademicIcon name={m.role==='teacher'?'book':m.role==='school_admin'?'settings':m.role==='director'?'chart':'users'}/></div><div><h2>{names[m.role]??m.role}</h2><p className="mt-1 text-sm text-slate-500">{m.schools?.name_th??'โรงเรียน'}</p></div><span className="workspace-role-arrow" aria-hidden="true">→</span></Link>)}</div>
+ {!loading&&!error&&roles.some(m=>m.role==='school_admin')&&!roles.some(m=>m.role==='director')&&<div className="mt-4"><Link href="/director" className="ui-secondary">ภาพรวมผู้บริหาร</Link></div>}
  </main>;
 }
