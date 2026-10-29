@@ -91,7 +91,7 @@ function downloadDocx(report:Report,topics:Topic[],details:DetailItem[],version:
 export default function SarReportPage(){
  const db=getSupabaseBrowserClient();
  const [school,setSchool]=useState(''),[years,setYears]=useState<Year[]>([]),[year,setYear]=useState(''),[topics,setTopics]=useState<Topic[]>([]),[details,setDetails]=useState<DetailItem[]>([]);
- const [draft,setDraft]=useState<Report|null>(null),[versions,setVersions]=useState<Version[]>([]),[selected,setSelected]=useState('draft');
+ const [draft,setDraft]=useState<Report|null>(null),[versions,setVersions]=useState<Version[]>([]),[selected,setSelected]=useState('draft'),[yearPublished,setYearPublished]=useState(false);
  const [loading,setLoading]=useState(true),[busy,setBusy]=useState(false),[error,setError]=useState(''),[notice,setNotice]=useState('');
  useEffect(()=>{let live=true;(async()=>{try{
   if(!db)throw Error('ไม่พบฐานข้อมูล');
@@ -107,7 +107,7 @@ export default function SarReportPage(){
  }catch(e){if(live)setError(e instanceof Error?e.message:'โหลดไม่สำเร็จ')}finally{if(live)setLoading(false);}})();return()=>{live=false};},[db]);
  async function reload(){
   if(!db||!school||!year)return;
-  const [a,b,c,d,e,f,g,h,k,y,detailRows,staffRows]=await Promise.all([
+  const [a,b,c,d,e,f,g,h,k,y,detailRows,staffRows,yearSetting]=await Promise.all([
    db.from('sar_indicator_targets').select('section_code,target_percent').eq('school_id',school).eq('academic_year_id',year),
    db.from('sar_quality_reviews').select('code,narrative,strength,improvement,action_plan,review_status').eq('school_id',school).eq('academic_year_id',year),
    db.from('sar_indicator_measurements').select('code,numerator,denominator,manually_observed_percent,source_note').eq('school_id',school).eq('academic_year_id',year),
@@ -118,9 +118,10 @@ export default function SarReportPage(){
    db.rpc('sar_admin_auto_snapshot',{p_year:year}),db.rpc('sar_admin_academic_summary',{p_year:year}),
    db.from('academic_years').select('year_be,schools(name_th)').eq('id',year).single(),
    db.from('sar_success_targets').select('indicator_code,target_percent').eq('school_id',school).eq('academic_year_id',year),
-   db.from('sar_staff_profiles').select('user_id,employment_type,position_title,qualification,major,academic_rank').eq('school_id',school)
+   db.from('sar_staff_profiles').select('user_id,employment_type,position_title,qualification,major,academic_rank').eq('school_id',school),
+   db.from('sar_year_settings').select('status').eq('school_id',school).eq('academic_year_id',year).maybeSingle()
   ]);
-  const errors=[a,b,c,d,e,f,g,h,k,y,detailRows,staffRows].find(x=>x.error);
+  const errors=[a,b,c,d,e,f,g,h,k,y,detailRows,staffRows,yearSetting].find(x=>x.error);
   if(errors?.error)throw Error(errors.error.message);
   const yearRow=y.data as unknown as {year_be:number;schools:{name_th:string}|null};
   const summary=(await db.from('sar_teacher_submissions').select('teacher_user_id').eq('school_id',school).eq('academic_year_id',year)).data??[];
@@ -134,7 +135,7 @@ export default function SarReportPage(){
    targets:a.data as Target[],success_targets:detailRows.data as DetailTarget[],staff_profiles:staffRows.data as StaffInfo[],reviews:b.data as Review[],measurements:c.data as Measure[],
    context:d.data as Context[],national_tests:e.data as National[],evidence:f.data as Evidence[],
    teacher_summary:means,roster:h.data as Gender,academic_summary:k.data as GradeSummary});
-  setVersions(g.data as Version[]);
+  setVersions(g.data as Version[]);setYearPublished(yearSetting.data?.status==='published');
  }
  useEffect(()=>{if(!school||!year)return;let live=true;setLoading(true);setError('');setSelected('draft');
   void reload().catch(e=>{if(live)setError(e instanceof Error?e.message:'โหลดรายงานไม่สำเร็จ')}).finally(()=>{if(live)setLoading(false)});
@@ -155,7 +156,7 @@ export default function SarReportPage(){
   w.document.open();w.document.write(html);w.document.close();w.focus();w.print();
  }
  const complete=topics.filter(t=>t.code!=='overall').every(t=>draft?.reviews.some(r=>r.code===t.code&&r.review_status==='reviewed'));
- const hasPublished=!!draft&&draft.targets.length===topics.length;
+ const hasPublished=yearPublished&&!!draft&&draft.targets.length===topics.length&&draft.success_targets?.length===details.length;
  return <main className="wichakan-page mx-auto max-w-6xl px-4 pb-12">
   <PageHeader title="จัดทำรายงาน SAR ขั้นพื้นฐาน" context="ตรวจฉบับร่าง รับรองข้อมูล และส่งออก Word หรือ PDF"/>
   <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
@@ -176,7 +177,7 @@ export default function SarReportPage(){
   <section className="mb-6 border-y border-slate-200 py-4">
    <div className="flex flex-wrap items-center justify-between gap-3"><h2 className="font-semibold">สถานะความพร้อมรายงาน</h2>
     <button className="ui-primary" disabled={busy||!complete||!hasPublished} onClick={()=>void approve()}>รับรองรายงานฉบับใหม่</button></div>
-   <p className="mt-2 text-sm">ค่าเป้าหมายครบ: {hasPublished?'ครบ':'ยังไม่ครบ'} · ประเด็นที่ตรวจรับรอง: {draft?.reviews.filter(x=>x.code!=='overall'&&x.review_status==='reviewed').length??0}/{topics.length?topics.length-1:26}</p>
+   <p className="mt-2 text-sm">ค่าเป้าหมายเผยแพร่ครบทั้งสองระดับ: {hasPublished?'ครบ':'ยังไม่ครบหรือยังไม่ประกาศ'} · ประเด็นที่ตรวจรับรอง: {draft?.reviews.filter(x=>x.code!=='overall'&&x.review_status==='reviewed').length??0}/{topics.length?topics.length-1:26}</p>
    {!complete&&<p className="mt-2 text-sm text-amber-800">กรุณาให้ Admin ตรวจรับรองทั้ง 26 ประเด็นก่อนสร้างฉบับรับรอง</p>}
   </section>
   {report&&<section aria-label="ตัวอย่างเนื้อหา SAR">
