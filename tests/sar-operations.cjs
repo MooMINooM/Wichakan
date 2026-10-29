@@ -27,7 +27,7 @@ assert(evidence.includes("createSignedUrl"),'private files require signed view U
 assert(evidence.includes("10*1024*1024"),'file max size client validation');
 const report=fs.readFileSync('src/app/admin/sar/report/page.tsx','utf8');
 assert(report.includes('sar_approve_report'),'report needs explicit approval');
-assert(report.includes('application/msword'),'Word output available');
+assert(report.includes('createSarDocx') && report.includes('ส่งออก Word (.docx)'),'genuine editable DOCX output available');
 assert(report.includes('w.print()'),'browser print/PDF available');
 const detail=fs.readFileSync('supabase/migrations/202610300009_sar_success_indicators.sql','utf8');
 const detailRpc=fs.readFileSync('supabase/migrations/202610300011_sar_save_success_targets.sql','utf8');
