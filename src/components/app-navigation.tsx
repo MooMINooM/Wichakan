@@ -25,7 +25,7 @@ const adminSections:NavSection[]=[
   {href:'/students/promote',label:'เลื่อนชั้นนักเรียน',icon:'promote'}
  ]},
  {title:'บุคลากรและผู้ลงนาม',items:[{href:'/personnel',label:'ข้อมูลบุคลากร',icon:'users'},{href:'/admin/pp5-signatories',label:'ผู้ลงนาม ปพ.5',icon:'file'}]},
- {title:'ประกันคุณภาพการศึกษา',items:[{href:'/admin/sar',label:'SAR ขั้นพื้นฐาน',icon:'file'}]},
+ {title:'ประกันคุณภาพการศึกษา',items:[{href:'/admin/sar',label:'SAR ขั้นพื้นฐาน',icon:'file'},{href:'/admin/sar/data',label:'ข้อมูลประกอบ SAR',icon:'chart'},{href:'/admin/sar/management',label:'บุคลากรและหลักฐาน',icon:'users'},{href:'/admin/sar/review',label:'ประเมินและรับรอง SAR',icon:'check'},{href:'/admin/sar/report',label:'รายงาน SAR',icon:'file'}]},
  {title:'บริการผู้ปกครอง',items:[{href:'/admin/line-guardians',label:'เชื่อม LINE ผู้ปกครอง',icon:'users'},{href:'/admin/line-results',label:'ประกาศผลทาง LINE',icon:'chart'}]}
 ];
 const teacherSections:NavSection[]=[
@@ -35,7 +35,8 @@ const teacherSections:NavSection[]=[
   {href:'/teacher#courses',label:'รายวิชาที่สอน',icon:'book'},
   {href:'/teacher/scores',label:'บันทึกคะแนน',icon:'chart'},
   {href:'/teacher/activities',label:'บันทึกกิจกรรม',icon:'check'},
-  {href:'/teacher/sar',label:'ประเมิน SAR มาตรฐาน 2–3',icon:'file'}
+  {href:'/teacher/sar',label:'ประเมิน SAR มาตรฐาน 2–3',icon:'file'},
+  {href:'/teacher/sar/evidence',label:'ผลงาน อบรม และนวัตกรรม',icon:'book'}
  ]},
  {title:'งานประจำชั้น',items:[{href:'/teacher/pp6',label:'ห้องประจำชั้นและ ปพ.6',icon:'users'}]}
 ];
