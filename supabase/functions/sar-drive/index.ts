@@ -158,7 +158,9 @@ Deno.serve(async(req:Request)=>{
     if(update.error)throw Error('save_drive_root_failed');
    }
    const people=await folder(driveToken,root,'บุคลากร');
-   const person=await folder(driveToken,people,item.owner_user_id);
+   const userProfile=await admin.from('profiles').select('display_name').eq('user_id',item.owner_user_id).maybeSingle();
+   const personName=safeName(userProfile.data?.display_name??'บุคลากร').slice(0,50);
+   const person=await folder(driveToken,people,personName+'_'+item.owner_user_id.slice(0,8));
    const category=await folder(driveToken,person,folderNames[item.kind]??'หลักฐานอื่น');
    const fileName=safeName(item.activity_year_be+'_'+item.title+'_'+item.id.slice(0,8))+'.'+ext;
    const uploaded=await uploadToDrive(driveToken,category,fileName,bytes,mime);
