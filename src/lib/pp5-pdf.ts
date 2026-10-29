@@ -50,18 +50,20 @@ export async function createPp5Pdf(book:Pp5Book){
  const groupNames:Record<string,string>={'ท':'ภาษาไทย','ค':'คณิตศาสตร์','ว':'วิทยาศาสตร์และเทคโนโลยี','ส':'สังคมศึกษา ศาสนา และวัฒนธรรม','พ':'สุขศึกษาและพลศึกษา','ศ':'ศิลปะ','ง':'การงานอาชีพ','อ':'ภาษาต่างประเทศ'},group=groupNames[subject.subject_code[0]]??'—';
  const scores=roster.map(s=>pp5Score(data,o,s.id)),caps=scores[0].caps;
  // The cover follows 1.พิมพ์หน้าปก: emblem, inline metadata, summary tables and approval boxes.
- const cover=addPage();cover.drawImage(emblem,{x:279,y:cover.getHeight()-116,width:36,height:53});box(cover,430,65,125,28);text(cover,'ปพ.5',492,67,PP5_TYPE.title,115,'center',true);
+ const cover=addPage();cover.drawImage(emblem,{x:279,y:cover.getHeight()-116,width:36,height:53});cell(cover,'ปพ.5',533.469,14.548,33.09,15.15,PP5_TYPE.note);
  text(cover,'แบบบันทึกผลการพัฒนาคุณภาพผู้เรียน',297.5,123,PP5_TYPE.title,535,'center',true);text(cover,book.schoolName,297.5,151,PP5_TYPE.section,535,'center',true);
- function field(label:string,value:string|number,x:number,y:number,w:number,labelWidth:number){text(cover,label,x,y,PP5_TYPE.body,labelWidth,'left',true);text(cover,value,x+labelWidth+4,y,PP5_TYPE.body,w-labelWidth-6);line(cover,x+labelWidth,y+16,w-labelWidth,true);}
- const rightColumn=300,rightLabelWidth=88;
- field('ชั้น',roomLabel,35,181,240,35);field('ภาคเรียนที่',term.term_no,rightColumn,181,130,rightLabelWidth);field('ปีการศึกษา',year.year_be,450,181,110,65);
+ // Uniform label/value alignment. Three equal columns for short facts;
+ // two equal columns or a spanning field for longer course/staff details.
+ const labelWidth=88,columns=[35,215,395],third=165,half=255;
+ function field(label:string,value:string|number,x:number,y:number,w:number){text(cover,label,x,y,PP5_TYPE.body,labelWidth,'left',true);text(cover,value,x+labelWidth+4,y,PP5_TYPE.body,w-labelWidth-6);line(cover,x+labelWidth,y+19,w-labelWidth,true);}
+ field('ชั้น',roomLabel,columns[0],181,third);field('ภาคเรียนที่',term.term_no,columns[1],181,third);field('ปีการศึกษา',year.year_be,columns[2],181,third);
  const male=roster.filter(s=>gender(s.name_prefix_th)===0).length,female=roster.filter(s=>gender(s.name_prefix_th)===1).length;
- field('นักเรียนชาย',male+' คน',35,204,240,72);field('นักเรียนหญิง',female+' คน',rightColumn,204,130,rightLabelWidth);field('รวมทั้งหมด',roster.length+' คน',450,204,110,66);
- field('รหัสวิชา',subject.subject_code,35,227,240,55);field('รายวิชา',subject.name_th,rightColumn,227,260,rightLabelWidth);
- field('กลุ่มสาระการเรียนรู้',group,35,250,240,101);field('เวลาเรียนทั้งหมด',book.expected+' ชั่วโมง/ภาคเรียน',rightColumn,250,260,rightLabelWidth);
- field('อัตราส่วนคะแนน ระหว่างเรียน : กลางภาค : ปลายภาค',caps.join(' : '),35,273,525,306);
- field('เวลาเรียน',book.expected/20+' ชั่วโมง/สัปดาห์',35,296,290,58);field('จำนวน',room.level_code.startsWith('ม.')?(book.expected/40).toFixed(2)+' หน่วยกิต':'—',rightColumn,296,260,rightLabelWidth);
- field('ครูผู้สอน',book.teacherName,35,319,525,57);field('ครูที่ปรึกษา 1.',book.homeroomNames[0]??'—',35,342,255,80);field('ครูที่ปรึกษา 2.',book.homeroomNames[1]??'—',305,342,255,80);
+ field('นักเรียนชาย',male+' คน',columns[0],204,third);field('นักเรียนหญิง',female+' คน',columns[1],204,third);field('รวมทั้งหมด',roster.length+' คน',columns[2],204,third);
+ field('รหัสวิชา',subject.subject_code,35,227,third);field('รายวิชา',subject.name_th,215,227,345);
+ field('กลุ่มสาระการเรียนรู้',group,35,250,525);
+ field('เวลาเรียนทั้งหมด',book.expected+' ชั่วโมง/ภาคเรียน',35,273,half);field('เวลาเรียน',book.expected/20+' ชั่วโมง/สัปดาห์',305,273,half);
+ field('อัตราส่วนคะแนน',`เก็บ ${caps[0]} : กลางภาค ${caps[1]} : ปลายภาค ${caps[2]}`,35,296,345);field('หน่วยกิต',room.level_code.startsWith('ม.')?(book.expected/40).toFixed(2):'—',395,296,third);
+ field('ครูผู้สอน',book.teacherName,35,319,525);field('ครูที่ปรึกษา 1.',book.homeroomNames[0]??'—',35,342,half);field('ครูที่ปรึกษา 2.',book.homeroomNames[1]??'—',305,342,half);
  const gx=35,gy=377,gw=525;cell(cover,'สรุปผลการพัฒนาผู้เรียน',gx,gy,gw,22,PP5_TYPE.section,true);
  const grades=['4','3.5','3','2.5','2','1.5','1','0','ร','มส'];const counts=grades.map(g=>scores.filter(s=>s.grade===g).length),numeric=scores.map(s=>Number(s.grade)).filter((n,i)=>scores[i].grade!=='—'&&scores[i].grade!==''&&Number.isFinite(n));
  const gradeWidths=[85,...grades.map(()=>29),45,105];const gradeRows=[['ระดับผลการเรียน',...grades,'รวม','ผลการเรียนเฉลี่ย'],['จำนวน (คน)',...counts,roster.length,numeric.length?(numeric.reduce((a,b)=>a+b,0)/numeric.length).toFixed(2):'—'],['ร้อยละ',...counts.map(n=>(100*n/roster.length).toFixed(1)),'100','']];

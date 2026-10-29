@@ -10,7 +10,7 @@ Scores/caps come directly from the same record used by the teacher score-entry f
 
 The original workbook's fixed staff names are not copied into live reports. Teacher/homeroom names come from system data. School Admin sets assessment head, academic head and principal names in `/admin/pp5-signatories` for each academic year (`pp5_signatories` table). The teacher's PP5 cover reads the selected year and prints those names beside signature lines; unconfigured names remain dotted handwriting lines. Saving one year's names does not affect another year. Only school_admin may write; authorized school teachers may read. The source OBEC emblem is copied without editing. No school or student records are changed by the layout.
 
-The cover's semester, female student count, subject and total-hours labels share one right-hand column, and their values share a second aligned column.
+The cover badge uses the same top-right frame coordinates as PP6 (x=533.469, y=14.548, w=33.09, h=15.15 on A4). Class/semester/year and male/female/total counts use three equal 165 pt columns with 15 pt gutters. All metadata uses the same 88 pt label width and 4 pt value gap. Longer course and learning-area fields span columns; teaching hours and homeroom teachers use equal 255 pt halves. The score ratio labels each component and credit units have their own field. Data, fonts, summary tables and signatures retain their existing sources.
 
 
 ## เวลาเรียนวิชาบูรณาการ
