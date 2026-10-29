@@ -1,0 +1,185 @@
+'use client';
+import {useCallback,useEffect,useMemo,useState} from 'react';
+import Link from 'next/link';
+import PageHeader from '@/components/page-header';
+import {getSupabaseBrowserClient} from '@/lib/supabase/browser';
+
+type Year={id:string;year_be:number;is_active:boolean};
+type Setting={status:'draft'|'published';target_standard_2:number|null;target_standard_3:number|null;notes:string;published_at:string|null};
+type Item={code:string;standard_no:number;section_code:string;title:string;item_order:number};
+type Teacher={user_id:string};
+type Profile={user_id:string;display_name:string|null};
+type Answer={teacher_user_id:string;item_code:string;rating:number|null};
+type Submission={teacher_user_id:string;submitted_at:string};
+type Progress={id:string;name:string;standard2:number;standard3:number;submitted_at:string|null};
+const levels:Record<number,string>={1:'กำลังพัฒนา',2:'ปานกลาง',3:'ดี',4:'ดีเลิศ',5:'ยอดเยี่ยม'};
+const total2=6,total3=9;
+export default function SarAdminPage(){
+ const [school,setSchool]=useState(''),[years,setYears]=useState<Year[]>([]),[yearId,setYearId]=useState('');
+ const [items,setItems]=useState<Item[]>([]),[teachers,setTeachers]=useState<Teacher[]>([]),[profiles,setProfiles]=useState<Profile[]>([]);
+ const [setting,setSetting]=useState<Setting|null>(null),[scores,setScores]=useState<Answer[]>([]),[submissions,setSubmissions]=useState<Submission[]>([]);
+ const [target2,setTarget2]=useState(''),[target3,setTarget3]=useState(''),[notes,setNotes]=useState('');
+ const [initialLoading,setInitialLoading]=useState(true),[yearLoading,setYearLoading]=useState(false),[busy,setBusy]=useState(false),[error,setError]=useState(''),[notice,setNotice]=useState('');
+ useEffect(()=>{let active=true;(async()=>{try{
+  const db=getSupabaseBrowserClient();if(!db)throw Error('ยังไม่ได้ตั้งค่าการเชื่อมต่อ Supabase');
+  const {data:{user},error:authError}=await db.auth.getUser();
+  if(authError||!user)throw Error('กรุณาเข้าสู่ระบบ Admin');
+  const m=await db.from('school_memberships').select('school_id').eq('user_id',user.id).eq('role','school_admin').eq('active',true).limit(1).maybeSingle();
+  if(m.error||!m.data)throw Error('หน้านี้ใช้ได้เฉพาะ Admin ของโรงเรียน');
+  const schoolId=m.data.school_id as string;
+  const [y,i,t]=await Promise.all([
+   db.from('academic_years').select('id,year_be,is_active').eq('school_id',schoolId).order('year_be',{ascending:false}),
+   db.from('sar_assessment_items').select('code,standard_no,section_code,title,item_order').order('standard_no').order('item_order'),
+   db.from('school_memberships').select('user_id').eq('school_id',schoolId).eq('role','teacher').eq('active',true)
+  ]);
+  if(y.error||i.error||t.error)throw Error(y.error?.message||i.error?.message||t.error?.message);
+  const staffIds=[...new Set((t.data??[]).map(x=>x.user_id))];
+  const ps:Profile[]=[];
+  for(let from=0;from<staffIds.length;from+=100){
+   const p=await db.from('profiles').select('user_id,display_name').in('user_id',staffIds.slice(from,from+100));
+   if(p.error)throw p.error;
+   ps.push(...(p.data??[]));
+  }
+  if(!active)return;
+  const list=y.data as Year[];setSchool(schoolId);setYears(list);setItems(i.data as Item[]);
+  setTeachers(staffIds.map(user_id=>({user_id})));setProfiles(ps);
+  setYearId(list.find(x=>x.is_active)?.id??list[0]?.id??'');
+ }catch(e){if(active)setError(e instanceof Error?e.message:'โหลดข้อมูลไม่สำเร็จ');}
+ finally{if(active)setInitialLoading(false);}})();return()=>{active=false};},[]);
+ const loadYear=useCallback(async(selected:string,schoolId:string)=>{
+  const db=getSupabaseBrowserClient();if(!db)throw Error('ไม่พบการเชื่อมต่อ Supabase');
+  const [s,a,u]=await Promise.all([
+   db.from('sar_year_settings').select('status,target_standard_2,target_standard_3,notes,published_at')
+    .eq('school_id',schoolId).eq('academic_year_id',selected).maybeSingle(),
+   db.from('sar_teacher_assessments').select('teacher_user_id,item_code,rating').eq('school_id',schoolId).eq('academic_year_id',selected),
+   db.from('sar_teacher_submissions').select('teacher_user_id,submitted_at').eq('school_id',schoolId).eq('academic_year_id',selected)
+  ]);
+  if(s.error||a.error||u.error)throw Error(s.error?.message||a.error?.message||u.error?.message);
+  const value=(s.data??null) as Setting|null;
+  setSetting(value);setScores(a.data as Answer[]);setSubmissions(u.data as Submission[]);
+  setTarget2(value?.target_standard_2?.toString()??'');
+  setTarget3(value?.target_standard_3?.toString()??'');
+  setNotes(value?.notes??'');
+ },[]);
+ useEffect(()=>{if(!school||!yearId)return;let active=true;setYearLoading(true);setError('');setNotice('');
+  void loadYear(yearId,school).catch(e=>{if(active)setError((e as Error).message);})
+   .finally(()=>{if(active)setYearLoading(false)});
+  return()=>{active=false};
+ },[school,yearId,loadYear]);
+ const progress=useMemo<Progress[]>(()=>teachers.map(t=>{
+  const set=new Set(scores.filter(a=>a.teacher_user_id===t.user_id&&a.rating!==null).map(a=>a.item_code));
+  return {id:t.user_id,name:profiles.find(p=>p.user_id===t.user_id)?.display_name||'บัญชี '+t.user_id.slice(0,8),
+   standard2:items.filter(i=>i.standard_no===2&&set.has(i.code)).length,
+   standard3:items.filter(i=>i.standard_no===3&&set.has(i.code)).length,
+   submitted_at:submissions.find(s=>s.teacher_user_id===t.user_id)?.submitted_at??null};
+ }).sort((a,b)=>a.name.localeCompare(b.name,'th')),[teachers,profiles,items,scores,submissions]);
+ const submittedCount=progress.filter(x=>x.submitted_at).length;
+ const locked=setting?.status==='published';
+ async function saveTargets(publish:boolean){
+  if(!school||!yearId||busy||locked)return;
+  if(publish&&(!target2||!target3)){setError('กรุณากำหนดค่าเป้าหมายทั้งมาตรฐานที่ 2 และ 3 ก่อนประกาศ');return;}
+  if(publish&&!window.confirm('ยืนยันประกาศค่าเป้าหมาย SAR ปีการศึกษาที่เลือก? หลังประกาศจะล็อกการแก้ไขค่าเป้าหมายฉบับนี้'))return;
+  setBusy(true);setNotice('');setError('');
+  try{
+   const db=getSupabaseBrowserClient();if(!db)throw Error('ไม่พบการเชื่อมต่อ');
+   const {error:e}=await db.rpc('sar_set_year_targets',{
+    p_year:yearId,p_target_2:target2?Number(target2):null,p_target_3:target3?Number(target3):null,
+    p_notes:notes,p_publish:publish
+   });
+   if(e)throw Error(e.message);
+   await loadYear(yearId,school);
+   setNotice(publish?'ประกาศค่าเป้าหมายสำเร็จ ครูทุกคนสามารถเริ่มประเมินได้แล้ว':'บันทึกค่าเป้าหมายฉบับร่างเรียบร้อยแล้ว');
+  }catch(e){setError((e as Error).message)}
+  finally{setBusy(false)}
+ }
+ async function reopen(t:Progress){
+  if(!yearId||!school||busy||!t.submitted_at)return;
+  if(!window.confirm('อนุญาตให้ '+t.name+' กลับไปแก้ไขผลประเมิน SAR ปีนี้หรือไม่?'))return;
+  const db=getSupabaseBrowserClient();if(!db)return;
+  setBusy(true);setError('');setNotice('');
+  try{
+   const {error:e}=await db.rpc('sar_reopen_teacher_assessment',{p_year:yearId,p_teacher:t.id});
+   if(e)throw Error(e.message);
+   await loadYear(yearId,school);setNotice('เปิดให้แก้ไขแบบประเมินของ '+t.name+' เรียบร้อยแล้ว');
+  }catch(e){setError((e as Error).message)}finally{setBusy(false)}
+ }
+ const yearLabel=years.find(x=>x.id===yearId)?.year_be;
+ return <main className="wichakan-page mx-auto max-w-6xl px-4 pb-12">
+  <PageHeader title="SAR ขั้นพื้นฐาน" context="จัดการมาตรฐาน ค่าเป้าหมายรายปี และติดตามผลประเมินจากครูทุกคน"/>
+  <div className="mb-6 flex flex-wrap items-end justify-between gap-3 border-b border-slate-200 pb-5">
+   <label className="text-sm font-medium text-slate-700">ปีการศึกษา
+    <select value={yearId} disabled={initialLoading||busy} onChange={e=>setYearId(e.target.value)} className="mt-1 block min-w-44 rounded-lg border border-slate-300 bg-white px-3 py-2">
+     {years.map(y=><option key={y.id} value={y.id}>{y.year_be}{y.is_active?' — ปัจจุบัน':''}</option>)}
+    </select>
+   </label>
+   <span className="text-xs text-slate-500">ต้นแบบรายการประเมินจากเครื่องมือปีการศึกษา 2568</span>
+  </div>
+  {error&&<p className="teacher-error mb-4" role="alert">{error}</p>}
+  {notice&&<p className="teacher-success mb-4" role="status">{notice}</p>}
+  {(initialLoading||yearLoading)&&<p role="status" className="mb-4 text-sm text-slate-600">กำลังโหลดข้อมูล SAR...</p>}
+  {!initialLoading&&!school&&<p className="text-sm text-slate-500">ไม่มีสิทธิ์จัดการ SAR</p>}
+  {!!school&&!!yearId&&!yearLoading&&<>
+   <section className="mb-8" aria-labelledby="sar-targets-heading">
+    <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+     <h2 id="sar-targets-heading" className="text-lg font-semibold text-slate-900">1. ค่าเป้าหมายประจำปีการศึกษา {yearLabel}</h2>
+     <span className={'rounded-full px-3 py-1 text-xs font-medium '+(locked?'bg-green-50 text-green-800':'bg-slate-100 text-slate-700')}>{locked?'ประกาศแล้ว':'ฉบับร่าง / ยังไม่ประกาศ'}</span>
+    </div>
+    <p className="mb-4 text-sm text-slate-600">ค่าเป้าหมายเป็นระดับคุณภาพ 1–5 ตามเครื่องมือประเมิน ไม่ใช่คะแนนเฉลี่ยที่คำนวณอัตโนมัติจากคำตอบของครู</p>
+    <div className="grid gap-4 md:grid-cols-2">
+     {([[2,target2,setTarget2],[3,target3,setTarget3]] as const).map(([no,value,onChange])=>
+      <label key={no} className="block text-sm font-medium text-slate-800">มาตรฐานที่ {no}
+       <select value={value} onChange={e=>onChange(e.target.value)} disabled={locked||busy} className="mt-2 block w-full rounded-lg border border-slate-300 bg-white p-3">
+        <option value="">— ยังไม่กำหนด —</option>
+        {Object.entries(levels).map(([n,label])=><option key={n} value={n}>ระดับ {n} — {label}</option>)}
+       </select>
+      </label>)}
+    </div>
+    <label className="mt-4 block text-sm font-medium text-slate-800">รายละเอียดประกอบการประกาศ / หมายเหตุ
+     <textarea rows={3} maxLength={2000} disabled={locked||busy} value={notes} onChange={e=>setNotes(e.target.value)} className="mt-2 block w-full rounded-lg border border-slate-300 bg-white p-3" placeholder="ระบุแนวทางการกำหนดค่าเป้าหมายหรือเอกสารอ้างอิง (ถ้ามี)"/>
+    </label>
+    {locked?<p className="mt-4 text-sm text-green-800">ค่าเป้าหมายฉบับนี้ประกาศเมื่อ {setting?.published_at?new Date(setting.published_at).toLocaleString('th-TH'): '—'} และถูกล็อกเพื่อป้องกันการเปลี่ยนเกณฑ์ระหว่างประเมิน</p>:
+     <div className="mt-4 flex flex-wrap gap-3">
+      <button className="ui-secondary" type="button" disabled={busy} onClick={()=>void saveTargets(false)}>บันทึกฉบับร่าง</button>
+      <button className="ui-primary" type="button" disabled={busy||!target2||!target3} onClick={()=>void saveTargets(true)}>{busy?'กำลังดำเนินการ...':'ประกาศค่าเป้าหมาย'}</button>
+     </div>}
+   </section>
+   <section className="mb-8" aria-labelledby="sar-progress-heading">
+    <div className="mb-3 flex flex-wrap items-end justify-between gap-3">
+     <div><h2 id="sar-progress-heading" className="text-lg font-semibold text-slate-900">2. ความคืบหน้าการประเมินของครู</h2>
+      <p className="mt-1 text-sm text-slate-500">ครูทุกคนประเมินมาตรฐานที่ 2 ทั้ง 6 ข้อ และมาตรฐานที่ 3 ทั้ง 9 ข้อ</p></div>
+     <button type="button" className="ui-secondary" disabled={busy} onClick={()=>void loadYear(yearId,school).catch(e=>setError((e as Error).message))}>อัปเดตข้อมูล</button>
+    </div>
+    <div className="mb-4 grid grid-cols-2 gap-4 border-y border-slate-200 py-4 sm:grid-cols-3">
+     <div><strong className="block text-2xl">{teachers.length}</strong><span className="text-xs text-slate-500">บัญชีครูที่มีสิทธิ์ประเมิน</span></div>
+     <div><strong className="block text-2xl">{submittedCount}</strong><span className="text-xs text-slate-500">ส่งแบบประเมินครบแล้ว</span></div>
+     <div><strong className="block text-2xl">{teachers.length-submittedCount}</strong><span className="text-xs text-slate-500">ยังไม่ส่งแบบประเมิน</span></div>
+    </div>
+    {!locked&&<p className="mb-3 text-sm text-amber-800">ยังไม่ประกาศค่าเป้าหมาย ครูจึงยังไม่สามารถบันทึกแบบประเมินปีนี้ได้</p>}
+    <div className="overflow-x-auto border-y border-slate-200"><table className="w-full min-w-[660px] text-sm">
+     <thead><tr className="bg-slate-50 text-left"><th className="p-3">ชื่อครู</th><th className="p-3 text-center">มาตรฐาน 2</th><th className="p-3 text-center">มาตรฐาน 3</th><th className="p-3 text-center">สถานะ</th><th className="p-3 text-right">จัดการ</th></tr></thead>
+     <tbody>{progress.map(t=><tr className="border-t border-slate-100" key={t.id}>
+      <td className="p-3 font-medium">{t.name}</td>
+      <td className="p-3 text-center">{t.standard2}/{total2}</td>
+      <td className="p-3 text-center">{t.standard3}/{total3}</td>
+      <td className="p-3 text-center">{t.submitted_at?'ส่งแล้ว':t.standard2+t.standard3?'กำลังประเมิน':'ยังไม่เริ่ม'}</td>
+      <td className="p-3 text-right">{t.submitted_at?<button className="text-sm font-medium text-blue-700 underline disabled:opacity-50" disabled={busy} onClick={()=>void reopen(t)}>เปิดให้แก้ไข</button>:<span className="text-slate-400">—</span>}</td>
+     </tr>)}</tbody>
+    </table>{!teachers.length&&<p className="p-4 text-sm text-slate-500">ยังไม่พบบัญชีครูที่เปิดใช้งาน</p>}</div>
+   </section>
+   <section aria-labelledby="sar-items-heading">
+    <h2 id="sar-items-heading" className="mb-2 text-lg font-semibold text-slate-900">3. รายการประเมินตามเอกสารต้นแบบ</h2>
+    <p className="mb-4 text-sm text-slate-600">ข้อมูลต้นแบบยังไม่ระบุสูตรรวมคะแนนเป็นร้อยละ ระบบจึงเก็บคะแนนดิบรายข้อและความครบถ้วนไว้ก่อน ไม่ตีความเป็นระดับคุณภาพของสถานศึกษาอัตโนมัติ</p>
+    {[2,3].map(no=><div key={no} className="mb-4">
+     <h3 className="mb-2 font-semibold">มาตรฐานที่ {no} — {no===2?'กระบวนการบริหารและการจัดการ':'กระบวนการจัดการเรียนการสอนที่เน้นผู้เรียนเป็นสำคัญ'}</h3>
+     <div className="divide-y divide-slate-100 border-y border-slate-200">
+      {items.filter(x=>x.standard_no===no).map(item=><div className="flex items-start gap-3 py-2 text-sm" key={item.code}>
+       <span className="w-14 shrink-0 font-semibold text-blue-800">{item.code}</span><span>{item.title}</span>
+      </div>)}
+     </div>
+    </div>)}
+   </section>
+   <p className="mt-6 text-sm text-slate-500">ระบบยังอยู่ในระยะฐานข้อมูลและแบบประเมิน SAR มาตรฐานที่ 2–3: ส่วนหลักฐาน Google Drive รายงาน SAR และมาตรฐานที่ 1 จะพัฒนาต่อเป็นลำดับถัดไป</p>
+   <p className="mt-2 text-sm"><Link className="text-blue-700 underline" href="/teacher/sar">ดูหน้าประเมิน SAR สำหรับครู</Link></p>
+  </>}
+ </main>;
+}
