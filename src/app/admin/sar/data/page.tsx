@@ -9,6 +9,8 @@ type Topic={code:string;title:string;standard_no:number;sort_order:number};
 type Context={id:string;category:string;title:string;narrative:string;source_note:string};
 type Test={id:string;test_kind:string;grade_level:string;component:string;participants:number|null;school_average:number|null;area_average:number|null;national_average:number|null;source_note:string};
 type Measure={code:string;numerator:number|null;denominator:number|null;manually_observed_percent:number|null;source_note:string};
+type StudentSummary={code:string;eligible:number;assessed:number;met:number;met_percent_of_assessed:number|null};
+type GradeSummary={level:string;term:number;subject_code:string;expected:number;recorded:number;grade3plus:number;pct_of_recorded:number|null};
 const categories:{key:string;label:string}[]=[
  {key:'school_profile',label:'ข้อมูลทั่วไปของสถานศึกษา'},{key:'vision',label:'วิสัยทัศน์'}, {key:'mission',label:'พันธกิจ'},
  {key:'personnel',label:'ข้อมูลบุคลากร'},{key:'finance',label:'งบประมาณ'}, {key:'facilities',label:'อาคารและสภาพแวดล้อม'},
@@ -24,6 +26,7 @@ export default function SarDataPage(){
  const [school,setSchool]=useState(''),[years,setYears]=useState<Year[]>([]),[year,setYear]=useState(''),[topics,setTopics]=useState<Topic[]>([]);
  const [tab,setTab]=useState<'context'|'tests'|'indicators'>('context');
  const [contexts,setContexts]=useState<Context[]>([]),[tests,setTests]=useState<Test[]>([]),[measures,setMeasures]=useState<Measure[]>([]);
+ const [studentSummary,setStudentSummary]=useState<StudentSummary[]>([]),[gradeSummary,setGradeSummary]=useState<GradeSummary[]>([]);
  const [category,setCategory]=useState('school_profile'),[ctxTitle,setCtxTitle]=useState(''),[narrative,setNarrative]=useState(''),[ctxSource,setCtxSource]=useState('');
  const [testKind,setTestKind]=useState('O-NET'),[grade,setGrade]=useState('ป.6'),[component,setComponent]=useState(''),[participants,setParticipants]=useState(''),
  [schoolAvg,setSchoolAvg]=useState(''),[areaAvg,setAreaAvg]=useState(''),[nationAvg,setNationAvg]=useState(''),[testSource,setTestSource]=useState('');
@@ -42,13 +45,16 @@ export default function SarDataPage(){
  }catch(e){if(live)setError(eMessage(e));}finally{if(live)setLoading(false)}})();return()=>{live=false};},[db]);
  async function reload(sid=school,yid=year){
   if(!db||!sid||!yid)return;
-  const [c,t,m]=await Promise.all([
+  const [c,t,m,p,g]=await Promise.all([
    db.from('sar_context').select('id,category,title,narrative,source_note').eq('school_id',sid).eq('academic_year_id',yid).order('category').order('title'),
    db.from('sar_national_tests').select('id,test_kind,grade_level,component,participants,school_average,area_average,national_average,source_note').eq('school_id',sid).eq('academic_year_id',yid).order('test_kind'),
-   db.from('sar_indicator_measurements').select('code,numerator,denominator,manually_observed_percent,source_note').eq('school_id',sid).eq('academic_year_id',yid)
+   db.from('sar_indicator_measurements').select('code,numerator,denominator,manually_observed_percent,source_note').eq('school_id',sid).eq('academic_year_id',yid),
+   db.rpc('sar_admin_standard1_summary',{p_year:yid}),
+   db.rpc('sar_admin_academic_summary',{p_year:yid})
   ]);
-  if(c.error||t.error||m.error)throw Error(c.error?.message||t.error?.message||m.error?.message);
+  if(c.error||t.error||m.error||p.error||g.error)throw Error(c.error?.message||t.error?.message||m.error?.message||p.error?.message||g.error?.message);
   setContexts(c.data as Context[]);setTests(t.data as Test[]);setMeasures(m.data as Measure[]);
+  setStudentSummary((p.data?.rows??[]) as StudentSummary[]);setGradeSummary((g.data?.rows??[]) as GradeSummary[]);
  }
  useEffect(()=>{if(!school||!year)return;let live=true;setLoading(true);setError('');void reload(school,year).catch(e=>{if(live)setError(eMessage(e))}).finally(()=>{if(live)setLoading(false)});return()=>{live=false};},[school,year]);
  async function commit(action:()=>Promise<{error:{message:string}|null}>,message:string){
@@ -109,6 +115,20 @@ export default function SarDataPage(){
    <div className="overflow-x-auto"><table className="w-full min-w-[640px] text-sm"><thead><tr>{['แบบทดสอบ','ชั้น / ด้าน','ผู้เข้าสอบ','โรงเรียน','เขต','ประเทศ','แก้ไข'].map(t=><th className="border-b p-2 text-left" key={t}>{t}</th>)}</tr></thead><tbody>{tests.map(t=><tr key={t.id} className="border-b"><td className="p-2">{t.test_kind}</td><td className="p-2">{t.grade_level} · {t.component}</td><td className="p-2">{t.participants??'—'}</td><td className="p-2">{t.school_average??'—'}</td><td className="p-2">{t.area_average??'—'}</td><td className="p-2">{t.national_average??'—'}</td><td className="p-2"><button className="text-blue-700 underline" onClick={()=>{setTestKind(t.test_kind);setGrade(t.grade_level);setComponent(t.component);setParticipants(String(t.participants??''));setSchoolAvg(String(t.school_average??''));setAreaAvg(String(t.area_average??''));setNationAvg(String(t.national_average??''));setTestSource(t.source_note)}}>แก้ไข</button></td></tr>)}</tbody></table></div>
   </section>}
   {school&&year&&tab==='indicators'&&<section>
+   <h2 className="mb-2 text-lg font-semibold">ผลมาตรฐานที่ 1 จากแบบประเมินครูประจำชั้น</h2>
+   <p className="mb-3 text-sm text-slate-600">รวมเฉพาะการประเมินจริง ไม่รวมข้อมูลที่ยังไม่ได้ประเมินเป็นผลผ่าน/ไม่ผ่าน เมื่อครูประเมินครบทุกคน Admin จึงสามารถนำผลเข้ารายการตัวชี้วัดหลักได้</p>
+   <div className="mb-6 overflow-x-auto border-y border-slate-200"><table className="w-full min-w-[650px] text-sm"><thead><tr className="bg-slate-50"><th className="p-2 text-left">ประเด็น</th><th className="p-2">ประเมินแล้ว</th><th className="p-2">ต้องประเมิน</th><th className="p-2">ผ่าน</th><th className="p-2">ร้อยละของผู้ที่ประเมิน</th><th className="p-2">นำเข้า</th></tr></thead>
+   <tbody>{studentSummary.map(x=><tr key={x.code} className="border-t border-slate-100"><td className="p-2">{x.code} {topics.find(t=>t.code===x.code)?.title??''}</td><td className="p-2 text-center">{x.assessed}</td><td className="p-2 text-center">{x.eligible}</td><td className="p-2 text-center">{x.met}</td><td className="p-2 text-center">{x.met_percent_of_assessed===null?'—':x.met_percent_of_assessed+'%'}</td><td className="p-2">
+    <button className="text-blue-700 underline disabled:text-slate-400" disabled={busy||x.assessed!==x.eligible||x.eligible===0}
+     onClick={()=>{if(!window.confirm('นำผลประเมินข้อ '+x.code+' ที่ครูประจำชั้นบันทึกครบแล้วไปบันทึกเป็นผล SAR หรือไม่?'))return;
+      void commit(async()=>db!.from('sar_indicator_measurements').upsert({school_id:school,academic_year_id:year,code:x.code,numerator:x.met,denominator:x.eligible,manually_observed_percent:null,source_note:'แบบประเมินมาตรฐานที่ 1 โดยครูประจำชั้น (ตรวจครบ '+x.eligible+' คน)'},{onConflict:'school_id,academic_year_id,code'}),'นำผลข้อ '+x.code+' เข้าระบบแล้ว');}}>นำผลเข้า SAR</button>
+   </td></tr>)}</tbody></table></div>
+   <h2 className="mb-2 text-lg font-semibold">ผลสัมฤทธิ์ระดับ 3 ขึ้นไปจากระบบคะแนน Wichakan</h2>
+   <p className="mb-3 text-sm text-slate-600">ข้อมูลนี้ใช้เกรดที่ครบและตรวจสอบแล้วเท่านั้น ข้อมูลที่ยังไม่มีเกรดถูกแสดงเป็นจำนวนคงค้าง ไม่รวมเป็นศูนย์ และยังไม่ใช้กำหนดการผ่านเป้าหมายอัตโนมัติ</p>
+   <div className="mb-7 max-h-[350px] overflow-auto border-y border-slate-200"><table className="w-full min-w-[650px] text-sm"><thead><tr className="sticky top-0 bg-slate-50"><th className="p-2 text-left">ชั้น / ภาค</th><th className="p-2 text-left">รหัสรายวิชา</th><th className="p-2 text-center">เกรดพร้อม</th><th className="p-2 text-center">คาดว่าต้องมี</th><th className="p-2 text-center">เกรด 3+</th><th className="p-2 text-center">ร้อยละของที่พร้อม</th></tr></thead>
+   <tbody>{gradeSummary.map((x,i)=><tr key={x.level+x.subject_code+x.term+'-'+i} className="border-t"><td className="p-2">{x.level} / {x.term}</td><td className="p-2">{x.subject_code}</td><td className="p-2 text-center">{x.recorded}</td><td className="p-2 text-center">{x.expected}</td><td className="p-2 text-center">{x.grade3plus}</td><td className="p-2 text-center">{x.pct_of_recorded===null?'—':x.pct_of_recorded+'%'}</td></tr>)}</tbody></table>
+   {!gradeSummary.length&&<p className="p-3 text-sm text-slate-500">ยังไม่มีข้อมูลเกรดที่พร้อมสรุปในปีนี้</p>}</div>
+
    <h2 className="mb-2 text-lg font-semibold">ผลการดำเนินงานรายตัวชี้วัด ปี {yearLabel}</h2>
    <p className="mb-4 text-sm text-slate-600">กรอกจำนวนที่ผ่าน/จำนวนทั้งหมดเพื่อคำนวณร้อยละ หรือระบุผลที่รับรองแล้วพร้อมแหล่งที่มา ห้ามนำผลที่ยังไม่มีหลักฐานมาคิดเป็น 0</p>
    <form className="grid gap-3 border-b border-slate-200 pb-5" onSubmit={e=>{e.preventDefault();void commit(async()=>db!.from('sar_indicator_measurements').upsert({
