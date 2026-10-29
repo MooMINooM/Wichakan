@@ -22,4 +22,12 @@ assert(admin.includes('sar_reopen_teacher_assessment'),'admin must be able to re
 assert(teacher.includes('sar_save_teacher_assessment'),'teacher page should save via authorized RPC');
 assert(nav.includes("href:'/admin/sar'"));
 assert(nav.includes("href:'/teacher/sar'"));
+const snapshot=fs.readFileSync('supabase/migrations/202610300002_sar_admin_auto_snapshot.sql','utf8');
+const adminCurrent=fs.readFileSync('src/app/admin/sar/page.tsx','utf8');
+assert(snapshot.includes("m.role='school_admin'"),'SAR snapshot must require school admin');
+assert(snapshot.includes('count(distinct(w.weekday_no,w.period_no))'),'weekly teacher periods must not double-count identical slots');
+assert(snapshot.includes("'เด็กชาย','นาย'"),'male prefixes must include เด็กชาย and นาย');
+assert(snapshot.includes("'เด็กหญิง','นางสาว'"),'female prefixes must include เด็กหญิง and นางสาว');
+assert(snapshot.includes("'unknown'"),'unrecognized prefixes must remain reviewable');
+assert(adminCurrent.includes("sar_admin_auto_snapshot"),'Admin SAR dashboard should load calculated school data');
 console.log('PASS: SAR 2–3 seed, access controls, year targets and assessment UI');
