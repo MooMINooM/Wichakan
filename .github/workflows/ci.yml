@@ -19,6 +19,7 @@ jobs:
         run: |
           node tests/school-readiness.cjs
           node tests/line-guardian-admin.cjs
+          node tests/line-parent-gpa.cjs
           node tests/teacher-assignment-rows.cjs
           node tests/teacher-scores.cjs
           node tests/schoolmis-history.cjs

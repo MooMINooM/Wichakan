@@ -58,7 +58,7 @@ export default function LineResultsPage(){
  async function refresh(){setLoading(true);setError('');setNotice('');try{await reload();setNotice('ตรวจสอบความพร้อมล่าสุดแล้ว');}catch(e){setError((e as Error).message);}finally{setLoading(false);}}
  return <main className="wichakan-page">
   <PageHeader title="ตรวจสอบและประกาศผลการเรียนผ่าน LINE"/>
-  <p className="mb-4 text-sm">Admin สามารถประกาศผลการเรียนบางส่วนได้ แม้ครูยังบันทึกคะแนนไม่ครบ โดยผู้ปกครองเห็นคะแนนเฉพาะรายวิชาที่มีผลถูกต้องครบแล้ว ส่วนที่เหลือแสดง “รอผล” คะแนน ป.1–ป.6 ภาคเรียนที่ 1 เต็ม 50 และมัธยมคิดเกรดแยกภาคเรียนเต็ม 100</p>
+  <p className="mb-4 text-sm">Admin สามารถประกาศผลการเรียนบางส่วนได้ แม้ครูยังบันทึกคะแนนไม่ครบ โดยผู้ปกครองเห็นคะแนนเฉพาะรายวิชาที่มีผลถูกต้องครบแล้ว ส่วนที่เหลือแสดง “รอผล” เมื่อประกาศแล้ว LINE OA จะแสดง GPA รายปีของประถม (เฉพาะผลรายปีที่ครบหลังภาค 2) หรือ GPA รายภาคเรียนของมัธยม พร้อม GPAX สะสมถึงช่วงที่มีผลสมบูรณ์ โดยยังไม่เปิดค่าเฉลี่ยที่ผลไม่ครบ คะแนน ป.1–ป.6 ภาคเรียนที่ 1 เต็ม 50 และมัธยมคิดเกรดแยกภาคเรียนเต็ม 100</p>
   {error&&<p role="alert" className="teacher-error mb-3">{error}</p>}
   {notice&&<p role="status" className="teacher-success mb-3">{notice}</p>}
   <section className="ui-panel">
