@@ -30,7 +30,7 @@ create table if not exists public.schoolmis_grade_history (
  recorded_at timestamptz not null default now(),
  primary key (school_id,student_id,academic_year_be,level_code,term_no,subject_key),
  check ((is_activity and grade_value is null and result_text in ('ผ','มผ')) or
-   (not is_activity and ((grade_value is not null and result_text=regexp_replace(grade_value::text,'[.]0) or
+   (not is_activity and ((grade_value is not null and result_text=regexp_replace(grade_value::text,'[.]0$','') or
      (grade_value is null and result_text in ('ร','มส'))))),
  check (grade_value is null or (grade_value>=0 and grade_value<=4 and mod(grade_value*2,1)=0)),
  check (is_activity or term_no in (0,1,2))
