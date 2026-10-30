@@ -77,6 +77,7 @@ export default function SchoolmisWeightsPage(){
   <Link href="/students/schoolmis" className="text-sm font-semibold text-blue-700">← นำเข้าประวัติ SchoolMIS</Link>
   <PageHeader title="ตรวจสอบหน่วยน้ำหนักย้อนหลัง"/>
   <p className="mb-4 text-sm text-slate-600">กำหนดหน่วยกิต/หน่วยน้ำหนักจากหลักสูตรในปีการศึกษาจริง ไม่ใช้โครงสร้างวิชาปีปัจจุบันเติมข้อมูลย้อนหลังโดยอัตโนมัติ</p>
+  <div className="mb-4"><Link href="/students/schoolmis/weights/bulk" className="ui-secondary inline-flex">ตรวจหลายรายวิชาโดยใช้แม่แบบ CSV</Link></div>
   <section className="ui-panel p-4">
    <div className="flex flex-wrap gap-3 items-end">
     <label className="text-sm">โรงเรียน<select aria-label="เลือกโรงเรียน" className="mt-1 block rounded-lg border p-2" value={schoolId} onChange={e=>setSchoolId(e.target.value)}>{schools.map(s=><option key={s.id} value={s.id}>{s.name_th}</option>)}</select></label>
