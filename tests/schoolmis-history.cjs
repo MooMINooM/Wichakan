@@ -18,7 +18,7 @@ const pcsv=phead.join(',')+'\n'+pvals.join(',');
 let p=buildSchoolmisPreview(pcsv,2569,'ป.6');
 assert.equal(p.studentCount,1);
 assert.equal(p.historicalGradeCount,1,'current-year grade must not import');
-assert.equal(p.entries[0].academic_year_be,2568);
+assert.equal(p.entries[0].academic_year_be,2565);
 assert.equal(p.entries[0].level_code,'ป.2');
 assert.equal(p.entries[0].term_no,0);
 assert.equal(p.zeroSkipped,1);
