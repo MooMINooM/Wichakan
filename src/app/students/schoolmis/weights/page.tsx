@@ -112,7 +112,7 @@ export default function SchoolmisWeightsPage(){
       <td className="p-2 text-center">{r.year} · {r.level} {r.term?'ภาค '+r.term:'รายปี'}</td>
       <td className="p-2">{r.subject_code} {r.name}<div className="text-xs text-slate-500">{r.group}</div></td>
       <td className="text-center">{r.students}</td><td className="text-center">{r.results_missing}</td>
-      <td className="p-2 text-center">{(()=>{const c=candidateFor(r);return c?<><strong>{c.credit}</strong><div className="text-xs text-slate-500">{c.hours} ชม. · หลักสูตร {c.version}</div>{!c.historicalVersion&&<div className="text-xs text-amber-700">หลักสูตรปีหลัง ต้องยืนยันย้อนหลัง</div>}{!c.sameName&&<div className="text-xs text-rose-700">ชื่อวิชาไม่ตรง ต้องตรวจสอบ</div>}</>:'ไม่พบรหัส';})()}</td>
+      <td className="p-2 text-center">{(()=>{const c=candidateFor(r);return c?<><strong>{c.credit}</strong><div className="text-xs text-slate-500">{c.hours} ชม. · หลักสูตร {c.version}{c.companionCode?' (รวม '+c.companionCode+')':''}</div>{!c.historicalVersion&&<div className="text-xs text-amber-700">หลักสูตรปีหลัง ต้องยืนยันย้อนหลัง</div>}{!c.sameName&&<div className="text-xs text-rose-700">ชื่อวิชาไม่ตรง ต้องตรวจสอบ</div>}</>:'ไม่พบรหัส';})()}</td>
       <td className="text-center">{r.weight??'—'}</td>
       <td className="text-center">{r.weights_missing}{r.conflicting_weights?' (ขัดแย้ง)':''}</td>
       <td className="p-2 text-center"><button className="text-blue-700 underline" onClick={()=>{setSelected(keyOf(r));setWeight((r.weight??candidateFor(r)?.credit)?.toString()??'');setEvidence(r.last_verification??'');setError('');}}>ตรวจและยืนยัน</button></td>
@@ -122,7 +122,7 @@ export default function SchoolmisWeightsPage(){
   {chosen&&<section className="ui-panel mt-4 p-5">
    <h2 className="font-bold">ยืนยันน้ำหนัก · {chosen.subject_code} {chosen.name}</h2>
    <p className="mt-1 text-sm text-slate-600">ปี {chosen.year} ชั้น {chosen.level} {chosen.term?'ภาคเรียนที่ '+chosen.term:'รายปี'} · นักเรียน {chosen.students} คน · มีผลการเรียนไม่ครบ {chosen.results_missing} คน</p>
-   {chosenSuggestion&&<p className="mt-2 text-sm text-amber-800">ระบบเสนอ {chosenSuggestion.credit} หน่วยกิต จาก {chosenSuggestion.hours} ชั่วโมง ในหลักสูตร {chosenSuggestion.version} (เริ่มใช้ {chosenSuggestion.effectiveYear}){!chosenSuggestion.sameName?' — ชื่อรายวิชาไม่ตรงกับข้อมูลย้อนหลัง':''} โปรดตรวจหลักสูตรที่ใช้ในปี {chosen.year} ก่อนยืนยัน</p>}
+   {chosenSuggestion&&<p className="mt-2 text-sm text-amber-800">ระบบเสนอ {chosenSuggestion.credit} หน่วยกิต จาก {chosenSuggestion.hours} ชั่วโมง{chosenSuggestion.companionCode?' (รวมรหัส '+chosenSuggestion.companionCode+')':''} ในหลักสูตร {chosenSuggestion.version} (เริ่มใช้ {chosenSuggestion.effectiveYear}){!chosenSuggestion.sameName?' — ชื่อรายวิชาไม่ตรงกับข้อมูลย้อนหลัง':''} โปรดตรวจหลักสูตรที่ใช้ในปี {chosen.year} ก่อนยืนยัน</p>}
    <div className="mt-3 flex flex-wrap gap-3">
     <label className="text-sm">หน่วยน้ำหนัก / หน่วยกิต<input type="number" step="0.01" min="0.01" max="30" className="mt-1 block rounded-lg border p-2" value={weight} onChange={e=>setWeight(e.target.value)}/></label>
     <label className="min-w-[240px] flex-1 text-sm">หลักฐานอ้างอิงที่ตรวจสอบ<input className="mt-1 block w-full rounded-lg border p-2" placeholder="เช่น หลักสูตรสถานศึกษา 2565 หน้า 23 / แผนการเรียน" maxLength={500} value={evidence} onChange={e=>setEvidence(e.target.value)}/></label>

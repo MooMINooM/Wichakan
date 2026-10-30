@@ -16,7 +16,11 @@ const subjects=[
  {subject_code:'ศ21104',grade_level:'ม.1',name_th:'ดนตรี-นาฏศิลป์',learning_hours:20,hour_basis:'term',curriculum_version_id:'v2569'},
  {subject_code:'ค21101',grade_level:'ม.1',name_th:'คณิตศาสตร์',learning_hours:60,hour_basis:'term',curriculum_version_id:'v2569'},
  {subject_code:'ค21101',grade_level:'ม.1',name_th:'คณิตศาสตร์',learning_hours:40,hour_basis:'term',curriculum_version_id:'v2568'},
- {subject_code:'ว14201',grade_level:'ป.4',name_th:'คอมพิวเตอร์',learning_hours:40,hour_basis:'year',curriculum_version_id:'v2569'}
+ {subject_code:'ว14201',grade_level:'ป.4',name_th:'คอมพิวเตอร์',learning_hours:40,hour_basis:'year',curriculum_version_id:'v2569'},
+ {subject_code:'พ14101',grade_level:'ป.4',name_th:'สุขศึกษา 4',learning_hours:40,hour_basis:'year',curriculum_version_id:'v2569'},
+ {subject_code:'พ14102',grade_level:'ป.4',name_th:'พลศึกษา 4',learning_hours:40,hour_basis:'year',curriculum_version_id:'v2569'},
+ {subject_code:'ศ14101',grade_level:'ป.4',name_th:'ศิลปะ 4',learning_hours:40,hour_basis:'year',curriculum_version_id:'v2569'},
+ {subject_code:'ศ14102',grade_level:'ป.4',name_th:'ดนตรี นาฏศิลป์ 4',learning_hours:40,hour_basis:'year',curriculum_version_id:'v2569'}
 ];
 let c=creditSuggestion({year:2568,level:'ม.2',term:1,subject_code:'ท22201',name:'การพูด'},subjects,versions);
 assert.equal(c.credit,0.5);assert.equal(c.sameName,false);
@@ -32,5 +36,18 @@ c=creditSuggestion({year:2567,level:'ม.1',term:1,subject_code:'ค21101',name:
 assert.equal(c.credit,1);assert.equal(c.historicalVersion,false);
 c=creditSuggestion({year:2569,level:'ป.4',term:0,subject_code:'ว14201',name:'คอมพิวเตอร์'},subjects,versions);
 assert.equal(c.credit,1);assert.equal(c.historicalVersion,true);
+c=creditSuggestion({year:2567,level:'ป.4',term:0,subject_code:'พ14101',name:'สุขศึกษาและพลศึกษา 4'},subjects,versions);
+assert.equal(c.credit,2,'Merged primary health+PE should have combined 80 hours, not 40');
+assert.equal(c.companionCode,'พ14102');
+assert.equal(c.hours,80);
+assert.equal(c.sameName,true);
+assert.equal(c.historicalVersion,false,'This is only a suggested historic weight until curriculum-year evidence');
+c=creditSuggestion({year:2567,level:'ป.4',term:0,subject_code:'ศ14101',name:'ศิลปะ ดนตรี นาฎศิลป์ 4'},subjects,versions);
+assert.equal(c.credit,2,'Merged primary visual arts+music should have combined 80 hours');
+assert.equal(c.companionCode,'ศ14102');
+c=creditSuggestion({year:2567,level:'ป.4',term:0,subject_code:'พ14101',name:'สุขศึกษา 4'},subjects,versions);
+assert.equal(c.credit,1,'Do not combine an independently recorded primary health grade');
+const withoutPE=subjects.filter(x=>x.subject_code!=='พ14102');
+assert.equal(creditSuggestion({year:2567,level:'ป.4',term:0,subject_code:'พ14101',name:'สุขศึกษาและพลศึกษา 4'},withoutPE,versions),null,'Do not underweight a merged grade without its companion');
 assert.equal(creditSuggestion({year:2567,level:'ม.1',term:1,subject_code:'ง21999',name:'คอมพิวเตอร์'},subjects,versions),null);
 console.log('PASS: SchoolMIS unit suggestions from existing course hours, year precedence and title mismatch safety.');
