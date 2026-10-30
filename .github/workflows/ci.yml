@@ -22,6 +22,7 @@ jobs:
           node tests/teacher-assignment-rows.cjs
           node tests/teacher-scores.cjs
           node tests/schoolmis-history.cjs
+          node tests/schoolmis-credit-suggestions.cjs
           node tests/timetable-auto.cjs
           node tests/pp6-print-summary.cjs
           node tests/pp6-official.cjs
