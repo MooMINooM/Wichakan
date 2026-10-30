@@ -21,9 +21,8 @@ assert.match(sql,/grant execute on function public\.line_parent_portal_data\(tex
 assert.match(sql,/if \(v_period_type='year' and p_term=2\) or v_period_type='semester'/,
  'Annual primary GPA must be hidden in term 1');
 assert.match(sql,/gpax_to_date' is not null/,'Only completed cumulative progress');
-assert.match(sql,/and \(\(t\.value->>'year_be'\)::integer=v_school_year/,'Scope selected GPA to requested year');
-assert.match(sql,/and \(\(t\.value->>'year_be'\)::integer=v_school_year and \(t\.value->>'term_no'\)::integer<=p_term\)/,
- 'Restrict running GPAX to selected semester');
+assert(sql.includes("where (t.value->>'year_be')::integer=v_school_year"),'Selected GPA must be restricted to requested year');
+assert(sql.includes("and (t.value->>'term_no')::integer<=p_term"),'Running GPAX must not include future semesters');
 assert.match(sql,/'gpa_summary',v_summary/,'Expose cumulative summary only from allowed response');
 assert.match(portal,/gpa_summary\?:GpaSummary/);
 assert.match(portal,/grades:\[\],gpa_summary:undefined,published:undefined/,
