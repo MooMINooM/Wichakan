@@ -8,7 +8,7 @@ assert.equal(recognizeSchoolmisLevel('คะแนน_ชั้นประถ�
 assert.equal(recognizeSchoolmisLevel('คะแนน_ชั้นมัธยมศึกษาปีที่ 3  ห้อง 1.csv'),'ม.3');
 assert.equal(normalizeStudentName('เด็กชาย ทดสอบ นักเรียน'),'ทดสอบนักเรียน');
 assert.equal(normalizeStudentName('ด.ญ.ทดสอบ นักเรียน'),'ทดสอบนักเรียน');
-assert.deepEqual([...parseSchoolmisCsv('#,รหัสนักเรียน,ชื่อ-สกุล\r\n1,0001,"นาย A, B"')][1],['1','0001','นาย A, B']);
+assert.equal(JSON.stringify(parseSchoolmisCsv('#,รหัสนักเรียน,ชื่อ-สกุล\r\n1,0001,"นาย A, B"')[1]),JSON.stringify(['1','0001','นาย A, B']));
 assert.throws(()=>parseSchoolmisCsv('"bad'),/อัญประกาศ/);
 const phead=['#','รหัสนักเรียน','ชื่อ-สกุล'];
 for(let g=1;g<=6;g++)for(let i=1;i<=12;i++)phead.push('ท1'+g+String(i).padStart(3,'0')+' ภาษาไทย '+g);
