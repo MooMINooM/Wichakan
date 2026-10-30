@@ -1,8 +1,8 @@
 
 alter table public.schoolmis_grade_history drop constraint schoolmis_grade_history_level_code_check;
-alter table public.schoolmis_grade_history add constraint schoolmis_grade_history_level_code_check check (level_code ~ '^[ปม]\\.[1-6]$');
+alter table public.schoolmis_grade_history add constraint schoolmis_grade_history_level_code_check check (level_code ~ '^[ปม]\[.][1-6]$');
 alter table public.schoolmis_history_imports drop constraint schoolmis_history_imports_current_level_code_check;
-alter table public.schoolmis_history_imports add constraint schoolmis_history_imports_current_level_code_check check (current_level_code ~ '^[ปม]\\.[1-6]$');
+alter table public.schoolmis_history_imports add constraint schoolmis_history_imports_current_level_code_check check (current_level_code ~ '^[ปม]\[.][1-6]$');
 alter table public.schoolmis_grade_history drop constraint schoolmis_grade_history_check;
 alter table public.schoolmis_grade_history add constraint schoolmis_grade_history_check check (
  (is_activity and grade_value is null and result_text in ('ผ','มผ')) or
@@ -29,7 +29,7 @@ begin
  if v_actor is null or not exists(select 1 from public.school_memberships m where m.user_id=v_actor
  and m.school_id=p_school and m.active and m.role in ('school_admin','registrar'))
  then raise exception 'schoolmis_not_authorized';end if;
- if p_reference_year_be not between 2500 and 2700 or p_current_level !~ '^(ป\.[1-6]|ม\.[1-3])$'
+ if p_reference_year_be not between 2500 and 2700 or p_current_level !~ '^(ป[.][1-6]|ม[.][1-3])$'
  or p_file_name is null or length(p_file_name) not between 1 and 240
  or jsonb_typeof(p_rows) is distinct from 'array' or jsonb_array_length(p_rows) not between 1 and 5000
  then raise exception 'schoolmis_invalid_request';end if;
@@ -48,7 +48,7 @@ begin
   if v_activity then
    -- Activity columns may reuse identical codes; preserve their column positions.
    v_level:=case when p_current_level like 'ป.%' then 'ป.' else 'ม.' end || (v_row->>'grade_number');
-   if v_level !~ '^(ป\.[1-6]|ม\.[1-3])$' then raise exception 'schoolmis_invalid_activity_level';end if;
+   if v_level !~ '^(ป[.][1-6]|ม[.][1-3])$' then raise exception 'schoolmis_invalid_activity_level';end if;
    if v_key <> 'ACT:'||v_column::text or v_result not in ('ผ','มผ')
    then raise exception 'schoolmis_invalid_activity';end if;
    v_value:=null;
@@ -58,7 +58,7 @@ begin
    if (p_current_level like 'ป.%')<>(v_level like 'ป.%') or v_key<>v_code
    then raise exception 'schoolmis_track_mismatch';end if;
    if v_result in ('ร','มส') then v_value:=null;
-   elsif v_result ~ '^(0|[1-3](\.5)?|4)$' then v_value:=v_result::numeric;
+   elsif v_result ~ '^(0|[1-3]([.]5)?|4)$' then v_value:=v_result::numeric;
    else raise exception 'schoolmis_invalid_grade';end if;
   end if;
   v_grade_no:=substring(v_level from 3)::integer;
