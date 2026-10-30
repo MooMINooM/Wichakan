@@ -10,7 +10,7 @@ type School={id:string;name_th:string};
 type Membership={school_id:string;role:string;schools:School|null};
 type Student={id:string;student_no:string;name_prefix_th:string|null;first_name_th:string;last_name_th:string};
 type ImportBatch={id:string;file_name:string;reference_year_be:number;current_level_code:string;imported_rows:number;created_at:string};
-type Grade={academic_year_be:number;level_code:string;term_no:number;subject_code:string;subject_name:string;subject_group:string;result_text:string;grade_value:number|null;weight_units:number|null;weight_confirmed:boolean;is_activity:boolean};
+type Grade={academic_year_be:number;level_code:string;term_no:number;subject_code:string;subject_name:string;subject_group:string;result_text:string;source_raw_value:string|null;grade_value:number|null;weight_units:number|null;weight_confirmed:boolean;is_activity:boolean};
 type GroupGpa={area:string;records:number;pending:number;gpax:number|null};
 const LEVELS=['ป.1','ป.2','ป.3','ป.4','ป.5','ป.6','ม.1','ม.2','ม.3'];
 export default function SchoolmisHistoryPage(){
@@ -104,7 +104,7 @@ export default function SchoolmisHistoryPage(){
  useEffect(()=>{if(!studentId||!schoolId){setGrades([]);setGpax([]);return;}let live=true;(async()=>{
   const db=getSupabaseBrowserClient();if(!db)return;
   const [r,g]=await Promise.all([
-   db.from('schoolmis_grade_history').select('academic_year_be,level_code,term_no,subject_code,subject_name,subject_group,result_text,grade_value,weight_units,weight_confirmed,is_activity')
+   db.from('schoolmis_grade_history').select('academic_year_be,level_code,term_no,subject_code,subject_name,subject_group,result_text,source_raw_value,grade_value,weight_units,weight_confirmed,is_activity')
     .eq('school_id',schoolId).eq('student_id',studentId).order('academic_year_be').order('term_no').order('subject_code'),
    db.rpc('schoolmis_student_historical_gpax',{p_school:schoolId,p_student:studentId})
   ]);
@@ -191,7 +191,7 @@ export default function SchoolmisHistoryPage(){
     </div>)}</div>
     {grades.length===0?<p className="mt-3 text-sm text-slate-500">ยังไม่มีประวัติผลการเรียนย้อนหลังของนักเรียนคนนี้</p>:
      <div className="mt-3 max-h-72 overflow-auto"><table className="w-full min-w-[700px] text-sm"><thead className="sticky top-0 bg-slate-100"><tr><th>ปี</th><th>ชั้น</th><th>ภาค</th><th>รายวิชา</th><th>ผล</th><th>หน่วยน้ำหนัก</th></tr></thead>
-      <tbody>{grades.map((g,i)=><tr className="border-t" key={i}><td className="p-2 text-center">{g.academic_year_be}</td><td>{g.level_code}</td><td className="text-center">{g.term_no||'รายปี'}</td><td>{g.subject_code} {g.subject_name}</td><td className="text-center">{g.result_text}</td><td className="text-center">{g.is_activity?'—':g.weight_confirmed?g.weight_units:'ยังไม่ยืนยัน'}</td></tr>)}</tbody>
+      <tbody>{grades.map((g,i)=><tr className="border-t" key={i}><td className="p-2 text-center">{g.academic_year_be}</td><td>{g.level_code}</td><td className="text-center">{g.term_no||'รายปี'}</td><td>{g.subject_code} {g.subject_name}</td><td className="text-center">{g.result_text|| (g.source_raw_value==='0'?'0 (รอตรวจสอบ)':'—')}</td><td className="text-center">{g.is_activity?'—':g.weight_confirmed?g.weight_units:'ยังไม่ยืนยัน'}</td></tr>)}</tbody>
      </table></div>}
     <div className="mt-4 flex flex-wrap gap-3">
       <Link href="/students/schoolmis/weights" className="text-sm font-semibold text-blue-700 underline">ตรวจสอบหน่วยน้ำหนักย้อนหลังทั้งโรงเรียน</Link>
