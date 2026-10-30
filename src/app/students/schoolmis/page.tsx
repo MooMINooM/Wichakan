@@ -178,7 +178,7 @@ export default function SchoolmisHistoryPage(){
    <h2 className="text-lg font-bold">ตรวจสอบผลการเรียนสะสมย้อนหลัง</h2>
    <p className="mt-1 text-xs text-slate-600">แสดงเฉพาะข้อมูลที่นำเข้าจาก SchoolMIS ไม่รวมผลปีปัจจุบัน · GPAX จะไม่แสดงค่าจนกว่าจะยืนยันหน่วยน้ำหนักครบทุกวิชา</p>
    <label className="mt-3 block text-sm">เลือกนักเรียน
-    <select className="mt-1 block w-full max-w-lg rounded-lg border p-2" value={studentId} onChange={e=>{setStudentId(e.target.value);setSelectedWeight('');}}>
+    <select className="mt-1 block w-full max-w-lg rounded-lg border p-2" value={studentId} onChange={e=>setStudentId(e.target.value)}>
      <option value="">เลือกนักเรียน</option>{students.map(s=><option key={s.id} value={s.id}>{s.student_no} {s.name_prefix_th??''}{s.first_name_th} {s.last_name_th}</option>)}
     </select>
    </label>
