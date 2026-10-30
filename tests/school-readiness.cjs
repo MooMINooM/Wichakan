@@ -29,4 +29,29 @@ assert.deepEqual(curriculumCourses(subjects,versions,2568,'ป.1'),[['old-subjec
 const many=Array.from({length:200},(_,i)=>({id:'s'+i,curriculum_version_id:'v',subject_code:'S'+i,grade_level:'ป.1'}));
 const manyOfferings=many.map(s=>({id:'o-'+s.id,classroom_id:'a',subject_id:s.id,term_id:'term'}));
 const [almost]=summarize(rooms.filter(r=>r.id==='a'),enrollments,manyOfferings,manyOfferings.slice(0,-1).map(o=>({course_offering_id:o.id})),'year','term',many);assert.equal(almost.status,'progress');assert.equal(almost.progress,99);
+
+// Secondary curriculum entries are semester-scoped: 19 courses each term, not 38 all year.
+const secondaryRoom={id:'secondary-room',academic_year_id:'year',level_code:'ม.1',room_code:'1'};
+const secondaryEnrollment={student_id:'sec-student',classroom_id:'secondary-room',academic_year_id:'year',status:'active'};
+const secondarySubjects=Array.from({length:38},(_,i)=>({
+ id:'sec-'+i,curriculum_version_id:'v',subject_code:'S'+i,grade_level:'ม.1',semester_no:i<19?1:2
+}));
+const secondaryTerm1Offerings=secondarySubjects.slice(0,19).map((s,i)=>({id:'sec-offer-'+i,classroom_id:'secondary-room',subject_id:s.id,term_id:'sec-term-1'}));
+const secondaryTerm2Offerings=[{id:'sec-t2-offer',classroom_id:'secondary-room',subject_id:secondarySubjects[19].id,term_id:'sec-term-2'}];
+const secondarySummarize=(term,termNo,offeringList,assignmentList)=>summarizeLevels(
+ [secondaryRoom],[secondaryEnrollment],offeringList,assignmentList,'year',term,secondarySubjects,versions,2569,termNo
+)[0];
+const secondaryTerm1=secondarySummarize('sec-term-1',1,secondaryTerm1Offerings,
+ secondaryTerm1Offerings.map(o=>({course_offering_id:o.id})));
+assert.equal(secondaryTerm1.courses,19,'Only semester-1 curriculum subjects count in semester 1');
+assert.equal(secondaryTerm1.assigned,19);
+assert.equal(secondaryTerm1.unassigned,0,'Do not flag the 19 semester-2 subjects as teacher vacancies');
+assert.equal(secondaryTerm1.status,'ready');
+const secondaryTerm2=secondarySummarize('sec-term-2',2,secondaryTerm2Offerings,[]);
+assert.equal(secondaryTerm2.courses,19);
+assert.equal(secondaryTerm2.unassigned,19,'No term-2 teachers are assigned yet');
+assert.equal(secondaryTerm2.assigned,0);
+assert.equal(curriculumCourses(secondarySubjects,versions,2569,'ม.1',1).length,19);
+assert.equal(curriculumCourses(secondarySubjects,versions,2569,'ม.1',2).length,19);
+assert.equal(curriculumCourses(subjects,versions,2569,'ป.1',2).length,2,'Annual primary school courses count in both terms');
 console.log('PASS: curriculum baseline, unoffered subjects, per-room teacher coverage, term isolation, active versions, grade filtering, no curriculum, co-teachers and rounding.');
