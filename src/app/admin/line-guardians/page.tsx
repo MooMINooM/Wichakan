@@ -20,12 +20,45 @@ export default function LineGuardiansPage(){
  const [error,setError]=useState(''),[notice,setNotice]=useState(''),[query,setQuery]=useState(''),[updated,setUpdated]=useState('');
  const load=useCallback(async()=>{
   const db=getSupabaseBrowserClient();if(!db)throw Error('ไม่พบการเชื่อมต่อฐานข้อมูล');
-  const {data:{user},error:a}=await db.auth.getUser();if(a||!user)throw Error('กรุณาเข้าสู่ระบบ Admin');
-  const {data:result,error:b}=await db.rpc('line_admin_guardian_overview');if(b)throw Error(b.message);
-  const x=result as Data|null;
-  setData({requests:Array.isArray(x?.requests)?x.requests:[],linked:Array.isArray(x?.linked)?x.linked:[],history:Array.isArray(x?.history)?x.history:[]});
+  const {data:{user},error:authError}=await db.auth.getUser();if(authError||!user)throw Error('กรุณาเข้าสู่ระบบ Admin');
+  const m=await db.from('school_memberships').select('school_id').eq('user_id',user.id).eq('role','school_admin').eq('active',true).limit(1).maybeSingle();
+  if(m.error||!m.data)throw Error('เฉพาะผู้ดูแลระบบโรงเรียนเท่านั้น');
+  const school=m.data.school_id;
+  const [c,a,g,l,st,h]=await Promise.all([
+   db.from('line_student_claims').select('id,student_id,status,created_at,reviewed_at').eq('school_id',school),
+   db.from('line_guardian_accounts').select('guardian_id,verified_at').eq('school_id',school),
+   db.from('guardians').select('id,full_name_th').eq('school_id',school),
+   db.from('student_guardians').select('guardian_id,student_id,relationship').eq('school_id',school),
+   db.from('students').select('id,student_no,name_prefix_th,first_name_th,last_name_th').eq('school_id',school),
+   db.from('line_guardian_child_audit').select('id,guardian_id,student_id,action,recorded_at').eq('school_id',school)
+  ]);
+  const failure=[c,a,g,l,st,h].find(x=>x.error);if(failure?.error)throw Error(failure.error.message);
+  const students=new Map((st.data??[]).map(s=>[s.id,s]));
+  const names=new Map((g.data??[]).map(x=>[x.id,x.full_name_th]));
+  const studentName=(id:string)=>{const s=students.get(id);return s?(s.name_prefix_th??'')+s.first_name_th+' '+s.last_name_th:'ไม่พบนักเรียน';};
+  const guardianName=(id:string)=>names.get(id)??'ผู้ปกครอง LINE';
+  const requests:Claim[]=(c.data??[]).filter(x=>x.status==='pending').map(x=>({
+   id:x.id,student_id:x.student_id,student_name:studentName(x.student_id),student_no:students.get(x.student_id)?.student_no??'—',created_at:x.created_at
+  }));
+  const linked:Guardian[]=(a.data??[]).map(account=>({
+   guardian_id:account.guardian_id,name:guardianName(account.guardian_id),verified_at:account.verified_at,
+   children:(l.data??[]).filter(x=>x.guardian_id===account.guardian_id).map(x=>({
+    id:x.student_id,name:studentName(x.student_id),student_no:students.get(x.student_id)?.student_no??'—',relationship:x.relationship
+   }))
+  }));
+  const history:History[]=[
+   ...(c.data??[]).filter(x=>x.reviewed_at&&['approved','rejected'].includes(x.status)).map(x=>({
+    id:'claim-'+x.id,action:x.status as History['action'],recorded_at:x.reviewed_at!,student_name:studentName(x.student_id),
+    guardian_name:'ผู้ปกครอง LINE',actor_name:'ผู้ดูแลระบบ'
+   })),
+   ...(h.data??[]).map(x=>({
+    id:'audit-'+x.id,action:x.action as History['action'],recorded_at:x.recorded_at,
+    student_name:studentName(x.student_id),guardian_name:guardianName(x.guardian_id),actor_name:'ผู้ดูแลระบบ'
+   }))
+  ].sort((a,b)=>b.recorded_at.localeCompare(a.recorded_at));
+  setData({requests,linked,history});
   setUpdated(new Date().toLocaleString('th-TH',{dateStyle:'medium',timeStyle:'short'}));
- },[]);
+ },[]);;
  useEffect(()=>{let live=true;void load().catch(e=>{if(live)setError(errText(e));}).finally(()=>{if(live)setLoading(false);});return()=>{live=false;};},[load]);
  async function refresh(){setLoading(true);setError('');try{await load();}catch(e){setError(errText(e));}finally{setLoading(false);}}
  async function review(c:Claim,approve:boolean){
