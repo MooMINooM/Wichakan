@@ -5,6 +5,7 @@ import {useRouter} from 'next/navigation';
 import PageHeader from '@/components/page-header';
 import {getSupabaseBrowserClient} from '@/lib/supabase/browser';
 import {parseSchoolmisCsv} from '@/lib/schoolmis-history';
+import {creditSuggestion,type CurriculumCreditSubject,type CurriculumCreditVersion} from '@/lib/schoolmis-credit-suggestions';
 type School={id:string;name_th:string};
 type Membership={school_id:string;role:string;schools:School|null};
 type WeightRow={year:number;level:string;term:number;subject_code:string;name:string;weight:number|null;last_verification:string|null};
@@ -15,6 +16,8 @@ export default function BulkWeights(){
  const router=useRouter();
  const [schoolId,setSchoolId]=useState(''),[schools,setSchools]=useState<School[]>([]);
  const [rows,setRows]=useState<WeightRow[]>([]),[entries,setEntries]=useState<Entry[]>([]);
+ const [creditSubjects,setCreditSubjects]=useState<CurriculumCreditSubject[]>([]);
+ const [creditVersions,setCreditVersions]=useState<CurriculumCreditVersion[]>([]);
  const [year,setYear]=useState(''),[fileName,setFileName]=useState('');
  const [busy,setBusy]=useState(false),[error,setError]=useState(''),[notice,setNotice]=useState('');
  useEffect(()=>{let alive=true;(async()=>{
@@ -28,14 +31,27 @@ export default function BulkWeights(){
  })();return()=>{alive=false;};},[router]);
  useEffect(()=>{if(!schoolId)return;let live=true;(async()=>{
   const db=getSupabaseBrowserClient();if(!db)return;
-  const r=await db.rpc('schoolmis_review_weights',{p_school:schoolId});
-  if(live){if(r.error)setError(r.error.message);else setRows((r.data??[]) as WeightRow[]);}
+  const [r,s,v]=await Promise.all([
+   db.rpc('schoolmis_review_weights',{p_school:schoolId}),
+   db.from('subjects').select('subject_code,grade_level,name_th,learning_hours,hour_basis,curriculum_version_id').eq('school_id',schoolId),
+   db.from('curriculum_versions').select('id,version_label,effective_year_be').eq('school_id',schoolId)
+  ]);
+  if(live){
+   if(r.error||s.error||v.error)setError((r.error||s.error||v.error)!.message);
+   else{
+    setRows((r.data??[]) as WeightRow[]);
+    setCreditSubjects((s.data??[]) as CurriculumCreditSubject[]);
+    setCreditVersions((v.data??[]) as CurriculumCreditVersion[]);
+   }
+  }
  })();return()=>{live=false;};},[schoolId,notice]);
  const source=rows.filter(r=>!year||r.year===Number(year));
  const years=[...new Set(rows.map(r=>r.year))].sort((a,b)=>b-a);
+ const suggestionFor=(r:WeightRow)=>creditSuggestion({...r,name:r.name},creditSubjects,creditVersions);
+ const suggestedCount=source.filter(r=>suggestionFor(r)!==null).length;
  function downloadTemplate(){
   const head=['year','level','term','subject_code','subject_name','weight','evidence'];
-  const content=source.map(r=>[r.year,r.level,r.term,r.subject_code,r.name,r.weight??'',r.last_verification??''].map(quote).join(','));
+  const content=source.map(r=>[r.year,r.level,r.term,r.subject_code,r.name,r.weight??suggestionFor(r)?.credit??'',r.last_verification??''].map(quote).join(','));
   const blob=new Blob(['\uFEFF',[head.join(','),...content].join('\r\n')],{type:'text/csv;charset=utf-8'});
   const url=URL.createObjectURL(blob),link=document.createElement('a');
   link.href=url;link.download='schoolmis-historical-weight-review.csv';
@@ -84,17 +100,18 @@ export default function BulkWeights(){
  return <main className="wichakan-page mx-auto max-w-5xl px-4 py-6">
   <Link href="/students/schoolmis/weights" className="text-sm font-semibold text-blue-700">← ตรวจสอบหน่วยน้ำหนัก</Link>
   <PageHeader title="ตรวจหน่วยน้ำหนักย้อนหลังแบบหลายรายวิชา"/>
-  <p className="mb-4 text-sm text-slate-600">ดาวน์โหลดแม่แบบ CSV ที่มีรายวิชาจาก SchoolMIS แล้วกรอกช่อง weight และ evidence ตามหลักสูตรของปีนั้น แถวที่ปล่อยว่างทั้งสองช่องจะไม่ถูกแก้ไข</p>
+  <p className="mb-4 text-sm text-slate-600">ระบบเติมช่อง weight จากชั่วโมงรายวิชาที่มีอยู่ในหลักสูตร WICHAKAN ให้อัตโนมัติ (ชั่วโมง ÷ 40) เพื่อไม่ต้องกรอกหน่วยกิตซ้ำ แต่ยังต้องกรอกช่อง evidence จากหลักสูตรปีที่เรียนจริงก่อนยืนยัน</p>
   <section className="ui-panel p-5">
    <div className="flex flex-wrap gap-4">
     <label className="text-sm">โรงเรียน<select className="mt-1 block w-full rounded-lg border p-2" value={schoolId} onChange={e=>{setSchoolId(e.target.value);setEntries([]);}}>{schools.map(s=><option key={s.id} value={s.id}>{s.name_th}</option>)}</select></label>
     <label className="text-sm">ปีการศึกษา<select className="mt-1 block w-full rounded-lg border p-2" value={year} onChange={e=>setYear(e.target.value)}><option value="">ทุกปี</option>{years.map(y=><option key={y} value={y}>{y}</option>)}</select></label>
    </div>
-   <button type="button" className="ui-secondary mt-4" disabled={!source.length||busy} onClick={downloadTemplate}>ดาวน์โหลดแม่แบบ CSV · {source.length} รายวิชา</button>
+   <button type="button" className="ui-secondary mt-4" disabled={!source.length||busy} onClick={downloadTemplate}>ดาวน์โหลดแม่แบบ CSV · {source.length} รายวิชา · แนะนำหน่วยกิต {suggestedCount} รายวิชา</button>
    <label className="mt-4 block text-sm font-semibold">นำเข้าตารางที่ตรวจสอบหลักฐานเรียบร้อยแล้ว
     <input type="file" accept=".csv,text/csv" className="mt-2 block w-full rounded-lg border p-3 text-sm" disabled={busy||!schoolId} onChange={e=>{const file=e.target.files?.[0];if(file)void readFile(file);e.target.value='';}}/>
    </label>
-   <p className="mt-2 text-xs text-slate-500">ระบบไม่คัดลอกน้ำหนักจากหลักสูตรปัจจุบันโดยอัตโนมัติ ทุกแถวที่นำเข้าต้องระบุหลักฐานอ้างอิงและเก็บประวัติผู้ยืนยัน</p>
+   <p className="mt-2 text-xs text-amber-800">คำเตือน: รายวิชาย้อนหลัง ม.1 (2567) และ ม.2 (2568) จับคู่ได้กับหลักสูตรปี 2569 เท่านั้น การเสนอหน่วยกิตไม่ใช่การยืนยันว่าหลักสูตรปีเก่าเหมือนปี 2569 ต้องตรวจสอบชื่อรายวิชาที่เปลี่ยนและหลักฐานปีที่เรียนจริง โดยเฉพาะ ท22201 การพูด</p>
+   <p className="mt-2 text-xs text-slate-500">ยังไม่บันทึกหน่วยกิตจนกว่าจะนำเข้าตารางพร้อมกรอก evidence และกดยืนยัน (เก็บผู้ยืนยันและหลักฐานทุกครั้ง)</p>
   </section>
   {error&&<p role="alert" className="teacher-error mt-3">{error}</p>}
   {notice&&<p role="status" className="mt-3 rounded-lg bg-emerald-50 p-4 text-sm text-emerald-900">{notice}</p>}
