@@ -5,6 +5,6 @@ const nav=fs.readFileSync('src/components/app-navigation.tsx','utf8');
 for(const value of ["'requests'|'linked'|'history'","from('line_student_claims')","from('line_guardian_accounts')","from('student_guardians')","from('line_guardian_child_audit')","review_line_student_claim","line_admin_revoke_student_link","คำขอรออนุมัติ","บัญชี LINE ที่เชื่อมแล้ว","ประวัติการดำเนินการ"]) assert.ok(page.includes(value),'Missing LINE admin feature: '+value);
 for(const legacy of ['register_line_guardian_for_student','create_line_guardian_invite','review_line_guardian_request']) assert.ok(!page.includes(legacy),'Legacy registration workflow should be removed from Admin UI');
 assert.ok(nav.includes("label:'จัดการผู้ปกครอง LINE OA'"),'Navigation should use the new label');
-assert.ok(page.includes("role="tab""),'Tabs should be keyboard accessible');
+assert.ok(page.includes('role="tab"'),'Tabs should be keyboard accessible');
 assert.ok(page.includes('p_approve:approve'),'Approvals must remain explicit');
 console.log('PASS: LINE guardian requests, linked children, history, per-child revocation, and removed legacy admin forms.');
