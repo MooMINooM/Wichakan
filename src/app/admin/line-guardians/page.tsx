@@ -25,18 +25,25 @@ export default function LineGuardiansPage(){
   if(m.error||!m.data)throw Error('เฉพาะผู้ดูแลระบบโรงเรียนเท่านั้น');
   const school=m.data.school_id;
   const [c,a,g,l,st,h]=await Promise.all([
-   db.from('line_student_claims').select('id,student_id,status,created_at,reviewed_at').eq('school_id',school),
+   db.from('line_student_claims').select('id,student_id,status,created_at,reviewed_at,reviewed_by').eq('school_id',school),
    db.from('line_guardian_accounts').select('guardian_id,verified_at').eq('school_id',school),
    db.from('guardians').select('id,full_name_th').eq('school_id',school),
    db.from('student_guardians').select('guardian_id,student_id,relationship').eq('school_id',school),
    db.from('students').select('id,student_no,name_prefix_th,first_name_th,last_name_th').eq('school_id',school),
-   db.from('line_guardian_child_audit').select('id,guardian_id,student_id,action,recorded_at').eq('school_id',school)
+   db.from('line_guardian_child_audit').select('id,guardian_id,student_id,action,recorded_at,actor_user_id').eq('school_id',school)
   ]);
   const failure=[c,a,g,l,st,h].find(x=>x.error);if(failure?.error)throw Error(failure.error.message);
   const students=new Map((st.data??[]).map(s=>[s.id,s]));
   const names=new Map((g.data??[]).map(x=>[x.id,x.full_name_th]));
   const studentName=(id:string)=>{const s=students.get(id);return s?(s.name_prefix_th??'')+s.first_name_th+' '+s.last_name_th:'ไม่พบนักเรียน';};
   const guardianName=(id:string)=>names.get(id)??'ผู้ปกครอง LINE';
+  const actorIds=[...new Set([...(c.data??[]).map(x=>x.reviewed_by),...(h.data??[]).map(x=>x.actor_user_id)].filter((x):x is string=>!!x))];
+  const actorNames=new Map<string,string>();
+  for(let i=0;i<actorIds.length;i+=100){
+   const p=await db.from('profiles').select('user_id,display_name').in('user_id',actorIds.slice(i,i+100));
+   if(p.error)throw Error(p.error.message);
+   for(const x of p.data??[])actorNames.set(x.user_id,x.display_name);
+  }
   const requests:Claim[]=(c.data??[]).filter(x=>x.status==='pending').map(x=>({
    id:x.id,student_id:x.student_id,student_name:studentName(x.student_id),student_no:students.get(x.student_id)?.student_no??'—',created_at:x.created_at
   }));
@@ -49,11 +56,11 @@ export default function LineGuardiansPage(){
   const history:History[]=[
    ...(c.data??[]).filter(x=>x.reviewed_at&&['approved','rejected'].includes(x.status)).map(x=>({
     id:'claim-'+x.id,action:x.status as History['action'],recorded_at:x.reviewed_at!,student_name:studentName(x.student_id),
-    guardian_name:'ผู้ปกครอง LINE',actor_name:'ผู้ดูแลระบบ'
+    guardian_name:'ผู้ปกครอง LINE',actor_name:x.reviewed_by?actorNames.get(x.reviewed_by)??'ผู้ดูแลระบบ':'ผู้ดูแลระบบ'
    })),
    ...(h.data??[]).map(x=>({
     id:'audit-'+x.id,action:x.action as History['action'],recorded_at:x.recorded_at,
-    student_name:studentName(x.student_id),guardian_name:guardianName(x.guardian_id),actor_name:'ผู้ดูแลระบบ'
+    student_name:studentName(x.student_id),guardian_name:guardianName(x.guardian_id),actor_name:x.actor_user_id?actorNames.get(x.actor_user_id)??'ผู้ดูแลระบบ':'ผู้ดูแลระบบ'
    }))
   ].sort((a,b)=>b.recorded_at.localeCompare(a.recorded_at));
   setData({requests,linked,history});
