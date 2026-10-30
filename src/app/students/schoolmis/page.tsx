@@ -172,7 +172,7 @@ export default function SchoolmisHistoryPage(){
     ].map(([name,value])=><div className="rounded-lg bg-slate-50 p-3" key={name}><p className="text-xs text-slate-500">{name}</p><strong>{value}</strong></div>)}
    </div>
    <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm">
-    <p>ค่าเกรด 0 ที่ยังไม่เลือกนำเข้า: <b>{parsed.preview.zeroSkipped}</b> รายการ · ผลปีปัจจุบัน/อนาคตที่ข้าม: {parsed.preview.currentSkipped} · ผลที่ไม่รู้จัก: {parsed.preview.unknownResults}</p>
+    <p>ค่าเกรด 0 ที่ยังไม่ยืนยัน: <b>{parsed.preview.zeroSkipped}</b> รายการ · ช่องรายวิชาย้อนหลังที่ยังไม่มีผล/ยังไม่ยืนยัน: {parsed.preview.missingGradeCount} · ผลปีปัจจุบันที่ข้าม: {parsed.preview.currentSkipped} · ผลที่ไม่รู้จัก: {parsed.preview.unknownResults}</p>
     <label className="mt-2 flex items-start gap-2"><input type="checkbox" checked={includeZero} onChange={e=>setIncludeZero(e.target.checked)}/><span>ฉันตรวจสอบแล้วว่าเกรด 0 ในอดีตเป็นผลตัดสินจริง (ให้รวมในการนำเข้า)</span></label>
    </div>
    {parsed.preview.issues.length>0&&<div role="alert" className="mt-3 rounded-lg bg-red-50 p-3 text-sm text-red-800"><strong>ปัญหาโครงสร้างไฟล์ ({parsed.preview.issues.length}) — ต้องแก้ก่อนนำเข้า</strong><ul className="mt-2 list-inside list-disc">{parsed.preview.issues.slice(0,12).map((s,i)=><li key={i}>{s}</li>)}</ul></div>}
@@ -181,7 +181,7 @@ export default function SchoolmisHistoryPage(){
     <div className="mt-2 max-h-32 overflow-y-auto">{matched.unmatched.slice(0,20).map(([number,reason])=><p key={number}>รหัส {number} · {reason}</p>)}</div>
     <label className="mt-2 flex gap-2"><input type="checkbox" checked={skipUnmatched} onChange={e=>setSkipUnmatched(e.target.checked)}/>ยืนยันข้ามเฉพาะนักเรียนที่จับคู่ไม่ได้ (ไม่สร้างนักเรียนใหม่)</label>
    </div>}
-   <p className="mt-3 text-sm">พร้อมนำเข้า <b>{matched.entries.length}</b> รายการ · ระบบตรวจรายการที่มีอยู่แล้วและจะไม่เขียนทับผลที่ต่างกัน</p>
+   <p className="mt-3 text-sm">พร้อมนำเข้า <b>{matched.entries.length}</b> รายการ (รวมช่องรายวิชาที่ยังไม่มีผลเพื่อป้องกัน GPAX ผิดพลาด) · ระบบตรวจรายการที่มีอยู่แล้วและจะไม่เขียนทับผลที่ต่างกัน</p>
    <button className="ui-primary mt-3" disabled={busy||!matched.entries.length||parsed.preview.issues.length>0||(matched.unmatched.length>0&&!skipUnmatched)} onClick={()=>void commit()}>{busy?'กำลังบันทึก...':'ยืนยันนำเข้าประวัติย้อนหลัง'}</button>
   </section>}
   <section className="ui-panel mt-4 p-5">
