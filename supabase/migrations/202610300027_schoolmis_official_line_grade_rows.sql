@@ -90,7 +90,7 @@ AS $function$
     else private.line_grade_label(v.computed_total) end as grade,
    v.check_state as state
  from evaluated v
-$function$
+$function$;
 
 revoke all on function private.line_grade_rows_source(uuid,uuid,integer,uuid) from public,anon,authenticated;
 grant execute on function private.line_grade_rows_source(uuid,uuid,integer,uuid) to service_role;
