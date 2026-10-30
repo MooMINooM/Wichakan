@@ -4,6 +4,7 @@ import {useRouter} from 'next/navigation';
 import Link from 'next/link';
 import PageHeader from '@/components/page-header';
 import {getSupabaseBrowserClient} from '@/lib/supabase/browser';
+import {creditSuggestion,type CurriculumCreditSubject,type CurriculumCreditVersion} from '@/lib/schoolmis-credit-suggestions';
 
 type School={id:string;name_th:string};
 type Member={school_id:string;role:string;schools:School|null};
@@ -18,6 +19,8 @@ export default function SchoolmisWeightsPage(){
  const router=useRouter();
  const [schools,setSchools]=useState<School[]>([]),[schoolId,setSchoolId]=useState('');
  const [rows,setRows]=useState<WeightRow[]>([]),[query,setQuery]=useState('');
+ const [creditSubjects,setCreditSubjects]=useState<CurriculumCreditSubject[]>([]);
+ const [creditVersions,setCreditVersions]=useState<CurriculumCreditVersion[]>([]);
  const [yearFilter,setYearFilter]=useState(''),[onlyMissing,setOnlyMissing]=useState(true);
  const [selected,setSelected]=useState(''),[weight,setWeight]=useState(''),[evidence,setEvidence]=useState('');
  const [error,setError]=useState(''),[notice,setNotice]=useState(''),[busy,setBusy]=useState(false),[loading,setLoading]=useState(true);
@@ -40,8 +43,17 @@ export default function SchoolmisWeightsPage(){
  useEffect(()=>{if(!schoolId)return;let active=true;(async()=>{
   setLoading(true);setError('');
   try{const db=getSupabaseBrowserClient();if(!db)return;
-    const r=await db.rpc('schoolmis_review_weights',{p_school:schoolId});
-    if(active)setRows((r.data??[]) as WeightRow[]);
+    const [r,subj,versions]=await Promise.all([
+     db.rpc('schoolmis_review_weights',{p_school:schoolId}),
+     db.from('subjects').select('subject_code,grade_level,name_th,learning_hours,hour_basis,curriculum_version_id').eq('school_id',schoolId),
+     db.from('curriculum_versions').select('id,version_label,effective_year_be').eq('school_id',schoolId)
+    ]);
+    if(r.error||subj.error||versions.error)throw Error((r.error||subj.error||versions.error)!.message);
+    if(active){
+     setRows((r.data??[]) as WeightRow[]);
+     setCreditSubjects((subj.data??[]) as CurriculumCreditSubject[]);
+     setCreditVersions((versions.data??[]) as CurriculumCreditVersion[]);
+    }
   }catch(e){if(active)setError(e instanceof Error?e.message:'โหลดรายวิชาไม่สำเร็จ');}
   finally{if(active)setLoading(false);}
  })();return()=>{active=false;};},[schoolId]);
@@ -53,6 +65,9 @@ export default function SchoolmisWeightsPage(){
  ),[rows,yearFilter,onlyMissing,query]);
  const chosen=rows.find(r=>keyOf(r)===selected);
  const missing=rows.filter(r=>r.weights_missing>0||r.conflicting_weights).length;
+ const candidateFor=(r:WeightRow)=>creditSuggestion(r,creditSubjects,creditVersions);
+ const suggested=rows.filter(r=>candidateFor(r)!==null).length;
+ const chosenSuggestion=chosen?candidateFor(chosen):null;
  async function save(){
   if(!chosen||!schoolId||busy)return;
   const n=Number(weight);
@@ -76,7 +91,7 @@ export default function SchoolmisWeightsPage(){
  return <main className="wichakan-page mx-auto max-w-7xl px-4 py-6">
   <Link href="/students/schoolmis" className="text-sm font-semibold text-blue-700">← นำเข้าประวัติ SchoolMIS</Link>
   <PageHeader title="ตรวจสอบหน่วยน้ำหนักย้อนหลัง"/>
-  <p className="mb-4 text-sm text-slate-600">กำหนดหน่วยกิต/หน่วยน้ำหนักจากหลักสูตรในปีการศึกษาจริง ไม่ใช้โครงสร้างวิชาปีปัจจุบันเติมข้อมูลย้อนหลังโดยอัตโนมัติ</p>
+  <p className="mb-4 text-sm text-slate-600">WICHAKAN เสนอหน่วยกิตจากชั่วโมงรายวิชาที่บันทึกไว้ (ชั่วโมง ÷ 40) โดยไม่ต้องกรอกตัวเลขใหม่ แต่การนำไปใช้กับปีเก่าต้องยืนยันว่าหลักสูตรปีนั้นใช้จำนวนชั่วโมงเดียวกันก่อน</p>
   <div className="mb-4"><Link href="/students/schoolmis/weights/bulk" className="ui-secondary inline-flex">ตรวจหลายรายวิชาโดยใช้แม่แบบ CSV</Link></div>
   <section className="ui-panel p-4">
    <div className="flex flex-wrap gap-3 items-end">
@@ -85,27 +100,29 @@ export default function SchoolmisWeightsPage(){
     <label className="text-sm">ค้นหารหัสหรือชื่อวิชา<input className="mt-1 block rounded-lg border p-2" value={query} onChange={e=>setQuery(e.target.value)} placeholder="ค้นหารายวิชา"/></label>
     <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={onlyMissing} onChange={e=>setOnlyMissing(e.target.checked)}/>แสดงเฉพาะที่ยังไม่ยืนยัน</label>
    </div>
-   <p className="mt-3 text-sm">ทั้งหมด <strong>{rows.length}</strong> รายวิชา/ปี/ชั้น/ภาค · ยังไม่ผ่านการยืนยัน <strong>{missing}</strong> รายการ</p>
+   <p className="mt-3 text-sm">ทั้งหมด <strong>{rows.length}</strong> รายวิชา/ปี/ชั้น/ภาค · จับคู่หน่วยกิตจากหลักสูตรได้ <strong>{suggested}</strong> รายการ · ยังไม่ผ่านการยืนยัน <strong>{missing}</strong> รายการ</p>
   </section>
   {error&&<p role="alert" className="teacher-error mt-3">{error}</p>}
   {notice&&<p role="status" className="mt-3 rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-900">{notice}</p>}
   {loading?<p className="mt-3 text-sm">กำลังโหลดข้อมูล...</p>:<section className="ui-panel mt-4 p-4">
    {rows.length===0?<p className="text-sm text-slate-600">ยังไม่มีข้อมูลย้อนหลังในระบบ กรุณาใช้เมนูนำเข้า SchoolMIS และตรวจสอบก่อนบันทึก</p>:
     <div className="max-h-[580px] overflow-auto"><table className="min-w-[940px] w-full text-sm">
-     <thead className="sticky top-0 bg-slate-100"><tr><th className="p-2">ปี/ชั้น/ภาค</th><th className="p-2 text-left">รายวิชา</th><th>นักเรียน</th><th>ยังไม่มีผล</th><th>น้ำหนักที่ยืนยัน</th><th>ยังไม่ยืนยัน</th><th>การจัดการ</th></tr></thead>
+     <thead className="sticky top-0 bg-slate-100"><tr><th className="p-2">ปี/ชั้น/ภาค</th><th className="p-2 text-left">รายวิชา</th><th>นักเรียน</th><th>ยังไม่มีผล</th><th>หน่วยกิตจากหลักสูตร</th><th>น้ำหนักที่ยืนยัน</th><th>ยังไม่ยืนยัน</th><th>การจัดการ</th></tr></thead>
      <tbody>{filtered.map(r=><tr key={keyOf(r)} className="border-t">
       <td className="p-2 text-center">{r.year} · {r.level} {r.term?'ภาค '+r.term:'รายปี'}</td>
       <td className="p-2">{r.subject_code} {r.name}<div className="text-xs text-slate-500">{r.group}</div></td>
       <td className="text-center">{r.students}</td><td className="text-center">{r.results_missing}</td>
+      <td className="p-2 text-center">{(()=>{const c=candidateFor(r);return c?<><strong>{c.credit}</strong><div className="text-xs text-slate-500">{c.hours} ชม. · หลักสูตร {c.version}</div>{!c.historicalVersion&&<div className="text-xs text-amber-700">หลักสูตรปีหลัง ต้องยืนยันย้อนหลัง</div>}{!c.sameName&&<div className="text-xs text-rose-700">ชื่อวิชาไม่ตรง ต้องตรวจสอบ</div>}</>:'ไม่พบรหัส';})()}</td>
       <td className="text-center">{r.weight??'—'}</td>
       <td className="text-center">{r.weights_missing}{r.conflicting_weights?' (ขัดแย้ง)':''}</td>
-      <td className="p-2 text-center"><button className="text-blue-700 underline" onClick={()=>{setSelected(keyOf(r));setWeight(r.weight?.toString()??'');setEvidence(r.last_verification??'');setError('');}}>ตรวจและยืนยัน</button></td>
+      <td className="p-2 text-center"><button className="text-blue-700 underline" onClick={()=>{setSelected(keyOf(r));setWeight((r.weight??candidateFor(r)?.credit)?.toString()??'');setEvidence(r.last_verification??'');setError('');}}>ตรวจและยืนยัน</button></td>
      </tr>)}</tbody>
     </table></div>}
   </section>}
   {chosen&&<section className="ui-panel mt-4 p-5">
    <h2 className="font-bold">ยืนยันน้ำหนัก · {chosen.subject_code} {chosen.name}</h2>
    <p className="mt-1 text-sm text-slate-600">ปี {chosen.year} ชั้น {chosen.level} {chosen.term?'ภาคเรียนที่ '+chosen.term:'รายปี'} · นักเรียน {chosen.students} คน · มีผลการเรียนไม่ครบ {chosen.results_missing} คน</p>
+   {chosenSuggestion&&<p className="mt-2 text-sm text-amber-800">ระบบเสนอ {chosenSuggestion.credit} หน่วยกิต จาก {chosenSuggestion.hours} ชั่วโมง ในหลักสูตร {chosenSuggestion.version} (เริ่มใช้ {chosenSuggestion.effectiveYear}){!chosenSuggestion.sameName?' — ชื่อรายวิชาไม่ตรงกับข้อมูลย้อนหลัง':''} โปรดตรวจหลักสูตรที่ใช้ในปี {chosen.year} ก่อนยืนยัน</p>}
    <div className="mt-3 flex flex-wrap gap-3">
     <label className="text-sm">หน่วยน้ำหนัก / หน่วยกิต<input type="number" step="0.01" min="0.01" max="30" className="mt-1 block rounded-lg border p-2" value={weight} onChange={e=>setWeight(e.target.value)}/></label>
     <label className="min-w-[240px] flex-1 text-sm">หลักฐานอ้างอิงที่ตรวจสอบ<input className="mt-1 block w-full rounded-lg border p-2" placeholder="เช่น หลักสูตรสถานศึกษา 2565 หน้า 23 / แผนการเรียน" maxLength={500} value={evidence} onChange={e=>setEvidence(e.target.value)}/></label>
