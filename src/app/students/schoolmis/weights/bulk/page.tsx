@@ -36,7 +36,7 @@ export default function BulkWeights(){
  function downloadTemplate(){
   const head=['year','level','term','subject_code','subject_name','weight','evidence'];
   const content=source.map(r=>[r.year,r.level,r.term,r.subject_code,r.name,r.weight??'',r.last_verification??''].map(quote).join(','));
-  const blob=new Blob(['\uFEFF',[head.join(','),...content].join('\r\n')].join(''),{type:'text/csv;charset=utf-8'});
+  const blob=new Blob(['\uFEFF',[head.join(','),...content].join('\r\n')],{type:'text/csv;charset=utf-8'});
   const url=URL.createObjectURL(blob),link=document.createElement('a');
   link.href=url;link.download='schoolmis-historical-weight-review.csv';
   document.body.appendChild(link);link.click();link.remove();
