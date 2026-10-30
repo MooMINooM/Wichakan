@@ -17,7 +17,7 @@ export default function SchoolmisHistoryPage(){
  const router=useRouter();
  const [schools,setSchools]=useState<School[]>([]),[schoolId,setSchoolId]=useState('');
  const [students,setStudents]=useState<Student[]>([]),[years,setYears]=useState<number[]>([]),[year,setYear]=useState(2569);
- const [fileName,setFileName]=useState(''),[raw,setRaw]=useState(''),[level,setLevel]=useState(''),[includeZero,setIncludeZero]=useState(false);
+ const [fileName,setFileName]=useState(''),[raw,setRaw]=useState(''),[level,setLevel]=useState('');
  const [skipUnmatched,setSkipUnmatched]=useState(false),[backupVerified,setBackupVerified]=useState(false),[busy,setBusy]=useState(false),[error,setError]=useState(''),[notice,setNotice]=useState('');
  const [batches,setBatches]=useState<ImportBatch[]>([]),[studentId,setStudentId]=useState('');
  const [grades,setGrades]=useState<Grade[]>([]),[gpax,setGpax]=useState<GroupGpa[]>([]);
@@ -52,9 +52,9 @@ export default function SchoolmisHistoryPage(){
  })();return()=>{live=false;};},[schoolId]);
  const parsed=useMemo(()=>{
   if(!raw)return {preview:null,error:''};
-  try{return {preview:buildSchoolmisPreview(raw,year,level,includeZero),error:''};}
+  try{return {preview:buildSchoolmisPreview(raw,year,level),error:''};}
   catch(e){return {preview:null,error:e instanceof Error?e.message:'อ่านไฟล์ CSV ไม่สำเร็จ'};}
- },[raw,year,level,includeZero]);
+ },[raw,year,level]);
  const matched=useMemo(()=>{
   const byNo=new Map(students.map(s=>[s.student_no,s])),unmatched=new Map<string,string>();
   const entries:HistoryEntry[]=[],seen=new Set<string>();
@@ -70,7 +70,7 @@ export default function SchoolmisHistoryPage(){
   return {entries,unmatched:[...unmatched.entries()],students:seen.size};
  },[parsed.preview,students]);
  async function readFile(file:File){
-  setRaw('');setError('');setNotice('');setIncludeZero(false);setSkipUnmatched(false);setBackupVerified(false);
+  setRaw('');setError('');setNotice('');setSkipUnmatched(false);setBackupVerified(false);
   setFileName(file.name);setLevel(recognizeSchoolmisLevel(file.name));
   if(!/\.csv$/i.test(file.name)){setError('เลือกไฟล์ SchoolMIS นามสกุล .csv เท่านั้น');return;}
   if(file.size>2*1024*1024){setError('ไฟล์มีขนาดเกิน 2 MB');return;}
@@ -79,8 +79,7 @@ export default function SchoolmisHistoryPage(){
  async function commit(){
   const preview=parsed.preview;
   if(!schoolId||!preview||!level||busy||!backupVerified||!matched.entries.length||preview.issues.length||(!skipUnmatched&&matched.unmatched.length))return;
-  const suffix=(includeZero?'\nคุณเลือกให้นำเข้าเกรด 0 ด้วย โปรดตรวจสอบว่าเป็นเกรดที่ตัดสินแล้ว':'');
-  if(!window.confirm('ยืนยันบันทึกประวัติผลการเรียนย้อนหลัง '+matched.entries.length+' รายการ?\nระบบไม่แก้คะแนนปัจจุบันและไม่เขียนทับผลย้อนหลังที่ต่างจากเดิม'+suffix))return;
+  if(!window.confirm('ยืนยันบันทึกประวัติผลการเรียนย้อนหลัง '+matched.entries.length+' รายการ?\nระบบไม่แก้คะแนนปัจจุบันและไม่เขียนทับผลย้อนหลังที่ต่างจากเดิม และเกรด 0 จะถูกนำเข้าตาม SchoolMIS'))return;
   setBusy(true);setError('');setNotice('');
   try{
    const db=getSupabaseBrowserClient();if(!db)throw Error('ไม่พบฐานข้อมูล');
@@ -155,8 +154,8 @@ export default function SchoolmisHistoryPage(){
     ].map(([name,value])=><div className="rounded-lg bg-slate-50 p-3" key={name}><p className="text-xs text-slate-500">{name}</p><strong>{value}</strong></div>)}
    </div>
    <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm">
-    <p>ค่าเกรด 0 ที่ยังไม่ยืนยัน: <b>{parsed.preview.zeroSkipped}</b> รายการ · ช่องรายวิชาย้อนหลังที่ยังไม่มีผล/ยังไม่ยืนยัน: {parsed.preview.missingGradeCount} · ผลปีปัจจุบันที่ข้าม: {parsed.preview.currentSkipped} · ผลที่ไม่รู้จัก: {parsed.preview.unknownResults}</p>
-    <label className="mt-2 flex items-start gap-2"><input type="checkbox" checked={includeZero} onChange={e=>setIncludeZero(e.target.checked)}/><span>ฉันตรวจสอบแล้วว่าเกรด 0 ในอดีตเป็นผลตัดสินจริง (ให้รวมในการนำเข้า)</span></label>
+    <p>เกรด 0 ที่นำเข้าตาม SchoolMIS: <b>{parsed.preview.zeroGradeCount}</b> รายการ · ช่องรายวิชาย้อนหลังที่ยังไม่มีผล: {parsed.preview.missingGradeCount} · ผลปีปัจจุบันที่ข้าม: {parsed.preview.currentSkipped} · ผลที่ไม่รู้จัก: {parsed.preview.unknownResults}</p>
+    <p className="mt-2 text-xs">ระบบยึดเกรด 0 จาก SchoolMIS เป็นผลการเรียนจริงโดยอัตโนมัติ ตามหลักการที่สถานศึกษายืนยันแล้ว</p>
    </div>
    {parsed.preview.issues.length>0&&<div role="alert" className="mt-3 rounded-lg bg-red-50 p-3 text-sm text-red-800"><strong>ปัญหาโครงสร้างไฟล์ ({parsed.preview.issues.length}) — ต้องแก้ก่อนนำเข้า</strong><ul className="mt-2 list-inside list-disc">{parsed.preview.issues.slice(0,12).map((s,i)=><li key={i}>{s}</li>)}</ul></div>}
    {matched.unmatched.length>0&&<div role="alert" className="mt-3 rounded-lg bg-amber-50 p-3 text-sm text-amber-900">

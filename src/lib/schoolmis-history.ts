@@ -8,7 +8,7 @@ export type HistoryEntry={
 };
 export type SchoolmisPreview={
  entries:HistoryEntry[];studentCount:number;historicalGradeCount:number;activityCount:number;
- zeroSkipped:number;currentSkipped:number;unknownResults:number;missingGradeCount:number;issues:string[];
+ zeroSkipped:number;zeroGradeCount:number;currentSkipped:number;unknownResults:number;missingGradeCount:number;issues:string[];
 };
 export function parseSchoolmisCsv(text:string):string[][]{
  const result:string[][]=[];let row:string[]=[],field='',quoted=false;
@@ -41,7 +41,7 @@ export function recognizeSchoolmisLevel(fileName:string):string{
  return x?(x[1]==='ประถม'?'ป.':'ม.')+x[2]:'';
 }
 export function buildSchoolmisPreview(
- text:string,referenceYear:number,currentLevel:string,includeZero=false
+ text:string,referenceYear:number,currentLevel:string,includeZero=true
 ):SchoolmisPreview{
  const matrix=parseSchoolmisCsv(text),header=matrix[0]??[],issues:string[]=[];
  if(header[0]?.trim()!=='#'||header[1]?.trim()!=='รหัสนักเรียน'||header[2]?.trim()!=='ชื่อ-สกุล')
@@ -52,7 +52,7 @@ export function buildSchoolmisPreview(
  if(header.length<15||header.length>250)throw Error('จำนวนคอลัมน์ไม่ตรงกับไฟล์ SchoolMIS');
  const primary=currentLevel.startsWith('ป.'),currentNumber=Number(currentLevel.slice(2));
  const seenNumbers=new Set<string>(),entries:HistoryEntry[]=[];
- let zeroSkipped=0,currentSkipped=0,unknownResults=0,activityCount=0,historicalGradeCount=0,missingGradeCount=0;
+ let zeroSkipped=0,zeroGradeCount=0,currentSkipped=0,unknownResults=0,activityCount=0,historicalGradeCount=0,missingGradeCount=0;
  // In the secondary file every term starts with a Thai subject:
  // ท21101, ท21102, ท22101, ท22102, ท23101, ท23102.
  let slot=0,activityIndex=0;
@@ -105,7 +105,7 @@ export function buildSchoolmisPreview(
    if(spec.isActivity){
     if(!['ผ','มผ'].includes(val)){unknownResults++;continue;}
    }else if(val==='0'&&!includeZero){
-    // A zero may be an ungraded SchoolMIS placeholder; keep an explicit pending subject.
+    // Legacy optional opt-out. The school's default policy is to trust SchoolMIS numeric zero.
     zeroSkipped++;savedResult='';missingGradeCount++;
    }else if(!val){
     missingGradeCount++;
@@ -123,10 +123,10 @@ export function buildSchoolmisPreview(
     subject_key:spec.isActivity?'ACT:'+spec.col:spec.code,subject_code:spec.code,subject_name:spec.name,
     source_column:spec.col,is_activity:spec.isActivity,result_text:savedResult,grade_value:gradeValue
    });
-   if(spec.isActivity)activityCount++;else if(savedResult)historicalGradeCount++;
+   if(spec.isActivity)activityCount++;else if(savedResult){historicalGradeCount++;if(savedResult==='0')zeroGradeCount++;}
   }
  }
  if(!seenNumbers.size)issues.push('ไม่พบนักเรียนในไฟล์');
  return {entries,studentCount:seenNumbers.size,historicalGradeCount,activityCount,
-  zeroSkipped,currentSkipped,unknownResults,missingGradeCount,issues};
+  zeroSkipped,zeroGradeCount,currentSkipped,unknownResults,missingGradeCount,issues};
 }
