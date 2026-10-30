@@ -22,7 +22,8 @@ const adminSections:NavSection[]=[
  {title:'ทะเบียนนักเรียน',items:[
   {href:'/students',label:'ข้อมูลนักเรียน',icon:'users'},
   {href:'/students/history',label:'จัดนักเรียนเข้าห้อง',icon:'school'},
-  {href:'/students/promote',label:'เลื่อนชั้นนักเรียน',icon:'promote'}
+  {href:'/students/promote',label:'เลื่อนชั้นนักเรียน',icon:'promote'},
+  {href:'/students/schoolmis',label:'นำเข้าผลย้อนหลัง SchoolMIS',icon:'file'}
  ]},
  {title:'บุคลากรและผู้ลงนาม',items:[{href:'/personnel',label:'ข้อมูลบุคลากร',icon:'users'},{href:'/admin/pp5-signatories',label:'ผู้ลงนาม ปพ.5',icon:'file'}]},
  {title:'บริการผู้ปกครอง',items:[{href:'/admin/line-guardians',label:'จัดการผู้ปกครอง LINE OA',icon:'users'},{href:'/admin/line-results',label:'ประกาศผลทาง LINE',icon:'chart'}]}
