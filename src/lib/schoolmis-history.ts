@@ -8,7 +8,7 @@ export type HistoryEntry={
 };
 export type SchoolmisPreview={
  entries:HistoryEntry[];studentCount:number;historicalGradeCount:number;activityCount:number;
- zeroSkipped:number;currentSkipped:number;unknownResults:number;issues:string[];
+ zeroSkipped:number;currentSkipped:number;unknownResults:number;missingGradeCount:number;issues:string[];
 };
 export function parseSchoolmisCsv(text:string):string[][]{
  const result:string[][]=[];let row:string[]=[],field='',quoted=false;
@@ -52,7 +52,7 @@ export function buildSchoolmisPreview(
  if(header.length<15||header.length>250)throw Error('จำนวนคอลัมน์ไม่ตรงกับไฟล์ SchoolMIS');
  const primary=currentLevel.startsWith('ป.'),currentNumber=Number(currentLevel.slice(2));
  const seenNumbers=new Set<string>(),entries:HistoryEntry[]=[];
- let zeroSkipped=0,currentSkipped=0,unknownResults=0,activityCount=0,historicalGradeCount=0;
+ let zeroSkipped=0,currentSkipped=0,unknownResults=0,activityCount=0,historicalGradeCount=0,missingGradeCount=0;
  // In the secondary file every term starts with a Thai subject:
  // ท21101, ท21102, ท22101, ท22102, ท23101, ท23102.
  let slot=0,activityIndex=0;
@@ -97,30 +97,36 @@ export function buildSchoolmisPreview(
   for(const spec of specs){
    if(!spec)continue;
    const val=(row[spec.col]??'').trim();
-   if(!val)continue;
-   if(spec.gradeNumber>currentNumber || spec.gradeNumber===currentNumber){currentSkipped++;continue;}
+   if(spec.gradeNumber>=currentNumber){if(val)currentSkipped++;continue;}
    const academicYear=referenceYear-(currentNumber-spec.gradeNumber);
    if(academicYear>=referenceYear)continue;
-   const isZero=val==='0';
-   if(isZero&&!includeZero){zeroSkipped++;continue;}
-   let gradeValue:number|null=null;
+   if(!val&&spec.isActivity)continue;
+   let gradeValue:number|null=null,savedResult=val;
    if(spec.isActivity){
     if(!['ผ','มผ'].includes(val)){unknownResults++;continue;}
+   }else if(val==='0'&&!includeZero){
+    // A zero may be an ungraded SchoolMIS placeholder; keep an explicit pending subject.
+    zeroSkipped++;savedResult='';missingGradeCount++;
+   }else if(!val){
+    missingGradeCount++;
    }else if(val==='ร'||val==='มส'){
     gradeValue=null;
-   }else if(/^(0|[1-3](\.5)?|4)$/.test(val)){
+   }else if(/^(0|[1-3]([.]5)?|4)$/.test(val)){
     gradeValue=Number(val);
-   }else{unknownResults++;continue;}
+   }else{
+    // An unrecognized result must never cause an inflated cumulative average.
+    unknownResults++;savedResult='';missingGradeCount++;
+   }
    entries.push({
     student_no:no,student_name:studentName,academic_year_be:academicYear,
     level_code:(primary?'ป.':'ม.')+spec.gradeNumber,grade_number:spec.gradeNumber,term_no:spec.termNo,
     subject_key:spec.isActivity?'ACT:'+spec.col:spec.code,subject_code:spec.code,subject_name:spec.name,
-    source_column:spec.col,is_activity:spec.isActivity,result_text:val,grade_value:gradeValue
+    source_column:spec.col,is_activity:spec.isActivity,result_text:savedResult,grade_value:gradeValue
    });
-   if(spec.isActivity)activityCount++;else historicalGradeCount++;
+   if(spec.isActivity)activityCount++;else if(savedResult)historicalGradeCount++;
   }
  }
  if(!seenNumbers.size)issues.push('ไม่พบนักเรียนในไฟล์');
  return {entries,studentCount:seenNumbers.size,historicalGradeCount,activityCount,
-  zeroSkipped,currentSkipped,unknownResults,issues};
+  zeroSkipped,currentSkipped,unknownResults,missingGradeCount,issues};
 }
