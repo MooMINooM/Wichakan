@@ -157,7 +157,7 @@ begin
   'status',(select case
     when o.subject_count=0 then 'no_data'
     when o.pending_count>0 then 'incomplete_results'
-    when c.covered_periods<>c.expected_periods then 'incomplete_history'
+    when c.expected_periods is null or c.covered_periods<>c.expected_periods then 'incomplete_history'
     when o.weight is null or o.weight<=0 then 'missing_weights'
     else 'complete' end
     from overall o left join coverage c on true)
