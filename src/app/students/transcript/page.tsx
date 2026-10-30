@@ -22,7 +22,7 @@ type SemesterResult={
 };
 type SemesterSummary={
  terms:SemesterResult[];gpax:number|null;completed_terms:number;
- expected_terms:number;status:string;
+ expected_terms:number;period_type:'year'|'semester'|'none';status:string;
 };
 type Transcript={
  rows:TranscriptRow[];by_year:TranscriptYear[];by_group:TranscriptGroup[];
@@ -78,7 +78,9 @@ export default function StudentTranscriptPage(){
  const years=[...new Set(transcript?.rows.map(r=>r.year_be)??[])].sort((a,b)=>b-a);
  const visible=transcript?.rows.filter(r=>(!year||r.year_be===Number(year))&&(includeActivities||!r.is_activity))??[];
  const selectedStudent=students.find(s=>s.id===studentId);
- const cumulative=semester?.status==='not_secondary'?null:semester;
+ const cumulative=semester?.status==='not_supported'?null:semester;
+ const primary=cumulative?.period_type==='year';
+ const periodName=primary?'ปี':'ภาคเรียน';
  const displayedGpax=cumulative?cumulative.gpax:transcript?.gpax??null;
  function downloadCsv(){
   if(!transcript||!selectedStudent)return;
@@ -92,10 +94,10 @@ export default function StudentTranscriptPage(){
   document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),500);
  }
  function downloadTermCsv(){
-  if(!semester||!selectedStudent||semester.status==='not_secondary')return;
+  if(!semester||!selectedStudent||semester.status==='not_supported')return;
   const escape=(v:unknown)=>'"'+String(v??'').replace(/"/g,'""')+'"';
-  const columns=['ปีการศึกษา','ชั้น','ภาคเรียน','รายวิชาที่มี','รายวิชาตามหลักสูตร','GPA ภาคเรียน','GPAX สะสม','สถานะ'];
-  const data=semester.terms.map(t=>[t.year_be,t.level_code,t.term_no,t.subjects,t.expected_subjects,
+  const columns=['ปีการศึกษา','ชั้น','ภาคเรียน/รายปี','รายวิชาที่มี','รายวิชาตามหลักสูตร','GPA '+(semester.period_type==='year'?'รายปี':'ภาคเรียน'),'GPAX สะสม','สถานะ'];
+  const data=semester.terms.map(t=>[t.year_be,t.level_code,t.term_no===0?'รายปี':t.term_no,t.subjects,t.expected_subjects,
    t.gpa===null?'':Number(t.gpa).toFixed(2),t.gpax_to_date===null?'':Number(t.gpax_to_date).toFixed(2),
    statusLabels[t.status]??t.status].map(escape).join(','));
   const rows=['รหัสนักเรียน,'+escape(selectedStudent.student_no),columns.map(escape).join(','),...data];
@@ -106,7 +108,7 @@ export default function StudentTranscriptPage(){
  return <main className="wichakan-page mx-auto max-w-7xl px-4 py-6">
   <Link href="/students" className="text-sm font-semibold text-blue-700">← ทะเบียนนักเรียน</Link>
   <PageHeader title="แฟ้มประวัติผลการเรียนตลอดช่วงชั้น"/>
-  <p className="mb-4 text-sm text-slate-600">แสดง GPA รายภาคเรียน และ GPAX สะสมจากภาคเรียนที่มีผลครบต่อเนื่อง โดยรวมผลย้อนหลัง SchoolMIS กับผลปัจจุบันจาก WICHAKAN</p>
+  <p className="mb-4 text-sm text-slate-600">แสดง GPA รายปีสำหรับประถมศึกษา และ GPA รายภาคเรียนสำหรับมัธยมศึกษา พร้อม GPAX สะสมจากช่วงที่มีผลครบต่อเนื่อง โดยรวม SchoolMIS กับ WICHAKAN</p>
   <section className="ui-panel p-4">
    <div className="grid gap-3 md:grid-cols-3">
     <label className="text-sm">โรงเรียน<select className="mt-1 block w-full rounded-lg border p-2" value={schoolId} onChange={e=>setSchoolId(e.target.value)}>{schools.map(s=><option key={s.id} value={s.id}>{s.name_th}</option>)}</select></label>
@@ -128,23 +130,23 @@ export default function StudentTranscriptPage(){
       {cumulative&&<button className="ui-secondary" onClick={downloadTermCsv}>ส่งออก GPA / GPAX CSV</button>}
     </div></div>
     <div className="mt-4 grid gap-3 sm:grid-cols-4">
-     <div className="rounded-lg bg-slate-50 p-3"><p className="text-xs text-slate-500">{cumulative?'GPAX สะสม '+cumulative.completed_terms+' ภาคเรียน':'GPAX ตลอดช่วงชั้น'}</p>
+     <div className="rounded-lg bg-slate-50 p-3"><p className="text-xs text-slate-500">{cumulative?'GPAX สะสม '+cumulative.completed_terms+' '+periodName:'GPAX ตลอดช่วงชั้น'}</p>
       <strong className="text-2xl">{gradeFormatter(displayedGpax)}</strong>
-      <p className="text-xs text-slate-600">{cumulative?(cumulative.completed_terms===cumulative.expected_terms?'ครบตามช่วงชั้น':'สะสมถึงภาคที่ผลครบแล้ว'):statusLabels[transcript.status]??transcript.status}</p></div>
+      <p className="text-xs text-slate-600">{cumulative?(cumulative.completed_terms===cumulative.expected_terms?'ครบตามช่วงชั้น':'สะสมถึง'+periodName+'ที่ผลครบแล้ว'):statusLabels[transcript.status]??transcript.status}</p></div>
      <div className="rounded-lg bg-slate-50 p-3"><p className="text-xs text-slate-500">รายวิชาพร้อมคำนวณ</p><strong className="text-xl">{transcript.counts?.ready_count??0} / {transcript.counts?.subject_count??0}</strong></div>
      <div className="rounded-lg bg-slate-50 p-3"><p className="text-xs text-slate-500">รายวิชาที่ยังต้องตรวจ</p><strong className="text-xl">{transcript.counts?.pending_count??0}</strong></div>
-     <div className="rounded-lg bg-slate-50 p-3"><p className="text-xs text-slate-500">ภาคเรียนที่ครบต่อเนื่อง</p><strong className="text-xl">{cumulative?cumulative.completed_terms:transcript.coverage?.covered_periods??0} / {cumulative?cumulative.expected_terms:transcript.coverage?.expected_periods??'—'}</strong></div>
+     <div className="rounded-lg bg-slate-50 p-3"><p className="text-xs text-slate-500">{periodName}ที่ครบต่อเนื่อง</p><strong className="text-xl">{cumulative?cumulative.completed_terms:transcript.coverage?.covered_periods??0} / {cumulative?cumulative.expected_terms:transcript.coverage?.expected_periods??'—'}</strong></div>
     </div>
     {cumulative&&cumulative.completed_terms>0&&cumulative.completed_terms<cumulative.expected_terms&&
      <p role="status" className="mt-3 rounded-lg bg-blue-50 p-3 text-sm text-blue-900">
-      GPAX {gradeFormatter(cumulative.gpax)} เป็นผลสะสม {cumulative.completed_terms} ภาคเรียนที่มีผลครบ ยังไม่ใช่ GPAX เมื่อจบช่วงชั้น
+      GPAX {gradeFormatter(cumulative.gpax)} เป็นผลสะสม {cumulative.completed_terms} {periodName}ที่มีผลครบ ยังไม่ใช่ GPAX เมื่อจบช่วงชั้น
      </p>}
-    {displayedGpax===null&&<p role="status" className="mt-3 rounded-lg bg-amber-50 p-3 text-sm text-amber-900">ยังไม่มีภาคเรียนที่ผลการเรียนครบต่อเนื่องสำหรับคำนวณ GPAX สะสม</p>}
+    {displayedGpax===null&&<p role="status" className="mt-3 rounded-lg bg-amber-50 p-3 text-sm text-amber-900">ยังไม่มี{periodName}ที่ผลการเรียนครบต่อเนื่องสำหรับคำนวณ GPAX สะสม</p>}
    </section>
    <section className="ui-panel p-4">
-    <h2 className="font-bold">GPA แยกทุกภาคเรียน และ GPAX สะสม</h2>
-    <p className="mt-1 text-xs text-slate-600">GPAX คิดจากผลรวม (เกรด × หน่วยกิต) ÷ ผลรวมหน่วยกิต โดยไม่เฉลี่ย GPA ที่ปัดแล้ว และไม่รวมภาคเรียนที่ผลยังไม่ครบ</p>
-    {cumulative?<div className="mt-3 overflow-auto"><table className="w-full min-w-[720px] text-sm"><thead><tr><th className="p-2">ปี</th><th>ชั้น</th><th>ภาค</th><th>รายวิชา</th><th>สถานะ</th><th>GPA ภาคเรียน</th><th>GPAX สะสม</th></tr></thead><tbody>{cumulative.terms.map(t=><tr className="border-t" key={t.sequence}><td className="p-2 text-center">{t.year_be}</td><td className="text-center">{t.level_code}</td><td className="text-center">{t.term_no}</td><td className="text-center">{t.subjects}/{t.expected_subjects}</td><td className="text-center text-xs">{statusLabels[t.status]??t.status}</td><td className="text-center font-semibold">{gradeFormatter(t.gpa)}</td><td className="text-center font-semibold">{gradeFormatter(t.gpax_to_date)}</td></tr>)}</tbody></table></div>:
+    <h2 className="font-bold">GPA {primary?'รายปี':'รายภาคเรียน'} และ GPAX สะสม</h2>
+    <p className="mt-1 text-xs text-slate-600">GPAX คิดจากผลรวม (เกรด × หน่วยกิต) ÷ ผลรวมหน่วยกิต โดยไม่เฉลี่ย GPA ที่ปัดแล้ว และไม่รวมปีหรือภาคเรียนที่ผลยังไม่ครบ</p>
+    {cumulative?<div className="mt-3 overflow-auto"><table className="w-full min-w-[720px] text-sm"><thead><tr><th className="p-2">ปี</th><th>ชั้น</th><th>{primary?'ช่วง':'ภาค'}</th><th>รายวิชา</th><th>สถานะ</th><th>GPA {primary?'รายปี':'ภาคเรียน'}</th><th>GPAX สะสม</th></tr></thead><tbody>{cumulative.terms.map(t=><tr className="border-t" key={t.sequence}><td className="p-2 text-center">{t.year_be}</td><td className="text-center">{t.level_code}</td><td className="text-center">{t.term_no===0?'รายปี':t.term_no}</td><td className="text-center">{t.subjects}/{t.expected_subjects}</td><td className="text-center text-xs">{statusLabels[t.status]??t.status}</td><td className="text-center font-semibold">{gradeFormatter(t.gpa)}</td><td className="text-center font-semibold">{gradeFormatter(t.gpax_to_date)}</td></tr>)}</tbody></table></div>:
     !transcript.by_year.length?<p className="mt-2 text-sm text-slate-500">ยังไม่มีผลรายวิชาที่บันทึกไว้</p>:
     <div className="mt-3 overflow-auto"><table className="w-full min-w-[570px] text-sm"><thead><tr><th className="p-2">ปี</th><th>ชั้น</th><th>ภาค</th><th>รายวิชา</th><th>รอตรวจ</th><th>GPA</th></tr></thead><tbody>{transcript.by_year.map(r=><tr key={[r.year_be,r.level_code,r.term_no].join('-')} className="border-t"><td className="p-2 text-center">{r.year_be}</td><td className="text-center">{r.level_code}</td><td className="text-center">{r.term_no||'รายปี'}</td><td className="text-center">{r.subjects}</td><td className="text-center">{r.pending}</td><td className="text-center font-semibold">{gradeFormatter(r.gpa)}</td></tr>)}</tbody></table></div>}
    </section>
