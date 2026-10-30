@@ -70,6 +70,13 @@ begin
   select s.id into v_student from public.students s where s.school_id=p_school
    and s.id=(v_row->>'student_id')::uuid and s.student_no=(v_row->>'student_no');
   if v_student is null then raise exception 'schoolmis_student_match_failed';end if;
+  if not exists(
+   select 1 from public.enrollments e
+   join public.academic_years y on y.id=e.academic_year_id and y.school_id=e.school_id
+   join public.classrooms c on c.id=e.classroom_id and c.school_id=e.school_id
+   where e.school_id=p_school and e.student_id=v_student and y.year_be=p_reference_year_be
+    and c.level_code=p_current_level and e.status in ('active','completed')
+  ) then raise exception 'schoolmis_current_class_mismatch';end if;
   select g.result_text,g.subject_code,g.subject_name into v_existing
    from public.schoolmis_grade_history g where g.school_id=p_school and g.student_id=v_student
    and g.academic_year_be=v_year and g.level_code=v_level and g.term_no=v_term and g.subject_key=v_key;
