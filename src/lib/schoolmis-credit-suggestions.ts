@@ -15,7 +15,7 @@ export type HistoricalCreditRow={
 };
 export type CreditCandidate={
  credit:number;hours:number;version:string;effectiveYear:number;
- sameName:boolean;historicalVersion:boolean;
+ sameName:boolean;historicalVersion:boolean;companionCode?:string;
 };
 const comparableName=(name:string)=>
  name.normalize('NFC').replace(/[\s\-–.]/g,'').replace(/นาฎศิลป์/g,'นาฏศิลป์');
@@ -40,12 +40,32 @@ export function creditSuggestion(
    :a.version.effective_year_be-b.version.effective_year_be;
  });
  const found=valid[0];
+ // In older SchoolMIS exports primary health+physical education and
+ // visual art+music are ONE officially assessed grade. In the current
+ // curriculum each consists of two separately recorded teaching subjects.
+ // Weight the combined official grade with BOTH annual learning-hours.
+ const mergedHealth=row.level.startsWith('ป.')
+   && /^พ1[1-6]101$/.test(row.subject_code)
+   && /สุขศึกษา.*พลศึกษา/.test(row.name);
+ const mergedArts=row.level.startsWith('ป.')
+   && /^ศ1[1-6]101$/.test(row.subject_code)
+   && /ศิลปะ.*(ดนตรี|นาฏศิลป์|นาฎศิลป์)/.test(row.name);
+ const combined=mergedHealth||mergedArts;
+ const companionCode=row.subject_code.slice(0,3)+'102';
+ const companion=combined?subjects.find(s=>
+  s.subject_code===companionCode&&s.grade_level===row.level
+  && s.curriculum_version_id===found.s.curriculum_version_id
+  && s.hour_basis==='year'&&s.learning_hours>0
+ ):undefined;
+ if(combined&&!companion)return null; // Never silently underweight the merged grade.
+ const totalHours=found.s.learning_hours+(companion?.learning_hours??0);
  return {
-  credit:found.s.learning_hours/40,
-  hours:found.s.learning_hours,
+  credit:totalHours/40,
+  hours:totalHours,
   version:found.version.version_label,
   effectiveYear:found.version.effective_year_be,
-  sameName:comparableName(row.name)===comparableName(found.s.name_th),
-  historicalVersion:found.version.effective_year_be<=row.year
+  sameName:combined||comparableName(row.name)===comparableName(found.s.name_th),
+  historicalVersion:found.version.effective_year_be<=row.year,
+  ...(companion?{companionCode}:{}),
  };
 }
