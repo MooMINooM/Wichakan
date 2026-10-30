@@ -8,9 +8,9 @@ import {getSupabaseBrowserClient} from '@/lib/supabase/browser';
 type School={id:string;name_th:string};
 type Membership={school_id:string;role:string;schools:School|null};
 type ClassItem={id:string;level_code:string;room_code:string;academic_year_id:string};
-type Year={id:string;year_be:number};
+type Year={id:string;year_be:number;is_active:boolean};
 type Term={sequence:number;year_be:number;level_code:string;term_no:number;gpa:number|null;gpax_to_date:number|null;complete:boolean;status:string};
-type StudentSummary={student_id:string;student_no:string;name:string;summary:{terms:Term[];gpax:number|null;completed_terms:number;expected_terms:number;status:string}};
+type StudentSummary={student_id:string;student_no:string;name:string;summary:{terms:Term[];gpax:number|null;completed_terms:number;expected_terms:number;period_type:'year'|'semester'|'none';status:string}};
 type ClassSummary={year_be:number;level_code:string;room_code:string;students:StudentSummary[]};
 const format=(value:number|null)=>value===null?'—':Number(value).toFixed(2);
 const csv=(value:unknown)=>'"'+String(value??'').replace(/^[=+@-]/,"'$&").replace(/"/g,'""')+'"';
@@ -36,12 +36,12 @@ export default function SemesterGpaReportPage(){
  useEffect(()=>{if(!schoolId)return;let active=true;(async()=>{
   setYearId('');setYears([]);setClassId('');setClassrooms([]);setReport(null);
   const db=getSupabaseBrowserClient();if(!db)return;
-  const res=await db.from('academic_years').select('id,year_be').eq('school_id',schoolId).order('year_be',{ascending:false});
+  const res=await db.from('academic_years').select('id,year_be,is_active').eq('school_id',schoolId).order('year_be',{ascending:false});
   if(!active)return;
   if(res.error)setError(res.error.message);else{
    const available=(res.data??[]) as Year[];
    setYears(available);
-   setYearId(available[0]?.id??'');
+   setYearId((available.find(y=>y.is_active)??available.find(y=>y.year_be===2569)??available[0])?.id??'');
   }
  })();return()=>{active=false;};},[schoolId]);
  useEffect(()=>{if(!schoolId||!yearId)return;let active=true;(async()=>{
@@ -52,8 +52,11 @@ export default function SemesterGpaReportPage(){
   if(!active)return;
   if(res.error)setError(res.error.message);else{
    const list=((res.data??[]) as ClassItem[])
-    .filter(c=>/^ม\.[1-3]$/.test(c.level_code))
-    .sort((a,b)=>b.level_code.localeCompare(a.level_code,'th')||a.room_code.localeCompare(b.room_code,'th',{numeric:true}));
+    .filter(c=>/^(ป\.[1-6]|ม\.[1-3])$/.test(c.level_code))
+    .sort((a,b)=>{
+     const levelOrder=(s:string)=>s.startsWith('ป.')?Number(s.slice(2)):6+Number(s.slice(2));
+     return levelOrder(a.level_code)-levelOrder(b.level_code)||a.room_code.localeCompare(b.room_code,'th',{numeric:true});
+    });
    setClassrooms(list);setClassId(list[0]?.id??'');
   }
  })();return()=>{active=false;};},[schoolId,yearId]);
@@ -71,14 +74,17 @@ export default function SemesterGpaReportPage(){
  const columns=useMemo(()=>{
   if(!report)return [];
   const first=report.students[0]?.summary.terms;
-  if(first?.length)return first.map(t=>({sequence:t.sequence,label:t.level_code+' ภาค '+t.term_no}));
+  if(first?.length)return first.map(t=>({sequence:t.sequence,label:t.term_no===0?t.level_code+' (รายปี)':t.level_code+' ภาค '+t.term_no}));
   const n=Number(report.level_code.slice(2));
+  if(report.level_code.startsWith('ป.'))return Array.from({length:n},(_,i)=>({sequence:i+1,label:'ป.'+(i+1)+' (รายปี)'}));
   return Array.from({length:n*2},(_,i)=>({sequence:i+1,label:'ม.'+Math.ceil((i+1)/2)+' ภาค '+(i%2+1)}));
  },[report]);
  const complete=report?.students.filter(s=>s.summary.completed_terms>0).length??0;
+ const isPrimary=report?.level_code.startsWith('ป.')??false;
+ const periodNoun=isPrimary?'ปี':'ภาคเรียน';
  function exportCsv(){
   if(!report||!report.students.length)return;
-  const headers=['รหัสนักเรียน','ชื่อ–สกุล',...columns.map(t=>'GPA '+t.label),'GPAX สะสม','จำนวนภาคเรียนที่ครบ'];
+  const headers=['รหัสนักเรียน','ชื่อ–สกุล',...columns.map(t=>'GPA '+t.label),'GPAX สะสม','จำนวน'+(report.level_code.startsWith('ป.')?'ปี':'ภาคเรียน')+'ที่ครบ'];
   const data=report.students.map(s=>[
    s.student_no,s.name,...columns.map(t=>{
      const g=s.summary.terms.find(x=>x.sequence===t.sequence)?.gpa;
@@ -93,8 +99,8 @@ export default function SemesterGpaReportPage(){
  }
  return <main className="wichakan-page mx-auto max-w-7xl px-4 py-6">
   <Link href="/students/transcript" className="text-sm font-semibold text-blue-700">← แฟ้มประวัติผลการเรียนรายบุคคล</Link>
-  <PageHeader title="รายงาน GPA รายภาคเรียน และ GPAX สะสม"/>
-  <p className="mb-4 text-sm text-slate-600">สรุปผลรายนักเรียนในห้องเดียวกัน ใช้ข้อมูล SchoolMIS ย้อนหลังและ WICHAKAN ปัจจุบัน โดยไม่รวมภาคเรียนที่ผลการเรียนยังไม่ครบ</p>
+  <PageHeader title="รายงาน GPA รายปี / รายภาคเรียน และ GPAX สะสม"/>
+  <p className="mb-4 text-sm text-slate-600">รองรับประถมศึกษา ป.1–ป.6 (GPA รายปี) และมัธยมศึกษา ม.1–ม.3 (GPA รายภาคเรียน) คำนวณ GPAX สะสมตามช่วงปีหรือภาคที่ผลการเรียนครบต่อเนื่องจาก SchoolMIS และ WICHAKAN</p>
   <section className="ui-panel p-4">
    <div className="grid gap-3 sm:grid-cols-3">
     <label className="text-sm">โรงเรียน<select className="mt-1 block w-full rounded-lg border p-2" value={schoolId} onChange={e=>setSchoolId(e.target.value)}>{schools.map(s=><option key={s.id} value={s.id}>{s.name_th}</option>)}</select></label>
@@ -107,14 +113,14 @@ export default function SemesterGpaReportPage(){
   {report&&<section className="ui-panel mt-4 p-5">
    <div className="flex flex-wrap items-start justify-between gap-3">
     <div><h2 className="text-lg font-bold">ชั้น {report.level_code}/{report.room_code} · ปีการศึกษา {report.year_be}</h2>
-     <p className="mt-1 text-sm text-slate-600">นักเรียน {report.students.length} คน · มี GPAX สะสมจากภาคเรียนที่ผลครบ {complete} คน</p></div>
+     <p className="mt-1 text-sm text-slate-600">นักเรียน {report.students.length} คน · มี GPAX สะสมจาก{periodNoun}ที่ผลครบ {complete} คน</p></div>
     <button className="ui-secondary" disabled={!report.students.length} onClick={exportCsv}>ส่งออก GPA / GPAX ทั้งห้อง (CSV)</button>
    </div>
    {report.students.length===0?<p className="mt-3 text-sm text-slate-500">ยังไม่มีนักเรียนในชั้นเรียนนี้</p>:
    <div className="mt-4 overflow-x-auto"><table className="w-full min-w-[950px] text-sm">
     <thead className="bg-slate-100"><tr><th className="p-2 text-left">รหัสนักเรียน</th><th className="p-2 text-left">ชื่อ–สกุล</th>
     {columns.map(c=><th key={c.sequence} className="p-2 text-center">{c.label}</th>)}
-    <th className="p-2 text-center">GPAX สะสม</th><th className="p-2 text-center">ครบ (ภาค)</th></tr></thead>
+    <th className="p-2 text-center">GPAX สะสม</th><th className="p-2 text-center">ครบ ({isPrimary?'ปี':'ภาค'})</th></tr></thead>
     <tbody>{report.students.map(s=><tr key={s.student_id} className="border-t">
      <td className="p-2">{s.student_no}</td><td className="p-2">{s.name}</td>
      {columns.map(c=><td key={c.sequence} className="p-2 text-center tabular-nums">
@@ -124,7 +130,7 @@ export default function SemesterGpaReportPage(){
      <td className="p-2 text-center">{s.summary.completed_terms}/{s.summary.expected_terms}</td>
     </tr>)}</tbody>
    </table></div>}
-   <p className="mt-3 text-xs text-slate-600">GPA และ GPAX ใช้ผลการเรียนทุกวิชาที่อยู่ในโครงสร้างผลทางการตามหน่วยกิต เกรด 0 จาก SchoolMIS มีค่าน้ำหนักตามจริง ช่อง — หมายถึงยังคำนวณภาคเรียนนั้นไม่ได้ GPAX สะสมไม่รวมภาคที่ยังไม่ครบ</p>
+   <p className="mt-3 text-xs text-slate-600">GPA และ GPAX คำนวณจากเกรด × หน่วยน้ำหนักที่ยืนยันแล้ว รวมเกรด 0 ตาม SchoolMIS สำหรับประถมใช้ผลรายปี โดยรวมสุขศึกษา–พลศึกษาและศิลปะ–ดนตรีตามผลการเรียนทางการ ช่อง — หมายถึงยังไม่มีผลครบ และ GPAX ไม่รวมปีหรือภาคเรียนที่ยังไม่สมบูรณ์</p>
   </section>}
  </main>;
 }
