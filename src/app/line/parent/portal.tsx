@@ -5,7 +5,14 @@ type Liff={init:(opts:{liffId:string})=>Promise<void>;isLoggedIn:()=>boolean;log
 declare global {interface Window{liff?:Liff}}
 type Child={id:string;name:string;student_no:string};
 type Grade={subject:string;subject_code:string;grade:string;total:number|null;state?:'ready'|'pending'};
-type Result={students:Child[];grades:Grade[];published?:boolean;completed_count?:number;pending_count?:number;years:{id:string;year_be:number}[]};
+type GpaSummary={
+ gpa:number|null;gpax:number|null;period_type:'year'|'semester'|'none';
+ selected_year_be:number;selected_term_no:number;
+ as_of_year_be:number|null;as_of_level_code:string|null;as_of_term_no:number|null;
+ completed_periods:number;is_selected_complete:boolean
+};
+const formatGrade=(value:number|null|undefined)=>typeof value==='number'&&Number.isFinite(value)?value.toFixed(2):'—';
+type Result={students:Child[];grades:Grade[];gpa_summary?:GpaSummary;published?:boolean;completed_count?:number;pending_count?:number;years:{id:string;year_be:number}[]};
 const liffId=process.env.NEXT_PUBLIC_LINE_LIFF_ID;
 // Native anchor fallback is used only when the portal is opened as a separate route.
 const registerHref=(process.env.NEXT_PUBLIC_BASE_PATH??'')+'/line/register/';
@@ -13,7 +20,7 @@ export default function LineParentPortal({onAddChild}:{onAddChild?:()=>void}={})
  const [sdk,setSdk]=useState(false),[ready,setReady]=useState(false),[data,setData]=useState<Result|null>(null),[student,setStudent]=useState(''),[year,setYear]=useState(''),[term,setTerm]=useState(2),[loading,setLoading]=useState(false),[notice,setNotice]=useState(''),[error,setError]=useState('');
  const api=process.env.NEXT_PUBLIC_SUPABASE_URL;
  const requestSequence=useRef(0);
- function clearShownGrades(){requestSequence.current++;setNotice('');setError('');setData(previous=>previous?{...previous,grades:[],published:undefined}:previous);setLoading(false);}
+ function clearShownGrades(){requestSequence.current++;setNotice('');setError('');setData(previous=>previous?{...previous,grades:[],gpa_summary:undefined,published:undefined}:previous);setLoading(false);}
  // The registration page has already loaded LIFF; a reused Next Script can skip onLoad.
  useEffect(()=>{if(window.liff)setSdk(true);},[]);
  useEffect(()=>{
@@ -69,6 +76,26 @@ export default function LineParentPortal({onAddChild}:{onAddChild?:()=>void}={})
   <p className="mt-3 text-xs text-slate-500">ประถมภาคเรียนที่ 1 แสดงคะแนนสะสมเต็ม 50 และผล “ระหว่างปี” ส่วนมัธยมแสดงผลรายภาคเรียนเต็ม 100</p>
   {data?.published&&<div className="mt-4">
    <p role="status" className="mb-3 text-sm font-medium">โรงเรียนเปิดประกาศผลแล้ว · มีผลการเรียน {data.completed_count??0} รายวิชา · รอผล {data.pending_count??0} รายวิชา</p>
+   {data.gpa_summary&&<section aria-label="สรุป GPA และ GPAX" className="mb-4 rounded-xl border border-slate-200 bg-slate-50 p-4">
+    <h3 className="mb-3 text-sm font-semibold text-slate-800">สรุปผลการเรียนเฉลี่ย</h3>
+    <div className="grid grid-cols-2 gap-3">
+     <div className="rounded-lg bg-white p-3">
+      <p className="text-xs text-slate-600">GPA {data.gpa_summary.period_type==='year'?'รายปี':'ภาคเรียนที่ '+term}</p>
+      <strong className="mt-1 block text-2xl font-semibold tabular-nums">{formatGrade(data.gpa_summary.gpa)}</strong>
+      <p className="mt-1 text-xs text-slate-500">{data.gpa_summary.is_selected_complete?'ผลการเรียนครบแล้ว':data.gpa_summary.period_type==='year'&&term===1?'รอผลรายปีหลังภาคเรียนที่ 2':'ผลการเรียนยังไม่ครบ'}</p>
+     </div>
+     <div className="rounded-lg bg-white p-3">
+      <p className="text-xs text-slate-600">GPAX สะสม</p>
+      <strong className="mt-1 block text-2xl font-semibold tabular-nums">{formatGrade(data.gpa_summary.gpax)}</strong>
+      <p className="mt-1 text-xs text-slate-500">{data.gpa_summary.gpax!==null&&data.gpa_summary.as_of_year_be?
+       'สะสมถึง '+(data.gpa_summary.as_of_level_code??'')+
+       (data.gpa_summary.period_type==='year'?' ปีการศึกษา ':' ภาคเรียนที่ '+data.gpa_summary.as_of_term_no+' ปีการศึกษา ')+
+       data.gpa_summary.as_of_year_be:
+       'ยังไม่มีผลครบสำหรับคำนวณ'}</p>
+     </div>
+    </div>
+    <p className="mt-3 text-xs text-slate-500">คำนวณถ่วงน้ำหนักจากผลการเรียนที่สมบูรณ์ โดยรวมประวัติ SchoolMIS ตามสิทธิ์ที่โรงเรียนประกาศ ไม่รวมปีหรือภาคเรียนที่ยังมีผลไม่ครบ</p>
+   </section>}
    <div className="overflow-x-auto"><table className="w-full text-sm">
     <thead><tr><th className="p-2 text-left">รายวิชา</th><th className="p-2 text-center">คะแนน</th><th className="p-2 text-center">ผลการเรียน</th></tr></thead>
     <tbody>{data.grades.map((g,i)=><tr className="border-t" key={g.subject_code+'-'+i}>
