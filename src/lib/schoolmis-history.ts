@@ -1,7 +1,7 @@
 
 /** Safe CSV parser for SchoolMIS whole-stage grade exports; never mutates live course scores. */
 export type HistoryEntry={
- student_no:string;student_name:string;student_id?:string;
+ student_no:string;student_name:string;student_id?:string;source_student_no?:string;
  academic_year_be:number;level_code:string;grade_number:number;term_no:number;
  subject_key:string;subject_code:string;subject_name:string;source_column:number;
  result_text:string;grade_value:number|null;is_activity:boolean;
