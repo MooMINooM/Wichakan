@@ -75,7 +75,7 @@ export default function SemesterGpaReportPage(){
   const n=Number(report.level_code.slice(2));
   return Array.from({length:n*2},(_,i)=>({sequence:i+1,label:'ม.'+Math.ceil((i+1)/2)+' ภาค '+(i%2+1)}));
  },[report]);
- const complete=report?.students.filter(s=>s.summary.completed_terms>=4).length??0;
+ const complete=report?.students.filter(s=>s.summary.completed_terms>0).length??0;
  function exportCsv(){
   if(!report||!report.students.length)return;
   const headers=['รหัสนักเรียน','ชื่อ–สกุล',...columns.map(t=>'GPA '+t.label),'GPAX สะสม','จำนวนภาคเรียนที่ครบ'];
@@ -107,7 +107,7 @@ export default function SemesterGpaReportPage(){
   {report&&<section className="ui-panel mt-4 p-5">
    <div className="flex flex-wrap items-start justify-between gap-3">
     <div><h2 className="text-lg font-bold">ชั้น {report.level_code}/{report.room_code} · ปีการศึกษา {report.year_be}</h2>
-     <p className="mt-1 text-sm text-slate-600">นักเรียน {report.students.length} คน · มีผลครบอย่างน้อย 4 ภาคเรียน {complete} คน</p></div>
+     <p className="mt-1 text-sm text-slate-600">นักเรียน {report.students.length} คน · มี GPAX สะสมจากภาคเรียนที่ผลครบ {complete} คน</p></div>
     <button className="ui-secondary" disabled={!report.students.length} onClick={exportCsv}>ส่งออก GPA / GPAX ทั้งห้อง (CSV)</button>
    </div>
    {report.students.length===0?<p className="mt-3 text-sm text-slate-500">ยังไม่มีนักเรียนในชั้นเรียนนี้</p>:
