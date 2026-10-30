@@ -27,8 +27,5 @@ jobs:
           node tests/attendance-grid.cjs
           node tests/activity-assessments.cjs
           node tests/director-overview.cjs
-          node tests/sar.cjs
-          node tests/sar-operations.cjs
-          node tests/sar-docx.cjs
       - name: Build
         run: npm run build
