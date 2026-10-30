@@ -137,7 +137,7 @@ begin
      else 'in_progress' end
  ) into v_result;
  return v_result;
-end $function$
+end $function$;
 
 CREATE OR REPLACE FUNCTION public.schoolmis_class_semester_summary(p_school uuid, p_academic_year_be integer, p_classroom uuid)
  RETURNS jsonb
@@ -170,4 +170,4 @@ begin
     and e.status in ('active','completed'));
  return jsonb_build_object('year_be',p_academic_year_be,'level_code',v_level,
    'room_code',v_name,'students',v_summary);
-end $function$
+end $function$;
