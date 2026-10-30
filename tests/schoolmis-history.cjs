@@ -17,16 +17,19 @@ const pvals=phead.map((x,i)=>i===0?'1':i===1?'0001':i===2?'เด็กหญิ
 const pcsv=phead.join(',')+'\n'+pvals.join(',');
 let p=buildSchoolmisPreview(pcsv,2569,'ป.6');
 assert.equal(p.studentCount,1);
-assert.equal(p.historicalGradeCount,1,'current-year grade must not import');
+assert.equal(p.historicalGradeCount,2,'SchoolMIS numeric zero is a finalized grade; current-year grades must not import');
 assert.equal(p.entries.find(e=>e.result_text==='3.5').academic_year_be,2565);
 assert.equal(p.entries.find(e=>e.result_text==='3.5').level_code,'ป.2');
 assert.equal(p.entries.find(e=>e.result_text==='3.5').term_no,0);
-assert.equal(p.zeroSkipped,1);
+assert.equal(p.zeroSkipped,0);
+assert.equal(p.zeroGradeCount,1);
+assert(p.entries.some(e=>e.grade_value===0&&e.result_text==='0'&&e.academic_year_be===2564));
 assert(p.missingGradeCount>0,'Blank history is explicitly carried forward as pending');
 assert(p.currentSkipped>0);
-p=buildSchoolmisPreview(pcsv,2569,'ป.6',true);
-assert.equal(p.historicalGradeCount,2);
-assert(p.entries.some(e=>e.grade_value===0&&e.academic_year_be===2564));
+p=buildSchoolmisPreview(pcsv,2569,'ป.6',false);
+assert.equal(p.zeroSkipped,1,'Legacy opt-out remains available for compatibility');
+assert.equal(p.zeroGradeCount,0);
+assert.equal(p.historicalGradeCount,1);
 const mhead=['#','รหัสนักเรียน','ชื่อ-สกุล'];
 for(let g=1;g<=3;g++)for(let term=1;term<=2;term++){
  mhead.push('ท2'+g+'10'+term+' ภาษาไทย '+g);
