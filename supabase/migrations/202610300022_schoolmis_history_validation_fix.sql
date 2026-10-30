@@ -7,7 +7,7 @@ alter table public.schoolmis_grade_history drop constraint schoolmis_grade_histo
 alter table public.schoolmis_grade_history add constraint schoolmis_grade_history_check check (
  (is_activity and grade_value is null and result_text in ('ผ','มผ')) or
  (not is_activity and ((grade_value is not null and result_text=regexp_replace(grade_value::text,'[.]0$',''))
- or (grade_value is null and result_text in ('ร','มส')))));
+ or (grade_value is null and result_text in ('ร','มส','')))));
 drop policy schoolmis_imports_admin_read on public.schoolmis_history_imports;
 drop policy schoolmis_grades_admin_read on public.schoolmis_grade_history;
 create policy schoolmis_imports_admin_read on public.schoolmis_history_imports for select to authenticated
@@ -57,7 +57,7 @@ begin
    v_level:=case when substring(v_code from 2 for 1)='1' then 'ป.' else 'ม.' end || v_grade_no::text;
    if (p_current_level like 'ป.%')<>(v_level like 'ป.%') or v_key<>v_code
    then raise exception 'schoolmis_track_mismatch';end if;
-   if v_result in ('ร','มส') then v_value:=null;
+   if v_result in ('ร','มส','') then v_value:=null;
    elsif v_result ~ '^(0|[1-3]([.]5)?|4)$' then v_value:=v_result::numeric;
    else raise exception 'schoolmis_invalid_grade';end if;
   end if;
@@ -81,8 +81,19 @@ begin
    from public.schoolmis_grade_history g where g.school_id=p_school and g.student_id=v_student
    and g.academic_year_be=v_year and g.level_code=v_level and g.term_no=v_term and g.subject_key=v_key;
   if found then
-   if v_existing.result_text<>v_result or v_existing.subject_code<>v_code or v_existing.subject_name<>v_name
-   then raise exception 'schoolmis_conflict_existing_grade';end if;
+   if v_existing.subject_code<>v_code or v_existing.subject_name<>v_name then
+    raise exception 'schoolmis_conflict_existing_subject';end if;
+   -- Filling a previously missing grade is allowed and traced by the new batch.
+   if v_existing.result_text='' and v_result<>'' then
+    update public.schoolmis_grade_history g set result_text=v_result,grade_value=v_value,
+     source_import_id=v_batch,recorded_at=now()
+    where g.school_id=p_school and g.student_id=v_student and g.academic_year_be=v_year
+      and g.level_code=v_level and g.term_no=v_term and g.subject_key=v_key;
+    v_count:=v_count+1;continue;
+   end if;
+   -- A blank later export never erases a previously recorded grade.
+   if v_existing.result_text<>v_result and v_result<>'' then
+    raise exception 'schoolmis_conflict_existing_grade';end if;
    v_skipped:=v_skipped+1;
    continue;
   end if;
