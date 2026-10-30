@@ -10,13 +10,15 @@ type School={id:string;name_th:string};
 type Membership={school_id:string;role:string;schools:School|null};
 type Student={id:string;student_no:string;name_prefix_th:string|null;first_name_th:string;last_name_th:string};
 type ImportBatch={id:string;file_name:string;reference_year_be:number;current_level_code:string;imported_rows:number;created_at:string};
+type StudentNumberAlias={source_student_no:string;student_id:string};
 type Grade={academic_year_be:number;level_code:string;term_no:number;subject_code:string;subject_name:string;subject_group:string;result_text:string;source_raw_value:string|null;grade_value:number|null;weight_units:number|null;weight_confirmed:boolean;is_activity:boolean};
 type GroupGpa={area:string;records:number;pending:number;gpax:number|null};
 const LEVELS=['ป.1','ป.2','ป.3','ป.4','ป.5','ป.6','ม.1','ม.2','ม.3'];
 export default function SchoolmisHistoryPage(){
  const router=useRouter();
  const [schools,setSchools]=useState<School[]>([]),[schoolId,setSchoolId]=useState('');
- const [students,setStudents]=useState<Student[]>([]),[years,setYears]=useState<number[]>([]),[year,setYear]=useState(2569);
+ const [students,setStudents]=useState<Student[]>([]),[studentAliases,setStudentAliases]=useState<StudentNumberAlias[]>([]);
+ const [years,setYears]=useState<number[]>([]),[year,setYear]=useState(2569);
  const [fileName,setFileName]=useState(''),[raw,setRaw]=useState(''),[level,setLevel]=useState('');
  const [skipUnmatched,setSkipUnmatched]=useState(false),[backupVerified,setBackupVerified]=useState(false),[busy,setBusy]=useState(false),[error,setError]=useState(''),[notice,setNotice]=useState('');
  const [batches,setBatches]=useState<ImportBatch[]>([]),[studentId,setStudentId]=useState('');
@@ -38,14 +40,16 @@ export default function SchoolmisHistoryPage(){
  }
  useEffect(()=>{if(!schoolId)return;let live=true;(async()=>{
   const db=getSupabaseBrowserClient();if(!db)return;
-  const [s,y,b]=await Promise.all([
+  const [s,y,b,a]=await Promise.all([
    db.from('students').select('id,student_no,name_prefix_th,first_name_th,last_name_th').eq('school_id',schoolId).order('student_no'),
    db.from('academic_years').select('year_be').eq('school_id',schoolId).order('year_be',{ascending:false}),
-   db.from('schoolmis_history_imports').select('id,file_name,reference_year_be,current_level_code,imported_rows,created_at').eq('school_id',schoolId).order('created_at',{ascending:false}).limit(20)
+   db.from('schoolmis_history_imports').select('id,file_name,reference_year_be,current_level_code,imported_rows,created_at').eq('school_id',schoolId).order('created_at',{ascending:false}).limit(20),
+   db.from('schoolmis_student_number_aliases').select('source_student_no,student_id').eq('school_id',schoolId)
   ]);
   if(!live)return;
-  const issue=[s.error,y.error,b.error].find(Boolean);if(issue){setError(issue.message);return;}
+  const issue=[s.error,y.error,b.error,a.error].find(Boolean);if(issue){setError(issue.message);return;}
   setStudents((s.data??[]) as Student[]);
+  setStudentAliases((a.data??[]) as StudentNumberAlias[]);
   setBatches((b.data??[]) as ImportBatch[]);
   const available=(y.data??[]).map(x=>x.year_be);
   setYears(available);setYear(available.includes(2569)?2569:available[0]??2569);
@@ -56,19 +60,23 @@ export default function SchoolmisHistoryPage(){
   catch(e){return {preview:null,error:e instanceof Error?e.message:'อ่านไฟล์ CSV ไม่สำเร็จ'};}
  },[raw,year,level]);
  const matched=useMemo(()=>{
-  const byNo=new Map(students.map(s=>[s.student_no,s])),unmatched=new Map<string,string>();
+  const byNo=new Map(students.map(s=>[s.student_no,s]));
+  const byId=new Map(students.map(s=>[s.id,s]));
+  const aliasMap=new Map(studentAliases.map(a=>[a.source_student_no,a.student_id]));
+  const unmatched=new Map<string,string>(),aliasMatches=new Map<string,string>();
   const entries:HistoryEntry[]=[],seen=new Set<string>();
   for(const row of parsed.preview?.entries??[]){
-   const person=byNo.get(row.student_no);
+   const person=byNo.get(row.student_no)??byId.get(aliasMap.get(row.student_no)??'');
    if(!person){unmatched.set(row.student_no,'ไม่พบรหัสนักเรียนในทะเบียน');continue;}
    const expected=normalizeStudentName([person.name_prefix_th??'',person.first_name_th,person.last_name_th].join(''));
    if(expected!==normalizeStudentName(row.student_name)){
     unmatched.set(row.student_no,'รหัสตรงแต่ชื่อ–สกุลไม่ตรง');continue;
    }
-   entries.push({...row,student_id:person.id});seen.add(person.id);
+   if(person.student_no!==row.student_no)aliasMatches.set(row.student_no,person.student_no);
+   entries.push({...row,student_id:person.id,source_student_no:row.student_no,student_no:person.student_no});seen.add(person.id);
   }
-  return {entries,unmatched:[...unmatched.entries()],students:seen.size};
- },[parsed.preview,students]);
+  return {entries,unmatched:[...unmatched.entries()],students:seen.size,aliasMatches:[...aliasMatches.entries()]};
+ },[parsed.preview,students,studentAliases]);
  async function readFile(file:File){
   setRaw('');setError('');setNotice('');setSkipUnmatched(false);setBackupVerified(false);
   setFileName(file.name);setLevel(recognizeSchoolmisLevel(file.name));
@@ -84,10 +92,10 @@ export default function SchoolmisHistoryPage(){
   try{
    const db=getSupabaseBrowserClient();if(!db)throw Error('ไม่พบฐานข้อมูล');
    const payload=matched.entries.map(r=>({
-    student_id:r.student_id,student_no:r.student_no,academic_year_be:r.academic_year_be,
+    student_id:r.student_id,student_no:r.student_no,source_student_no:r.source_student_no??r.student_no,academic_year_be:r.academic_year_be,
     level_code:r.level_code,grade_number:r.grade_number,term_no:r.term_no,
     subject_key:r.subject_key,subject_code:r.subject_code,subject_name:r.subject_name,
-    source_column:r.source_column,result_text:r.result_text,grade_value:r.grade_value,is_activity:r.is_activity
+    source_column:r.source_column,result_text:r.result_text,source_raw_value:r.result_text,grade_value:r.grade_value,is_activity:r.is_activity
    }));
    const res=await db.rpc('schoolmis_import_history',{
     p_school:schoolId,p_reference_year_be:year,p_current_level:level,p_file_name:fileName,p_rows:payload
@@ -158,6 +166,11 @@ export default function SchoolmisHistoryPage(){
     <p className="mt-2 text-xs">ระบบยึดเกรด 0 จาก SchoolMIS เป็นผลการเรียนจริงโดยอัตโนมัติ ตามหลักการที่สถานศึกษายืนยันแล้ว</p>
    </div>
    {parsed.preview.issues.length>0&&<div role="alert" className="mt-3 rounded-lg bg-red-50 p-3 text-sm text-red-800"><strong>ปัญหาโครงสร้างไฟล์ ({parsed.preview.issues.length}) — ต้องแก้ก่อนนำเข้า</strong><ul className="mt-2 list-inside list-disc">{parsed.preview.issues.slice(0,12).map((s,i)=><li key={i}>{s}</li>)}</ul></div>}
+   {matched.aliasMatches.length>0&&<div className="mt-3 rounded-lg border border-blue-200 bg-blue-50 p-3 text-sm text-blue-900">
+    <strong>จับคู่รหัส SchoolMIS ที่ต่างจากรหัส WICHAKAN ตามข้อมูลที่ตรวจสอบแล้ว</strong>
+    {matched.aliasMatches.map(([source,canonical])=><p key={source}>รหัสในไฟล์ {source} → รหัสนักเรียน WICHAKAN {canonical}</p>)}
+    <p className="mt-1 text-xs">ระบบยังตรวจชื่อ–สกุลทุกครั้งและเก็บรหัสต้นฉบับไว้ในประวัติการนำเข้า</p>
+   </div>}
    {matched.unmatched.length>0&&<div role="alert" className="mt-3 rounded-lg bg-amber-50 p-3 text-sm text-amber-900">
     <strong>มีนักเรียนที่จับคู่ไม่ได้ {matched.unmatched.length} คน</strong>
     <div className="mt-2 max-h-32 overflow-y-auto">{matched.unmatched.slice(0,20).map(([number,reason])=><p key={number}>รหัส {number} · {reason}</p>)}</div>
