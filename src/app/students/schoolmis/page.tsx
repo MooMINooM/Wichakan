@@ -116,7 +116,7 @@ export default function SchoolmisHistoryPage(){
   <Link href="/students" className="text-sm font-semibold text-blue-700">← ทะเบียนนักเรียน</Link>
   <PageHeader title="นำเข้าประวัติผลการเรียน SchoolMIS"/>
   <p className="mb-5 text-sm text-slate-600">สำหรับผู้ดูแลทะเบียนและวัดผล · นำเข้าข้อมูลย้อนหลังเท่านั้น ไม่แก้ไขคะแนนรายวิชาที่ครูบันทึกใน WICHAKAN</p>
-  <p role="note" className="mb-4 rounded-lg bg-amber-50 p-3 text-sm text-amber-900">ก่อนยืนยันนำเข้าข้อมูลจริง ตรวจสอบว่ามีสำเนาสำรองฐานข้อมูลและไฟล์ที่สามารถกู้คืนได้แล้ว · <a href="https://supabase.com/docs/guides/platform/backups" target="_blank" rel="noreferrer" className="underline">แนวทางสำรองข้อมูล Supabase</a> · <Link href="/students/transcript" className="underline">แฟ้มประวัตินักเรียน</Link> · <Link href="/students/schoolmis/weights" className="underline">หน่วยน้ำหนักย้อนหลัง</Link></p>
+  <p role="note" className="mb-4 rounded-lg bg-amber-50 p-3 text-sm text-amber-900">ก่อนยืนยันนำเข้าข้อมูลจริง ตรวจสอบว่ามีสำเนาสำรองฐานข้อมูลและไฟล์ที่สามารถกู้คืนได้แล้ว · <a href="https://supabase.com/docs/guides/platform/backups" target="_blank" rel="noreferrer" className="underline">แนวทางสำรองข้อมูล Supabase</a> · <Link href="/students/transcript" className="underline">แฟ้มประวัตินักเรียน</Link> · <Link href="/students/schoolmis/gpa" className="underline">GPA / GPAX รายห้อง</Link> · <Link href="/students/schoolmis/weights" className="underline">หน่วยน้ำหนักย้อนหลัง</Link></p>
   {!schools.length&&<p className="teacher-error">ต้องมีสิทธิ์ผู้ดูแลระบบหรือทะเบียนจึงจะใช้เมนูนี้ได้</p>}
   <section className="ui-panel p-5">
    <div className="grid gap-4 md:grid-cols-3">
