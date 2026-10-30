@@ -166,7 +166,8 @@ export default function StudentTranscriptPage(){
       <td className="text-center">{statusLabels[r.status]??r.status}</td><td className="text-center">{r.source}</td>
      </tr>)}</tbody></table></div>
     <div className="mt-3 flex flex-wrap gap-3"><Link href="/students/schoolmis" className="text-sm font-semibold text-blue-700 underline">นำเข้าข้อมูลย้อนหลัง</Link>
-     <Link href="/students/schoolmis/weights" className="text-sm font-semibold text-blue-700 underline">ตรวจสอบหน่วยน้ำหนักย้อนหลัง</Link></div>
+     <Link href="/students/schoolmis/weights" className="text-sm font-semibold text-blue-700 underline">ตรวจสอบหน่วยน้ำหนักย้อนหลัง</Link>
+     <Link href="/students/schoolmis/gpa" className="text-sm font-semibold text-blue-700 underline">สรุป GPA / GPAX ทั้งห้อง</Link></div>
    </section>
   </div>}
  </main>;
