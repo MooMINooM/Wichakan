@@ -1,9 +1,9 @@
 const fs=require('node:fs'),ts=require('typescript'),vm=require('node:vm'),assert=require('node:assert/strict');
-const exports={};
+const mod={};
 vm.runInNewContext(ts.transpileModule(fs.readFileSync('src/lib/schoolmis-history.ts','utf8'),{
  compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2020}
-}).outputText,{exports,require});
-const {parseSchoolmisCsv,buildSchoolmisPreview,normalizeStudentName,recognizeSchoolmisLevel}=exports;
+}).outputText,{exports:mod,require});
+const {parseSchoolmisCsv,buildSchoolmisPreview,normalizeStudentName,recognizeSchoolmisLevel}=mod;
 assert.equal(recognizeSchoolmisLevel('คะแนน_ชั้นประถมศึกษาปีที่ 6  ห้อง 1.csv'),'ป.6');
 assert.equal(recognizeSchoolmisLevel('คะแนน_ชั้นมัธยมศึกษาปีที่ 3  ห้อง 1.csv'),'ม.3');
 assert.equal(normalizeStudentName('เด็กชาย ทดสอบ นักเรียน'),'ทดสอบนักเรียน');
