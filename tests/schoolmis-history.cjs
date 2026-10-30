@@ -13,7 +13,7 @@ assert.throws(()=>parseSchoolmisCsv('"bad'),/อัญประกาศ/);
 const phead=['#','รหัสนักเรียน','ชื่อ-สกุล'];
 for(let g=1;g<=6;g++)for(let i=1;i<=12;i++)phead.push('ท1'+g+String(i).padStart(3,'0')+' ภาษาไทย '+g);
 for(let g=1;g<=6;g++)for(let i=1;i<=4;i++)phead.push('ก1'+g+'9'+String(i).padStart(2,'0')+' '+['แนะแนว','ลูกเสือ','ชุมนุม','กิจกรรมเพื่อสังคม'][i-1]);
-const pvals=phead.map((x,i)=>i===0?'1':i===1?'0001':i===2?'เด็กหญิง ทดสอบ นักเรียน':i===3?'0':i===15?'3.5':i===3+12*4?'4':i===3+12*6?'4':'');
+const pvals=phead.map((x,i)=>i===0?'1':i===1?'0001':i===2?'เด็กหญิง ทดสอบ นักเรียน':i===3?'0':i===15?'3.5':i===3+12*5?'4':'');
 const pcsv=phead.join(',')+'\n'+pvals.join(',');
 let p=buildSchoolmisPreview(pcsv,2569,'ป.6');
 assert.equal(p.studentCount,1);
