@@ -20,8 +20,7 @@ export default function SchoolmisHistoryPage(){
  const [fileName,setFileName]=useState(''),[raw,setRaw]=useState(''),[level,setLevel]=useState(''),[includeZero,setIncludeZero]=useState(false);
  const [skipUnmatched,setSkipUnmatched]=useState(false),[busy,setBusy]=useState(false),[error,setError]=useState(''),[notice,setNotice]=useState('');
  const [batches,setBatches]=useState<ImportBatch[]>([]),[studentId,setStudentId]=useState('');
- const [grades,setGrades]=useState<Grade[]>([]),[gpax,setGpax]=useState<GroupGpa[]>([]),[weight,setWeight]=useState('');
- const [selectedWeight,setSelectedWeight]=useState('');
+ const [grades,setGrades]=useState<Grade[]>([]),[gpax,setGpax]=useState<GroupGpa[]>([]);
  useEffect(()=>{let live=true;(async()=>{
   const db=getSupabaseBrowserClient();if(!db){setError('ไม่พบการเชื่อมต่อฐานข้อมูล');return;}
   const {data:{user}}=await db.auth.getUser();if(!user){router.replace('/login');return;}
@@ -113,28 +112,12 @@ export default function SchoolmisHistoryPage(){
   if(r.error||g.error){setError(r.error?.message??g.error?.message??'โหลดประวัติไม่สำเร็จ');return;}
   setGrades((r.data??[]) as Grade[]);setGpax((g.data??[]) as GroupGpa[]);
  })();return()=>{live=false;};},[studentId,schoolId,notice]);
- const weightable=useMemo(()=>{
-  const unique=new Map<string,Grade>();
-  for(const g of grades){if(!g.is_activity)unique.set([g.academic_year_be,g.level_code,g.term_no,g.subject_code].join('|'),g);}
-  return [...unique.entries()];
- },[grades]);
- async function confirmWeight(){
-  const item=weightable.find(([key])=>key===selectedWeight);
-  const units=Number(weight);
-  if(!item||!schoolId||!Number.isFinite(units)||units<=0||units>30){setError('กรุณาเลือกวิชาและกรอกหน่วยน้ำหนักมากกว่า 0 ไม่เกิน 30');return;}
-  if(!window.confirm('ยืนยันหน่วยน้ำหนัก '+units+' ของวิชา '+item[1].subject_code+' ตามหลักสูตรในปีนั้น? การแก้ไขนี้มีผลกับนักเรียนทุกคนในปีและรายวิชาเดียวกัน'))return;
-  const db=getSupabaseBrowserClient();if(!db)return;
-  setBusy(true);setError('');
-  const [yr,lvl,term,code]=item[0].split('|');
-  const res=await db.rpc('schoolmis_confirm_weight',{p_school:schoolId,p_year:Number(yr),p_level:lvl,p_term:Number(term),p_subject_code:code,p_weight:units});
-  if(res.error)setError(res.error.message);
-  else setNotice('ยืนยันหน่วยน้ำหนักแล้ว '+Number(res.data)+' รายการ');
-  setBusy(false);
- }
+
  return <main className="wichakan-page mx-auto max-w-6xl px-4 py-6">
   <Link href="/students" className="text-sm font-semibold text-blue-700">← ทะเบียนนักเรียน</Link>
   <PageHeader title="นำเข้าประวัติผลการเรียน SchoolMIS"/>
   <p className="mb-5 text-sm text-slate-600">สำหรับผู้ดูแลทะเบียนและวัดผล · นำเข้าข้อมูลย้อนหลังเท่านั้น ไม่แก้ไขคะแนนรายวิชาที่ครูบันทึกใน WICHAKAN</p>
+  <p role="note" className="mb-4 rounded-lg bg-amber-50 p-3 text-sm text-amber-900">ก่อนยืนยันนำเข้าข้อมูลจริง ตรวจสอบว่ามีสำเนาสำรองฐานข้อมูลและไฟล์ที่สามารถกู้คืนได้แล้ว · <a href="https://supabase.com/docs/guides/platform/backups" target="_blank" rel="noreferrer" className="underline">แนวทางสำรองข้อมูล Supabase</a> · <Link href="/students/transcript" className="underline">แฟ้มประวัตินักเรียน</Link> · <Link href="/students/schoolmis/weights" className="underline">หน่วยน้ำหนักย้อนหลัง</Link></p>
   {!schools.length&&<p className="teacher-error">ต้องมีสิทธิ์ผู้ดูแลระบบหรือทะเบียนจึงจะใช้เมนูนี้ได้</p>}
   <section className="ui-panel p-5">
    <div className="grid gap-4 md:grid-cols-3">
@@ -209,19 +192,10 @@ export default function SchoolmisHistoryPage(){
      <div className="mt-3 max-h-72 overflow-auto"><table className="w-full min-w-[700px] text-sm"><thead className="sticky top-0 bg-slate-100"><tr><th>ปี</th><th>ชั้น</th><th>ภาค</th><th>รายวิชา</th><th>ผล</th><th>หน่วยน้ำหนัก</th></tr></thead>
       <tbody>{grades.map((g,i)=><tr className="border-t" key={i}><td className="p-2 text-center">{g.academic_year_be}</td><td>{g.level_code}</td><td className="text-center">{g.term_no||'รายปี'}</td><td>{g.subject_code} {g.subject_name}</td><td className="text-center">{g.result_text}</td><td className="text-center">{g.is_activity?'—':g.weight_confirmed?g.weight_units:'ยังไม่ยืนยัน'}</td></tr>)}</tbody>
      </table></div>}
-    {weightable.length>0&&<div className="mt-4 rounded-lg border p-3">
-     <h3 className="font-semibold">ยืนยันหน่วยน้ำหนักตามหลักสูตรย้อนหลัง</h3>
-     <p className="mt-1 text-xs text-slate-600">ต้องตรวจชั่วโมง/หน่วยกิตของปีนั้นกับหลักสูตรหรือ SchoolMIS ก่อนยืนยัน · การยืนยันจะมีผลกับทุกคนในปีและวิชาเดียวกัน</p>
-     <div className="mt-3 flex flex-wrap items-end gap-3">
-      <label className="min-w-[280px] flex-1 text-sm">รายวิชา
-       <select className="mt-1 block w-full rounded-lg border p-2" value={selectedWeight} onChange={e=>{setSelectedWeight(e.target.value);setWeight('');}}>
-        <option value="">เลือกรายวิชา</option>{weightable.map(([key,g])=><option key={key} value={key}>{g.academic_year_be} · {g.level_code}{g.term_no?' ภาค '+g.term_no:''} · {g.subject_code} {g.subject_name}{g.weight_confirmed?' ✓':''}</option>)}
-       </select>
-      </label>
-      <label className="text-sm">หน่วยน้ำหนัก<input value={weight} onChange={e=>setWeight(e.target.value)} type="number" min="0.01" max="30" step="0.01" className="mt-1 block w-28 rounded-lg border p-2" placeholder="เช่น 1.0"/></label>
-      <button disabled={busy||!selectedWeight||!weight} className="ui-secondary" onClick={()=>void confirmWeight()}>ยืนยันหน่วยน้ำหนัก</button>
+    <div className="mt-4 flex flex-wrap gap-3">
+      <Link href="/students/schoolmis/weights" className="text-sm font-semibold text-blue-700 underline">ตรวจสอบหน่วยน้ำหนักย้อนหลังทั้งโรงเรียน</Link>
+      <Link href="/students/transcript" className="text-sm font-semibold text-blue-700 underline">แฟ้มประวัติผลการเรียนสะสม</Link>
      </div>
-    </div>}
    </>}
   </section>
  </main>;
