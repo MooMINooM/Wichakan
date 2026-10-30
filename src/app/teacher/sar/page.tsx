@@ -93,6 +93,14 @@ export default function TeacherSarAssessment(){
  }
  return <main className="wichakan-page mx-auto max-w-5xl px-4 pb-14">
   <PageHeader title="ประเมิน SAR มาตรฐานที่ 2 และ 3" context="ครูทุกคนประเมินรายบุคคลตามรายการในเครื่องมือประเมินปีการศึกษา 2568"/>
+  <div className="mb-4 flex flex-wrap gap-3">
+   <Link href="/teacher/sar/students" className="ui-secondary">ประเมินผู้เรียนมาตรฐานที่ 1 (ครูประจำชั้น)</Link>
+   <Link href="/teacher/sar/evidence" className="ui-secondary">คลังผลงาน อบรม และนวัตกรรม</Link>
+  </div>
+  <div className="mb-5 flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 pb-4">
+   <p className="text-sm text-slate-600">ประเมินตามแบบของโรงเรียนและแนบผลงาน การอบรม นวัตกรรม หรือหลักฐานประกอบได้ตลอดปี</p>
+   <Link href="/teacher/sar/evidence" className="ui-primary">ผลงาน อบรม และหลักฐานของฉัน</Link>
+  </div>
   <div className="mb-6 flex flex-wrap items-center justify-between gap-4 border-b border-slate-200 pb-5">
    <label className="text-sm font-medium text-slate-700">ปีการศึกษา
     <select value={year} disabled={busy||loading||reading} onChange={e=>setYear(e.target.value)} className="mt-2 block min-w-40 rounded-lg border border-slate-300 bg-white px-3 py-2">
