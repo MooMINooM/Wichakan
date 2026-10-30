@@ -1,0 +1,14 @@
+const assert=require('node:assert/strict');
+const fs=require('node:fs');
+const page=fs.readFileSync('src/app/admin/line-guardians/page.tsx','utf8');
+const nav=fs.readFileSync('src/components/app-navigation.tsx','utf8');
+const sql=fs.readFileSync('supabase/migrations/202610300018_line_guardian_admin_workspace.sql','utf8');
+for(const text of ["'requests'|'linked'|'history'","line_admin_guardian_overview","review_line_student_claim","line_admin_revoke_student_link","คำขอรออนุมัติ","บัญชี LINE ที่เชื่อมแล้ว","ประวัติการดำเนินการ"]) assert.ok(page.includes(text),'Missing UI feature: '+text);
+for(const old of ['register_line_guardian_for_student','create_line_guardian_invite','review_line_guardian_request']) assert.ok(!page.includes(old),'Legacy UI flow should be absent');
+assert.ok(nav.includes("label:'จัดการผู้ปกครอง LINE OA'"),'Navigation must use new name');
+assert.ok(/auth\.uid\(\)/.test(sql)&&/m\.role='school_admin'/.test(sql),'Overview requires school-admin scope');
+assert.ok(sql.includes('and sg.student_id=p_student'),'Revoke must be per-student');
+assert.ok(sql.includes('on conflict(school_id,student_id,line_user_id) do update'),'Unlinked parents must be able to reapply');
+assert.ok(sql.includes('line_student_link_audit'),'Revoke and review need durable audit');
+assert.ok(/revoke all on function public\.line_admin_guardian_overview\(\) from public,anon;/.test(sql));
+console.log('PASS: LINE guardian 3-tab admin UI, scoped RPC and link-revocation audit.');
