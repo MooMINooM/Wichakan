@@ -18,7 +18,7 @@ const assert=require('node:assert/strict'),fs=require('fs'),path=require('path')
  });
  const page=await context.newPage(),errors=[];page.on('pageerror',e=>errors.push(e.message));await page.goto('http://127.0.0.1:3001/Wichakan/teacher/activities/');
  const groups=page.getByRole('combobox',{name:'กิจกรรม / ห้อง / ช่วงประเมิน'}),grade=n=>page.getByRole('combobox',{name:'ผลประเมิน 261'+n}),save=page.getByRole('button',{name:'บันทึกผลประเมินทั้งห้อง'});
- await grade(0).waitFor();await page.waitForFunction(()=>document.querySelector('select[aria-label="ผลประเมิน 2610"]')?.value==='fail');assert.equal(await groups.locator('option').count(),3);await page.getByText('ผู้ประเมิน: ครูประจำชั้นผู้รับผิดชอบห้องนี้',{exact:true}).waitFor();assert.equal(await page.locator('input[type=date]').count(),0);assert(!/คาบ|เวลาเข้าร่วม|วิทยาการคำนวณ/.test(await groups.textContent()));assert.equal(await grade(1).inputValue(),'');
+ await grade(0).waitFor();await page.waitForFunction(()=>document.querySelector('select[aria-label="ผลประเมิน 2610"]')?.value==='fail');assert.equal(await groups.locator('option').count(),3);await page.getByText('ผู้ประเมิน: ครูประจำชั้นทุกคนในห้อง (ใช้ผลร่วมกัน)',{exact:true}).waitFor();assert.equal(await page.locator('input[type=date]').count(),0);assert(!/คาบ|เวลาเข้าร่วม|วิทยาการคำนวณ/.test(await groups.textContent()));assert.equal(await grade(1).inputValue(),'');
  await page.getByRole('button',{name:'กำหนดผ่านทั้งห้อง'}).click();await grade(0).selectOption('fail');failSave=true;await save.click();await page.getByRole('alert').filter({hasText:'ทดสอบบันทึกไม่สำเร็จ'}).waitFor();assert.equal(await grade(1).inputValue(),'pass');assert.equal(await save.isEnabled(),true);failSave=false;await save.click();await page.getByRole('status').filter({hasText:'เรียบร้อยแล้ว'}).waitFor();assert.equal(writes.at(-1).p_period,0);
  await groups.selectOption('m:guidance:1');await page.waitForFunction(()=>!document.querySelector('select[aria-label="ผลประเมิน 2610"]').disabled);await page.getByText('ผู้ประเมิน: ครูผู้สอนที่ได้รับมอบหมาย',{exact:true}).waitFor();assert.equal(await grade(0).inputValue(),'');await grade(0).selectOption('pass');await grade(1).selectOption('fail');await save.click();await page.getByRole('status').filter({hasText:'เรียบร้อยแล้ว'}).waitFor();
  await groups.selectOption('m:guidance:2');await page.waitForFunction(()=>!document.querySelector('select[aria-label="ผลประเมิน 2610"]').disabled);assert.equal(await grade(0).inputValue(),'');await grade(0).selectOption('fail');await grade(1).selectOption('pass');await save.click();await page.getByRole('status').filter({hasText:'เรียบร้อยแล้ว'}).waitFor();assert.equal(tables.school_activity_period_assessments.find(r=>r.classroom_id==='m'&&r.period_no===1&&r.student_id==='student0').result,'pass');assert.equal(tables.school_activity_period_assessments.find(r=>r.classroom_id==='m'&&r.period_no===2&&r.student_id==='student0').result,'fail');
@@ -27,22 +27,27 @@ const assert=require('node:assert/strict'),fs=require('fs'),path=require('path')
  await page.getByRole('combobox',{name:'ปีการศึกษา'}).selectOption('y69');await page.waitForFunction(()=>document.querySelector('select[aria-label="ผลประเมิน 2610"]')?.value==='fail');assert.equal(await grade(1).inputValue(),'pass');assert.equal(await groups.locator('option').count(),3);
  failRead=true;await page.reload();await page.getByRole('alert').filter({hasText:'ทดสอบอ่านไม่สำเร็จ'}).waitFor();assert.equal(await save.isDisabled(),true);failRead=false;await page.getByRole('button',{name:'โหลดใหม่'}).click();await page.waitForFunction(()=>document.querySelector('select[aria-label="ผลประเมิน 2610"]')?.value==='fail'&&!document.querySelector('select[aria-label="ผลประเมิน 2610"]').disabled);
  await page.setViewportSize({width:390,height:850});assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);assert.deepEqual(errors,[]);assert.equal(writes.length,5);
- // A second homeroom teacher is not assigned duplicate club/scout recording.
+ // Both homeroom teachers see and update one canonical club/scout result.
  tables.school_activity_schedules.push(schedule('scout','p','t1','scout'));
  const coTeacher='66666666-6666-4666-8666-666666666666';
  tables.school_memberships.push({school_id:school,user_id:coTeacher,role:'teacher',active:true});
- tables.homeroom_assignments.push({id:'h2',created_at:'2026-02-01',is_activity_recorder:false,classroom_id:'p',school_id:school,teacher_user_id:coTeacher});
+ tables.homeroom_assignments.push({classroom_id:'p',school_id:school,teacher_user_id:coTeacher});
  user.id=coTeacher;await page.reload();
- await page.getByText('ไม่มีกิจกรรมที่ได้รับมอบหมายในปีการศึกษานี้').waitFor();
- assert.equal(await groups.locator('option').count(),0,'co-homeroom teacher should not see another teacher\'s club/scout work');
- user.id=actor;await page.reload();await page.waitForFunction(()=>document.querySelector('select[aria-label="ผลประเมิน 2610"]')?.value==='fail');
- assert.equal(await groups.locator('option').count(),4);
+ await page.waitForFunction(()=>document.querySelector('select[aria-label="ผลประเมิน 2610"]')?.value==='fail');
+ assert.equal(await groups.locator('option').count(),2,'co-homeroom sees club/scout in own room, not unrelated guidance');
+ await page.getByText('ผู้ประเมิน: ครูประจำชั้นทุกคนในห้อง (ใช้ผลร่วมกัน)',{exact:true}).waitFor();
+ await grade(0).selectOption('pass');await save.click();await page.getByRole('status').filter({hasText:'เรียบร้อยแล้ว'}).waitFor();
+ assert.equal(tables.school_activity_period_assessments.filter(r=>r.classroom_id==='p'&&r.activity_type==='club'&&r.period_no===0&&r.student_id==='student0').length,1);
  await groups.selectOption('p:scout:0');await page.waitForFunction(()=>!document.querySelector('select[aria-label="ผลประเมิน 2610"]').disabled);
  await page.getByRole('button',{name:'กำหนดผ่านทั้งห้อง'}).click();await save.click();await page.getByRole('status').filter({hasText:'เรียบร้อยแล้ว'}).waitFor();
- assert.equal(tables.school_activity_period_assessments.filter(r=>r.classroom_id==='p'&&r.activity_type==='scout'&&r.period_no===0&&r.student_id==='student0').length,1);
+ user.id=actor;await page.reload();await page.waitForFunction(()=>document.querySelector('select[aria-label="ผลประเมิน 2610"]')?.value==='pass');
+ assert.equal(await groups.locator('option').count(),4);
+ assert.equal(await grade(0).inputValue(),'pass','first homeroom sees co-teacher update');
+ await grade(0).selectOption('fail');await save.click();await page.getByRole('status').filter({hasText:'เรียบร้อยแล้ว'}).waitFor();
+ assert.equal(tables.school_activity_period_assessments.filter(r=>r.classroom_id==='p'&&r.activity_type==='club'&&r.period_no===0&&r.student_id==='student0').length,1,'first teacher updates same record');
  // Being homeroom does not grant another teacher's assigned activity.
  tables.school_activity_schedules.push(schedule('p-guide','p','t1','guidance','another-teacher'));
  await page.reload();await grade(0).waitFor();assert.equal(await groups.locator('option').count(),4);assert.equal(await groups.locator('option[value="p:guidance:0"]').count(),0);
- assert.deepEqual(errors,[]);assert.equal(writes.length,6);
+ assert.deepEqual(errors,[]);assert.equal(writes.length,8);
  console.log('PASS: annual activity deduplication, semester/year isolation, blank defaults, whole-class result-only save, retry preserves edits, authorization filtering, unsaved-change guard and mobile layout.');await browser.close();server.close();
 })().catch(e=>{console.error(e);process.exit(1)});
