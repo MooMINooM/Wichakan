@@ -86,3 +86,32 @@ returns boolean language sql stable security invoker set search_path='' as $$
 $$;
 revoke all on function private.can_assess_school_activity(uuid,text,integer) from public,anon;
 grant execute on function private.can_assess_school_activity(uuid,text,integer) to authenticated;
+
+
+-- Legacy attendance/assessment RPC must not bypass the current activity owner.
+create or replace function public.save_school_activity_record(p_schedule uuid,p_student uuid,p_date date,p_status text,p_result text default null,p_comment text default null)
+returns void language plpgsql security definer set search_path='' as $$
+declare v_row public.school_activity_schedules%rowtype;v_year uuid;v_authorized boolean;
+begin
+ select * into v_row from public.school_activity_schedules where id=p_schedule;
+ if not found or auth.uid() is null then raise exception 'Activity not found or unauthenticated';end if;
+ select academic_year_id into v_year from public.terms where id=v_row.term_id;
+ v_authorized:=private.has_school_role(v_row.school_id,array['teacher']) and
+  ((v_row.activity_type in ('sss','guidance','ethics') and v_row.teacher_user_id=auth.uid())
+    or (v_row.activity_type in ('club','scout') and private.activity_homeroom_recorder(v_row.classroom_id)=auth.uid()));
+ if not v_authorized then raise exception 'You cannot record this activity';end if;
+ if not exists(select 1 from public.enrollments e where e.school_id=v_row.school_id and e.academic_year_id=v_year and e.classroom_id=v_row.classroom_id and e.student_id=p_student and e.status in ('active','completed') and (p_date is null or ((e.started_on is null or e.started_on<=p_date) and (e.ended_on is null or e.ended_on>=p_date)))) then raise exception 'Student not enrolled in this classroom';end if;
+ if p_status is not null then
+  if p_date is null or p_status not in ('present','absent','late','leave') then raise exception 'Invalid attendance record';end if;
+  if extract(isodow from p_date)::int<>v_row.weekday_no then raise exception 'Attendance date does not match the activity weekday';end if;
+  insert into public.school_activity_attendance(schedule_id,school_id,student_id,class_date,status,recorded_by)
+  values(p_schedule,v_row.school_id,p_student,p_date,p_status,auth.uid())
+  on conflict(schedule_id,student_id,class_date) do update set status=excluded.status,recorded_by=auth.uid(),updated_at=now();
+ end if;
+ if p_result is not null then
+  if p_result not in ('pending','pass','fail') then raise exception 'Invalid assessment';end if;
+  insert into public.school_activity_assessments(schedule_id,school_id,student_id,result,comment,recorded_by)
+  values(p_schedule,v_row.school_id,p_student,p_result,left(coalesce(p_comment,''),500),auth.uid())
+  on conflict(schedule_id,student_id) do update set result=excluded.result,comment=excluded.comment,recorded_by=auth.uid(),updated_at=now();
+ end if;
+end $$;
