@@ -73,7 +73,6 @@ export default function LineParentPortal({onAddChild}:{onAddChild?:()=>void}={})
  </section>
  {data?.students.length? <section className="ui-panel"><h2 className="font-semibold mb-3">ตรวจสอบผลการเรียน</h2><p className="mb-2 text-xs text-slate-500">แสดงผลเฉพาะรายการที่โรงเรียนประกาศแล้ว</p><label className="block mb-3">ปีการศึกษา<select className="block w-full border p-2 mt-1" value={year} onChange={e=>{setYear(e.target.value);clearShownGrades();}}><option value="">เลือกปีการศึกษา</option>{data.years.map(y=><option key={y.id} value={y.id}>{y.year_be}</option>)}</select></label><label className="block mb-3">ภาคเรียน<select className="block w-full border p-2 mt-1" value={term} onChange={e=>{setTerm(Number(e.target.value));clearShownGrades();}}><option value={1}>ภาคเรียนที่ 1</option><option value={2}>ภาคเรียนที่ 2</option></select></label><button className="ui-primary" disabled={loading||!student||!year} onClick={()=>void load(true)}>{loading?'กำลังโหลด...':'ดูผลการเรียน'}</button>
   {notice&&<p className="mt-3 text-sm" role="status">{notice}</p>}
-  <p className="mt-3 text-xs text-slate-500">ประถมภาค 1: คะแนนระหว่างปีเต็ม 50 · มัธยม: คะแนนรายภาคเต็ม 100</p>
   {data?.published&&<div className="mt-4">
    <p role="status" className="mb-3 text-sm font-medium">โรงเรียนเปิดประกาศผลแล้ว · มีผลการเรียน {data.completed_count??0} รายวิชา · รอผล {data.pending_count??0} รายวิชา</p>
    {data.gpa_summary&&<section aria-label="สรุป GPA และ GPAX" className="mb-4 rounded-xl border border-slate-200 bg-slate-50 p-4">
