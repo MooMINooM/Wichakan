@@ -82,28 +82,28 @@ export async function createPp5Pdf(book:Pp5Book){
  for(const [i,role] of ['ครูผู้สอน','หัวหน้างานวัดและประเมินผล','หัวหน้าฝ่ายวิชาการ'].entries()){const y=648+i*46;const signer=[book.teacherName,book.signatories.assessment_head_name,book.signatories.academic_head_name][i];text(cover,'ลงชื่อ ...........................................',162.5,y,PP5_TYPE.body,240,'center');text(cover,'( '+coverName(signer)+' )',162.5,y+15,PP5_TYPE.body,240,'center');text(cover,role,162.5,y+29,PP5_TYPE.body,240,'center');}
  const directorCenter=305+255/2;
  text(cover,'ลงชื่อ ............................................................',directorCenter,659,PP5_TYPE.body,235,'center');text(cover,'( '+coverName(book.signatories.director_name)+' )',directorCenter,683,PP5_TYPE.body,235,'center');text(cover,'ผู้อำนวยการ'+book.schoolName,directorCenter,705,PP5_TYPE.body,235,'center');text(cover,'[  ] อนุมัติ     [  ] ไม่อนุมัติ',directorCenter,729,PP5_TYPE.body,235,'center');text(cover,'............... / ............... / ...............',directorCenter,758,PP5_TYPE.body,235,'center');
- // Twenty weekday columns per four-week page, preserving all four header rows.
+ // Fifteen weekday columns per three-week page, preserving all four header rows.
  const sessions=attendanceSessions(attendance),anchor=book.termStart&&book.termStart<=sessions[0].date?book.termStart:sessions[0].date,monday=new Date(anchor+'T00:00:00Z');monday.setUTCDate(monday.getUTCDate()-((monday.getUTCDay()+6)%7));
  const weeks=Math.max(20,...sessions.map(s=>weekOf(s.date,anchor)+1)),lookup=new Map(attendance.map(a=>[a.student_id+'#'+a.class_date+'#'+a.session_no,a.attendance_status]));
  const rowSize=12,rowsPerPage=25;
  const gridTitleSize=16,metadataTop=90,tableGap=6;
  const marks:Record<string,string>={present:'/',absent:'ข',late:'ส',leave:'ล'},chunks:TeacherStudent[][]=[];for(let i=0;i<roster.length;i+=rowsPerPage)chunks.push(roster.slice(i,i+rowsPerPage));
  const weekend=sessions.filter(s=>new Date(s.date+'T00:00:00Z').getUTCDay()%6===0);
- const attendanceBlocks=Array.from({length:Math.ceil(weeks/4)},(_,block)=>Array.from({length:20},(_,i)=>{const date=new Date(monday);date.setUTCDate(date.getUTCDate()+block*28+Math.floor(i/5)*7+i%5);const iso=date.toISOString().slice(0,10);return {date:iso,week:block*4+Math.floor(i/5)+1,periods:sessions.filter(s=>s.date===iso).map(s=>s.period)};}));
+ const attendanceBlocks=Array.from({length:Math.ceil(weeks/3)},(_,block)=>Array.from({length:Math.min(15,(weeks-block*3)*5)},(_,i)=>{const date=new Date(monday);date.setUTCDate(date.getUTCDate()+block*21+Math.floor(i/5)*7+i%5);const iso=date.toISOString().slice(0,10);return {date:iso,week:block*3+Math.floor(i/5)+1,periods:sessions.filter(s=>s.date===iso).map(s=>s.period)};}));
  if(weekend.length)attendanceBlocks.push(weekend.map(s=>({date:s.date,week:weekOf(s.date,anchor)+1,periods:[s.period]})));
  attendanceBlocks.forEach(days=>{for(const chunk of chunks){const p=addPage(),x=margin,width=portraitWidth,center=p.getWidth()/2;
  const subtitle=`รายวิชา ${subject.subject_code} ${subject.name_th} ${period} ผู้สอน ${book.teacherName}`;
  const y=metadataTop+wrap(subtitle,width).length*PP5_TYPE.body+tableGap;
- const left=[14,26,75,24],leftWidth=139,summaryWidths=[14,14,14,14,14,16,14.28],summaryWidth=100.28,dayW=(width-leftWidth-summaryWidth)/days.length,dayX=x+leftWidth,summaryX=x+width-summaryWidth;
+ const left=[14,34,75,24],leftWidth=147,summaryWidths=[14,14,14,14,14,16,14.28],summaryWidth=100.28,dayW=(width-leftWidth-summaryWidth)/days.length,dayX=x+leftWidth,summaryX=x+width-summaryWidth;
  const headerRows=[24,14,24,28],headerHeight=90,rowHeight=20;
  text(p,'แบบบันทึกเวลาเรียน',center,margin,gridTitleSize,width,'center',true);text(p,subtitle,center,metadataTop,PP5_TYPE.body,width,'center');
- cell(p,'เลขที่',x,y,left[0],headerHeight,PP5_TYPE.tableHeader,true);cell(p,'เลขประจำตัว',x+14,y,left[1],headerHeight,PP5_TYPE.tableHeader,true);cell(p,'ชื่อ-สกุล',x+40,y,left[2],headerHeight,PP5_TYPE.tableHeader,true);
- let hy=y;['สัปดาห์ที่','เดือน','วันที่','ชั่วโมง'].forEach((v,i)=>{cell(p,v,x+115,hy,24,headerRows[i],PP5_TYPE.tableHeader,true);hy+=headerRows[i];});
+ cell(p,'เลขที่',x,y,left[0],headerHeight,PP5_TYPE.tableHeader,true);cell(p,'เลข\nประจำตัว',x+14,y,left[1],headerHeight,PP5_TYPE.tableHeader,true);cell(p,'ชื่อ-สกุล',x+48,y,left[2],headerHeight,PP5_TYPE.tableHeader,true);
+ let hy=y;['สัปดาห์ที่','เดือน','วันที่','ชั่วโมง'].forEach((v,i)=>{cell(p,v,x+123,hy,24,headerRows[i],PP5_TYPE.tableHeader,true);hy+=headerRows[i];});
  let from=0;while(from<days.length){let to=from+1;while(to<days.length&&days[to].week===days[from].week)to++;cell(p,days[from].week,dayX+from*dayW,y,(to-from)*dayW,24,PP5_TYPE.tableHeader,true);from=to;}
  from=0;while(from<days.length){let to=from+1;while(to<days.length&&days[to].date.slice(0,7)===days[from].date.slice(0,7))to++;cell(p,MONTHS[Number(days[from].date.slice(5,7))-1],dayX+from*dayW,y+24,(to-from)*dayW,14,PP5_TYPE.tableHeader);from=to;}
  days.forEach((d,i)=>{const xx=dayX+i*dayW;cell(p,Number(d.date.slice(8)),xx,y+38,dayW,24,PP5_TYPE.tableHeader);cell(p,d.periods.join('\n'),xx,y+62,dayW,28,PP5_TYPE.tableHeader,false,'center',!d.periods.length);});
  let sx=summaryX;['มาเรียน','ขาดเรียน','มาสาย','ลา','รวมเวลาเรียน','ร้อยละ','หมายเหตุ'].forEach((v,i)=>{vertical(p,v,sx,y,summaryWidths[i],headerHeight,PP5_TYPE.tableHeader);sx+=summaryWidths[i];});
- for(let i=0;i<rowsPerPage;i++){const student=chunk[i],yy=y+headerHeight+i*rowHeight;cell(p,roster.indexOf(chunk[0])+i+1,x,yy,14,rowHeight,rowSize);cell(p,student?.student_no??'',x+14,yy,26,rowHeight,rowSize);cell(p,student?fullName(student):'',x+40,yy,99,rowHeight,rowSize,false,'left');const values:string[]=[];
+ for(let i=0;i<rowsPerPage;i++){const student=chunk[i],yy=y+headerHeight+i*rowHeight;cell(p,roster.indexOf(chunk[0])+i+1,x,yy,14,rowHeight,rowSize);cell(p,student?.student_no??'',x+14,yy,34,rowHeight,rowSize);cell(p,student?fullName(student):'',x+48,yy,99,rowHeight,rowSize,false,'left');const values:string[]=[];
  days.forEach((d,j)=>{const eligible=student&&eligibleForLesson(data,o,student.id,d.date),statuses=eligible?d.periods.map(period=>lookup.get(student!.id+'#'+d.date+'#'+period)??''):[];values.push(...statuses);cell(p,student?(eligible?statuses.map(st=>marks[st]??'—').join(''):'—'):'',dayX+j*dayW,yy,dayW,rowHeight,rowSize,false,'center',!d.periods.length);});
  const counts=['present','absent','late','leave'].map(v=>values.filter(a=>a===v).length),total=values.length,present=counts[0]+counts[2];let xx=summaryX;[...counts,total,total?(100*present/total).toFixed(0):'',''].forEach((v,j)=>{cell(p,student?v:'',xx,yy,summaryWidths[j],rowHeight,rowSize);xx+=summaryWidths[j];});}
  }});
