@@ -115,3 +115,28 @@ begin
   on conflict(schedule_id,student_id) do update set result=excluded.result,comment=excluded.comment,recorded_by=auth.uid(),updated_at=now();
  end if;
 end $$;
+
+
+-- Only an active teacher can be assigned SSS, guidance, or ethics.
+create or replace function public.save_activity_schedule(p_term uuid,p_room uuid,p_kind text,p_day int,p_period int,p_teacher uuid default null)
+returns uuid language plpgsql security definer set search_path='' as $$
+declare v_school uuid;v_year uuid;v_id uuid;v_role boolean;
+begin
+ select t.school_id,t.academic_year_id into v_school,v_year from public.terms t where t.id=p_term;
+ if v_school is null or auth.uid() is null or not private.has_school_role(v_school,array['school_admin','academic']) then raise exception 'Not allowed to manage activity schedules';end if;
+ if not exists(select 1 from public.classrooms r where r.id=p_room and r.school_id=v_school and r.academic_year_id=v_year) then raise exception 'Classroom does not belong to the selected school year';end if;
+ if p_kind not in ('sss','guidance','ethics','club','scout') or p_day not between 1 and 7 or p_period not between 1 and 20 then raise exception 'Invalid activity or schedule';end if;
+ if p_kind in ('sss','guidance','ethics') then
+  if p_teacher is null or not exists(select 1 from public.school_memberships m where m.school_id=v_school and m.user_id=p_teacher and m.active and m.role='teacher') then raise exception 'Select active teacher for the activity';end if;
+ else
+  if p_teacher is not null then raise exception 'Club and scouts use the nominated homeroom recorder';end if;
+ end if;
+ perform pg_advisory_xact_lock(hashtext(p_term::text));
+ if exists(select 1 from public.timetable_slots ts join public.course_offerings o on o.id=ts.course_offering_id where ts.term_id=p_term and o.classroom_id=p_room and ts.weekday_no=p_day and ts.period_no=p_period) then raise exception 'Regular subject already occupies this classroom slot';end if;
+ if exists(select 1 from public.school_activity_schedules sa where sa.term_id=p_term and sa.classroom_id=p_room and sa.weekday_no=p_day and sa.period_no=p_period and sa.activity_type<>p_kind) then raise exception 'Another activity occupies the classroom slot';end if;
+ insert into public.school_activity_schedules(school_id,term_id,classroom_id,activity_type,weekday_no,period_no,teacher_user_id)
+ values(v_school,p_term,p_room,p_kind,p_day,p_period,p_teacher)
+ on conflict(term_id,classroom_id,activity_type,weekday_no,period_no) do update set teacher_user_id=excluded.teacher_user_id,updated_at=now()
+ returning id into v_id;
+ return v_id;
+end $$;
