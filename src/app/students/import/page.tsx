@@ -120,7 +120,7 @@ export default function DmcImportPage(){
     <label className="text-sm font-semibold">ปีการศึกษาปลายทาง<select className="mt-2 w-full rounded-xl border p-3" value={yearId} onChange={e=>{setYearId(e.target.value);setRows([]);setResult(null);}}>{years.map(y=><option key={y.id} value={y.id}>{y.year_be}{y.is_active?' (ปัจจุบัน)':''}</option>)}</select></label>
    </div>
    <label className="mt-5 block text-sm font-semibold">ไฟล์ DMC (.xlsx, .xls)<input type="file" accept=".xlsx,.xls" className="mt-2 block w-full rounded-xl border border-dashed border-blue-200 p-4 text-sm" disabled={busy||!schoolId||!yearId} onChange={e=>{const f=e.target.files?.[0];if(f)void parseFile(f);e.target.value='';}}/></label>
-   <p className="mt-2 text-xs text-slate-500">อ่านรหัสโรงเรียน รหัสนักเรียน (คอลัมน์ F) คำนำหน้าชื่อ ชื่อ นามสกุล ชั้น และห้อง โดยค้นหาคำนำหน้าจากชื่อคอลัมน์ในไฟล์ หากไฟล์มีคอลัมน์เลขประจำตัวประชาชน 13 หลัก จะใช้สำหรับการจับคู่ลงทะเบียน LINE โดยส่งเข้าฟังก์ชันรักษาความปลอดภัยและเก็บเฉพาะรหัสตรวจสอบแบบ bcrypt ไม่บันทึกเลขบัตรแบบอ่านได้</p>
+   <p className="mt-2 text-xs text-slate-500">นำเข้าทะเบียนนักเรียนจาก DMC · เลขบัตรนักเรียนใช้จับคู่ลงทะเบียน LINE และจัดเก็บแบบเข้ารหัสตรวจสอบ</p>
   </section>
   {error&&<p role="alert" className="mt-4 rounded-xl bg-red-50 p-4 text-sm text-red-800">{error}</p>}
   {problems.length>0&&<div role="alert" className="mt-4 rounded-xl bg-amber-50 p-4 text-sm text-amber-800"><h2 className="font-bold">ต้องแก้ไขก่อนนำเข้า ({problems.length})</h2><ul className="mt-2 max-h-40 list-inside list-disc overflow-auto">{problems.slice(0,30).map((p,i)=><li key={i}>{p}</li>)}</ul></div>}
@@ -128,7 +128,7 @@ export default function DmcImportPage(){
    <h2 className="text-lg font-bold">ตรวจสอบก่อนนำเข้า</h2>
    <p className="mt-1 text-xs text-slate-500">ไฟล์ {fileName} · {rows.length} คน · {roomCounts.length} ห้องเรียน · {hasCitizenColumn?'พบเลขบัตร 13 หลัก':'ไม่พบคอลัมน์เลขบัตร (ยังใช้ LINE ลงทะเบียนไม่ได้)'}</p>
    <div className="mt-3 max-h-64 overflow-auto rounded-xl border"><table className="w-full text-left text-sm"><thead className="sticky top-0 bg-slate-100"><tr><th className="px-4 py-3">ชั้น/ห้อง</th><th>จำนวนนักเรียน</th></tr></thead><tbody>{roomCounts.map(([room,count])=><tr key={room} className="border-t"><td className="px-4 py-2.5">{room}</td><td>{count} คน</td></tr>)}</tbody></table></div>
-   <p className="mt-3 text-xs text-slate-500">ระบบจะเติมหรือปรับคำนำหน้าชื่อของนักเรียนเดิมที่รหัส ชื่อ และนามสกุลตรงกัน โดยไม่เปลี่ยนห้องเดิม หากรหัสเดิมมีชื่อไม่ตรงกันหรือมีการลงทะเบียนห้องอื่นแล้ว จะข้ามรายการนั้นและรายงานข้อขัดแย้ง ไม่เขียนทับประวัติเดิม</p>
+   <p className="mt-3 text-xs text-slate-500">ปรับคำนำหน้าเมื่อรหัสและชื่อตรงกัน · คงห้องเดิม · ข้ามรายการที่ข้อมูลขัดแย้ง</p>
    <button disabled={busy||problems.length>0||!selectedYear} onClick={commit} className="ui-primary mt-4 rounded-xl bg-blue-700 px-5 py-3 font-bold text-white disabled:opacity-40">{busy?'กำลังประมวลผล...':'ยืนยันนำเข้า '+rows.length+' คน'}</button>
   </section>}
   {citizenProgress&&<p role="status" className="mt-3 text-sm">{citizenProgress}</p>}

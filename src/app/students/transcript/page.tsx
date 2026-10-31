@@ -108,7 +108,7 @@ export default function StudentTranscriptPage(){
  return <main className="wichakan-page mx-auto max-w-7xl px-4 py-6">
   <Link href="/students" className="text-sm font-semibold text-blue-700">← ทะเบียนนักเรียน</Link>
   <PageHeader title="แฟ้มประวัติผลการเรียนตลอดช่วงชั้น"/>
-  <p className="mb-4 text-sm text-slate-600">แสดง GPA รายปีสำหรับประถมศึกษา และ GPA รายภาคเรียนสำหรับมัธยมศึกษา พร้อม GPAX สะสมจากช่วงที่มีผลครบต่อเนื่อง โดยรวม SchoolMIS กับ WICHAKAN</p>
+  <p className="mb-4 text-sm text-slate-600">GPA ประถมรายปี มัธยมรายภาค · GPAX สะสมจากผลครบต่อเนื่อง</p>
   <section className="ui-panel p-4">
    <div className="grid gap-3 md:grid-cols-3">
     <label className="text-sm">โรงเรียน<select className="mt-1 block w-full rounded-lg border p-2" value={schoolId} onChange={e=>setSchoolId(e.target.value)}>{schools.map(s=><option key={s.id} value={s.id}>{s.name_th}</option>)}</select></label>
@@ -145,7 +145,7 @@ export default function StudentTranscriptPage(){
    </section>
    <section className="ui-panel p-4">
     <h2 className="font-bold">GPA {primary?'รายปี':'รายภาคเรียน'} และ GPAX สะสม</h2>
-    <p className="mt-1 text-xs text-slate-600">GPAX คิดจากผลรวม (เกรด × หน่วยกิต) ÷ ผลรวมหน่วยกิต โดยไม่เฉลี่ย GPA ที่ปัดแล้ว และไม่รวมปีหรือภาคเรียนที่ผลยังไม่ครบ</p>
+    <p className="mt-1 text-xs text-slate-600">GPAX = ผลรวม (เกรด × หน่วยกิต) ÷ ผลรวมหน่วยกิต · ใช้เฉพาะช่วงที่ผลครบ</p>
     {cumulative?<div className="mt-3 overflow-auto"><table className="w-full min-w-[720px] text-sm"><thead><tr><th className="p-2">ปี</th><th>ชั้น</th><th>{primary?'ช่วง':'ภาค'}</th><th>รายวิชา</th><th>สถานะ</th><th>GPA {primary?'รายปี':'ภาคเรียน'}</th><th>GPAX สะสม</th></tr></thead><tbody>{cumulative.terms.map(t=><tr className="border-t" key={t.sequence}><td className="p-2 text-center">{t.year_be}</td><td className="text-center">{t.level_code}</td><td className="text-center">{t.term_no===0?'รายปี':t.term_no}</td><td className="text-center">{t.subjects}/{t.expected_subjects}</td><td className="text-center text-xs">{statusLabels[t.status]??t.status}</td><td className="text-center font-semibold">{gradeFormatter(t.gpa)}</td><td className="text-center font-semibold">{gradeFormatter(t.gpax_to_date)}</td></tr>)}</tbody></table></div>:
     !transcript.by_year.length?<p className="mt-2 text-sm text-slate-500">ยังไม่มีผลรายวิชาที่บันทึกไว้</p>:
     <div className="mt-3 overflow-auto"><table className="w-full min-w-[570px] text-sm"><thead><tr><th className="p-2">ปี</th><th>ชั้น</th><th>ภาค</th><th>รายวิชา</th><th>รอตรวจ</th><th>GPA</th></tr></thead><tbody>{transcript.by_year.map(r=><tr key={[r.year_be,r.level_code,r.term_no].join('-')} className="border-t"><td className="p-2 text-center">{r.year_be}</td><td className="text-center">{r.level_code}</td><td className="text-center">{r.term_no||'รายปี'}</td><td className="text-center">{r.subjects}</td><td className="text-center">{r.pending}</td><td className="text-center font-semibold">{gradeFormatter(r.gpa)}</td></tr>)}</tbody></table></div>}

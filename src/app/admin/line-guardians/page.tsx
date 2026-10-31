@@ -91,7 +91,7 @@ export default function LineGuardiansPage(){
  return <main className="wichakan-page mx-auto max-w-6xl px-4 pb-10">
   <PageHeader title="LINE OA · จัดการผู้ปกครอง" context="การตรวจสอบคำขอและการเชื่อมบัญชี LINE"/>
   <div className="flex flex-wrap items-start justify-between gap-3 border-b border-slate-200 py-4">
-   <p className="max-w-3xl text-sm text-slate-600">ผู้ปกครองลงทะเบียนผ่าน LINE โดยใช้เลขบัตรประชาชนของนักเรียน 13 หลัก โรงเรียนต้องตรวจสอบความสัมพันธ์จากหลักฐานที่เชื่อถือได้ก่อนอนุมัติ เลขบัตรเพียงอย่างเดียวไม่สามารถยืนยันสิทธิ์ผู้ปกครองได้</p>
+   <p className="max-w-3xl text-sm text-slate-600">ตรวจสอบหลักฐานความสัมพันธ์ก่อนอนุมัติ เลขบัตรนักเรียนเพียงอย่างเดียวไม่ยืนยันสิทธิ์ผู้ปกครอง</p>
    <button type="button" className="ui-secondary" disabled={loading||busy} onClick={()=>void refresh()}>{loading?'กำลังโหลด...':'โหลดข้อมูลล่าสุด'}</button>
   </div>
   <div className="my-5 grid grid-cols-3 divide-x divide-slate-200 border-y border-slate-200 py-4 text-center">
@@ -106,12 +106,12 @@ export default function LineGuardiansPage(){
   <div role="tabpanel" id={'panel-'+tab} aria-labelledby={'tab-'+tab} className="py-5">
    {loading?<p className="py-8 text-sm text-slate-500" role="status">กำลังโหลดข้อมูล...</p>:tab==='requests'?<section>
     <h2 className="mb-1 font-semibold">คำขอรออนุมัติ</h2>
-    <p className="mb-4 text-sm text-slate-500">ตรวจสอบสิทธิ์ผู้ปกครองกับโรงเรียนก่อนอนุมัติ ไม่มีการเปิดเผยผลการเรียนในขั้นตอนนี้</p>
+    <p className="mb-4 text-sm text-slate-500">ตรวจสอบสิทธิ์ผู้ปกครองก่อนอนุมัติ</p>
     {!filteredClaims.length?<p className="border-y py-8 text-center text-sm text-slate-500">{needle?'ไม่พบคำขอ':'ไม่มีคำขอรออนุมัติ'}</p>:
     <div className="overflow-x-auto"><table className="w-full min-w-[570px] text-sm"><thead className="bg-slate-50"><tr><th className="p-3 text-left">นักเรียน</th><th className="p-3 text-left">วันที่ยื่น</th><th className="p-3 text-right">จัดการ</th></tr></thead>
      <tbody>{filteredClaims.map(c=><tr key={c.id} className="border-b"><td className="p-3">{c.student_name}<small className="block text-slate-500">รหัส {c.student_no}</small></td><td className="p-3">{date(c.created_at)}</td><td className="whitespace-nowrap p-3 text-right"><button className="ui-primary mr-2" disabled={busy} onClick={()=>void review(c,true)}>อนุมัติ</button><button className="ui-secondary" disabled={busy} onClick={()=>void review(c,false)}>ปฏิเสธ</button></td></tr>)}</tbody></table></div>}
    </section>:tab==='linked'?<section>
-    <h2 className="mb-1 font-semibold">บัญชี LINE ที่เชื่อมแล้ว</h2><p className="mb-4 text-sm text-slate-500">บัญชีหนึ่งเชื่อมได้หลายบุตรหลาน สามารถยกเลิกเฉพาะนักเรียนที่เลือกโดยไม่กระทบคนอื่น</p>
+    <h2 className="mb-1 font-semibold">บัญชี LINE ที่เชื่อมแล้ว</h2><p className="mb-4 text-sm text-slate-500">หนึ่งบัญชีเชื่อมได้หลายบุตรหลาน · ยกเลิกได้รายคน</p>
     {!filteredLinked.length?<p className="border-y py-8 text-center text-sm text-slate-500">{needle?'ไม่พบข้อมูล':'ยังไม่มีบัญชีที่เชื่อม'}</p>:
     <div className="divide-y border-y">{filteredLinked.map(g=><section key={g.guardian_id} className="py-4">
      <div className="mb-2 flex flex-wrap items-center justify-between gap-2"><h3 className="font-semibold">{g.name||'ผู้ปกครอง LINE'} <small className="font-normal text-slate-500">({g.children.length} คน)</small></h3><small className="text-slate-500">เชื่อมเมื่อ {date(g.verified_at)}</small></div>

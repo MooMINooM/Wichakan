@@ -54,10 +54,10 @@ export default function LineRegisterPage(){
   <Script src="https://static.line-scdn.net/liff/edge/2/sdk.js" onLoad={()=>setSdk(true)} onReady={()=>setSdk(true)} onError={()=>setError("โหลด LINE SDK ไม่สำเร็จ กรุณาลองเปิดใหม่")}/>
   <PageHeader title="ลงทะเบียนบุตรหลาน"/>
   <button className="ui-secondary mb-4" type="button" onClick={()=>{window.history.replaceState(null,'','?view=portal');setView('portal');}}>ดูบุตรหลานที่อนุมัติแล้ว →</button>
-  <p className="mb-5 text-sm">บริการผู้ปกครองโรงเรียนบ้านภูพระโนนผักหวาน · ระบบรับเพียงเลขประจำตัวประชาชนของนักเรียน 13 หลัก และบัญชี LINE ที่เข้าสู่ระบบ</p>
+  <p className="mb-5 text-sm">โรงเรียนบ้านภูพระโนนผักหวาน</p>
   <section className="ui-panel">
    <label className="block font-semibold">เลขประจำตัวประชาชนนักเรียน 13 หลัก<input inputMode="numeric" autoComplete="off" type="text" maxLength={13} className="mt-2 block w-full border p-3" placeholder="กรอกเลข 13 หลัก" value={citizen} onChange={e=>setCitizen(e.target.value.replace(/\D/g,'').slice(0,13))}/></label>
-   <p className="mt-3 text-xs">เลขบัตรใช้เพื่อจับคู่คำขอ ไม่แสดงชื่อหรือผลการเรียนก่อนโรงเรียนอนุมัติ</p>
+   <p className="mt-3 text-xs">ใช้เลขประจำตัวประชาชนนักเรียน 13 หลัก · รอโรงเรียนอนุมัติ</p>
    <button className="ui-primary mt-4" disabled={!ready||busy||citizen.length!==13} onClick={()=>void submit()}>{busy?'กำลังส่ง...':ready?'ส่งคำขอลงทะเบียน':'กำลังเชื่อมต่อ LINE...'}</button>
    {!liffId&&<p className="teacher-error mt-3">โรงเรียนยังไม่ได้กำหนด LINE LIFF ID</p>}
    {error&&<p className="teacher-error mt-3" role="alert">{error}</p>}

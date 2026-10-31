@@ -114,7 +114,7 @@ export default function AdminPage(){
     </tbody></table></div>
     {(!canShow||loading)&&<p className="school-empty">{loading?'กำลังโหลดข้อมูล...':'ยังไม่สามารถแสดงข้อมูลได้'}</p>}
     {canShow&&!loading&&!shown.length&&<div className="school-empty"><p>{rows.length?'ไม่มีระดับชั้นในมุมมองนี้':'ยังไม่มีห้องเรียนในปีการศึกษาที่เลือก'}</p><Link href="/academic">ไปตั้งค่างานวิชาการ →</Link></div>}
-    <details className="school-table-note"><summary className="cursor-pointer text-blue-700">เกณฑ์ความพร้อม</summary><p className="mt-2">จำนวนวิชาของมัธยมศึกษานับเฉพาะรายวิชาในภาคเรียนที่เลือก ส่วนประถมศึกษานับรายวิชารายปีตามหลักสูตรล่าสุดที่มีผลในปีนั้น วิชาที่ยังไม่เปิดสอนหรือยังไม่มอบหมายครูในภาคเรียนที่เลือกจะนับว่าขาดครู ต้องมีครูครบทุกห้องจึงถือว่าครบ ยังไม่รวมผลการลงคะแนน</p></details>
+    <details className="school-table-note"><summary className="cursor-pointer text-blue-700">เกณฑ์ความพร้อม</summary><p className="mt-2">ประถมนับรายปี มัธยมนับรายภาค · ครบเมื่อมอบหมายครูครบทุกห้อง · ไม่รวมความคืบหน้าคะแนน</p></details>
     <div className="school-footer-links"><Link href="/academic">ตั้งค่างานวิชาการ ↗</Link><Link href="/academic/teachers">มอบหมายครู ↗</Link><Link href="/students/history">จัดนักเรียนเข้าห้อง ↗</Link></div>
    </section>
    <aside className="school-aside">
