@@ -30,5 +30,7 @@ assert.match(portal,/grades:\[\],gpa_summary:undefined,published:undefined/,
 assert.match(portal,/data\?\.published&&/);
 assert.match(portal,/data\.gpa_summary&&/,'GPA only shown after published check');
 assert.match(portal,/data\.gpa_summary\.period_type==='year'/);
-assert.match(admin,/LINE OA จะแสดง GPA รายปี/);
+assert.match(admin,/GPA ประถมรายปี มัธยมรายภาค/);
+assert.match(admin,/GPAX สะสมเมื่อผลครบ/);
 console.log('LINE GPA/GPAX publication and guardian UI contracts passed');
+

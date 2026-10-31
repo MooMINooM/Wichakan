@@ -100,7 +100,7 @@ export default function SemesterGpaReportPage(){
  return <main className="wichakan-page mx-auto max-w-7xl px-4 py-6">
   <Link href="/students/transcript" className="text-sm font-semibold text-blue-700">← แฟ้มประวัติผลการเรียนรายบุคคล</Link>
   <PageHeader title="รายงาน GPA รายปี / รายภาคเรียน และ GPAX สะสม"/>
-  <p className="mb-4 text-sm text-slate-600">รองรับประถมศึกษา ป.1–ป.6 (GPA รายปี) และมัธยมศึกษา ม.1–ม.3 (GPA รายภาคเรียน) คำนวณ GPAX สะสมตามช่วงปีหรือภาคที่ผลการเรียนครบต่อเนื่องจาก SchoolMIS และ WICHAKAN</p>
+  <p className="mb-4 text-sm text-slate-600">ป.1–ป.6: GPA รายปี · ม.1–ม.3: GPA รายภาค · GPAX สะสมจากผลครบต่อเนื่อง</p>
   <section className="ui-panel p-4">
    <div className="grid gap-3 sm:grid-cols-3">
     <label className="text-sm">โรงเรียน<select className="mt-1 block w-full rounded-lg border p-2" value={schoolId} onChange={e=>setSchoolId(e.target.value)}>{schools.map(s=><option key={s.id} value={s.id}>{s.name_th}</option>)}</select></label>

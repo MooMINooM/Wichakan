@@ -94,7 +94,7 @@ export default function Pp5SignatoriesAdmin(){
      <button type="submit" className="ui-primary" disabled={busy||!selectedYear||!dirty}>{busy?'กำลังบันทึก...':'บันทึกผู้ลงนาม'}</button>
      <span className="text-xs text-slate-500">{dirty?'มีข้อมูลที่ยังไม่บันทึก':'ข้อมูลปัจจุบันบันทึกแล้ว'}</span>
     </div>
-    <p className="mt-4 text-xs text-slate-500">เว้นชื่อว่างได้ หากยังไม่ได้แต่งตั้ง ระบบจะคงเส้นประสำหรับลงชื่อด้วยลายมือ การตั้งค่านี้ไม่มีผลต่อชื่อครูผู้สอน</p>
+    <p className="mt-4 text-xs text-slate-500">เว้นว่างเพื่อใช้ลายมือชื่อ · ชื่อครูผู้สอนอ้างอิงจากงานสอน</p>
    </form>}
  </main>;
 }
