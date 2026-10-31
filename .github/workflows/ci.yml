@@ -18,6 +18,7 @@ jobs:
       - name: Check curriculum and teacher coverage
         run: |
           node tests/school-readiness.cjs
+          node tests/manage-staff.cjs
           node tests/line-guardian-admin.cjs
           node tests/line-parent-gpa.cjs
           node tests/teacher-assignment-rows.cjs
