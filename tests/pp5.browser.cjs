@@ -17,7 +17,7 @@ const assert=require('node:assert/strict'),fs=require('fs'),path=require('path')
  const page=await context.newPage(),errors=[];page.on('pageerror',e=>errors.push(e.message));const url=p=>'http://127.0.0.1:3000/Wichakan/'+p;
  await page.goto(url('teacher/'));const course=page.locator('.course-action-row').first();await course.waitFor();assert.equal(await course.getByRole('link').count(),2);for(const link of await course.getByRole('link').all())assert((await link.getAttribute('href')).includes('offering='+b.offering));
  await course.getByRole('link',{name:'ปพ.5',exact:true}).click();await page.getByRole('link',{name:'ดาวน์โหลด PDF',exact:true}).waitFor({timeout:60000});
- const bytes=await page.getByRole('link',{name:'ดาวน์โหลด PDF',exact:true}).evaluate(async a=>Array.from(new Uint8Array(await (await fetch(a.href)).arrayBuffer())));fs.writeFileSync('/tmp/pp5-browser.pdf',Buffer.from(bytes));const {PDFDocument}=require('pdf-lib');assert.equal((await PDFDocument.load(Buffer.from(bytes))).getPageCount(),9);
+ const bytes=await page.getByRole('link',{name:'ดาวน์โหลด PDF',exact:true}).evaluate(async a=>Array.from(new Uint8Array(await (await fetch(a.href)).arrayBuffer())));fs.writeFileSync('/tmp/pp5-browser.pdf',Buffer.from(bytes));const {PDFDocument}=require('pdf-lib');assert.equal((await PDFDocument.load(Buffer.from(bytes))).getPageCount(),10);
  // Each incomplete prerequisite must block the actual PDF, including direct links.
  for(const kind of ['scores','attendance','traits','reading']){
   let restore;if(kind==='scores'){const old=tables.student_course_scores[0].term1_midterm;tables.student_course_scores[0].term1_midterm=null;restore=()=>tables.student_course_scores[0].term1_midterm=old;}
@@ -67,5 +67,5 @@ const assert=require('node:assert/strict'),fs=require('fs'),path=require('path')
  tables.course_attendance_slots=[];
  await page.goto(url('teacher/attendance/?offering='+b.offering));await page.getByRole('alert').filter({hasText:'ยังเลือกคาบร่วมไม่ได้'}).waitFor();assert.equal(await page.locator('.attendance-grid').count(),0);
  assert.equal(attendanceWrites.length,2);
- assert.deepEqual(errors,[]);assert.equal(writes.length,5);console.log('PASS: course-scoped record/report links; real nine-page PDF; all four missing-data gates; unauthorized link denial; exact attendance link; integrated read-only attendance and shared PP5 gates; atomic whole-class assessment payloads, full-mark defaults preserving zeros, 25-day timetable grid, multi-period days, attendance retry/preserved absences and mobile layout.');await browser.close();server.close();
+ assert.deepEqual(errors,[]);assert.equal(writes.length,5);console.log('PASS: course-scoped record/report links; real ten-page PDF; all four missing-data gates; unauthorized link denial; exact attendance link; integrated read-only attendance and shared PP5 gates; atomic whole-class assessment payloads, full-mark defaults preserving zeros, 25-day timetable grid, multi-period days, attendance retry/preserved absences and mobile layout.');await browser.close();server.close();
 })().catch(e=>{console.error(e);process.exit(1)});
