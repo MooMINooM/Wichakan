@@ -4,21 +4,14 @@ export type ActivityTerm={id:string;academic_year_id:string;term_no:number};
 export type ActivityRoom={id:string;academic_year_id:string;level_code:string;room_code:string};
 export type ActivityGrade={student_id:string;activity_type:string;period_no:number;result:string|null};
 export type ActivityGroup={key:string;classroom_id:string;academic_year_id:string;activity_type:string;period_no:number;assessor:'teacher'|'homeroom'};
-export type ActivityHomeroom={id:string;classroom_id:string;teacher_user_id:string;is_activity_recorder:boolean;created_at:string};
+export type ActivityHomeroom={classroom_id:string;teacher_user_id:string};
 export type ActivityViewer={userId:string};
 export const activityPeriod=(level:string,term:number)=>level.startsWith('ป.')?0:term;
 export const isHomeroomActivity=(kind:string)=>kind==='club'||kind==='scout';
 
-// Exactly one assigned homeroom teacher records both activities in a room.
-// An explicit admin choice wins; otherwise use the oldest homeroom assignment.
-export function activityRecorders(assignments:ActivityHomeroom[]){
- const sorted=[...assignments].sort((a,b)=>Number(b.is_activity_recorder)-Number(a.is_activity_recorder)||a.created_at.localeCompare(b.created_at)||a.id.localeCompare(b.id));
- const result=new Map<string,string>();
- for(const a of sorted)if(!result.has(a.classroom_id))result.set(a.classroom_id,a.teacher_user_id);
- return result;
-}
 export function activityGroups(schedules:ActivitySchedule[],rooms:ActivityRoom[],terms:ActivityTerm[],viewer?:ActivityViewer,homerooms:ActivityHomeroom[]=[]){
- const groups=new Map<string,ActivityGroup>(),recorders=activityRecorders(homerooms);
+ const groups=new Map<string,ActivityGroup>();
+ const homeroomAccess=new Set(homerooms.map(h=>h.classroom_id+':'+h.teacher_user_id));
  const roomMap=new Map(rooms.map(r=>[r.id,r])),termMap=new Map(terms.map(t=>[t.id,t]));
  for(const s of schedules){
   const r=roomMap.get(s.classroom_id),t=termMap.get(s.term_id);
@@ -30,7 +23,7 @@ export function activityGroups(schedules:ActivitySchedule[],rooms:ActivityRoom[]
    const direct=peers.filter(x=>termMap.get(x.term_id)?.term_no===period),assigned=period&&direct.length?direct:peers;
    if(viewer){
     if(isHomeroomActivity(s.activity_type)){
-     if(recorders.get(r.id)!==viewer.userId)continue;
+     if(!homeroomAccess.has(r.id+':'+viewer.userId))continue;
     }else if(!assigned.some(x=>x.teacher_user_id===viewer.userId))continue;
    }
    groups.set(key,{key,classroom_id:r.id,academic_year_id:t.academic_year_id,activity_type:s.activity_type,period_no:period,assessor:isHomeroomActivity(s.activity_type)?'homeroom':'teacher'});
