@@ -86,12 +86,13 @@ export async function createPp5Pdf(book:Pp5Book){
  const sessions=attendanceSessions(attendance),anchor=book.termStart&&book.termStart<=sessions[0].date?book.termStart:sessions[0].date,monday=new Date(anchor+'T00:00:00Z');monday.setUTCDate(monday.getUTCDate()-((monday.getUTCDay()+6)%7));
  const weeks=Math.max(20,...sessions.map(s=>weekOf(s.date,anchor)+1)),lookup=new Map(attendance.map(a=>[a.student_id+'#'+a.class_date+'#'+a.session_no,a.attendance_status]));
  const rowSize=12,rowHeight=13.6,rowsPerPage=25;
+ const gridTitleSize=16,metadataTop=90,tableGap=6;
  const marks:Record<string,string>={present:'/',absent:'ข',late:'ส',leave:'ล'},chunks:TeacherStudent[][]=[];for(let i=0;i<roster.length;i+=rowsPerPage)chunks.push(roster.slice(i,i+rowsPerPage));
  const weekend=sessions.filter(s=>new Date(s.date+'T00:00:00Z').getUTCDay()%6===0);
  const attendanceBlocks=Array.from({length:Math.ceil(weeks/4)},(_,block)=>Array.from({length:20},(_,i)=>{const date=new Date(monday);date.setUTCDate(date.getUTCDate()+block*28+Math.floor(i/5)*7+i%5);const iso=date.toISOString().slice(0,10);return {date:iso,week:block*4+Math.floor(i/5)+1,periods:sessions.filter(s=>s.date===iso).map(s=>s.period)};}));
  if(weekend.length)attendanceBlocks.push(weekend.map(s=>({date:s.date,week:weekOf(s.date,anchor)+1,periods:[s.period]})));
- attendanceBlocks.forEach((days,block)=>{for(const chunk of chunks){const p=addPage(true),x=margin,y=94+wrap(`รายวิชา ${subject.subject_code} ${subject.name_th} ${period} ผู้สอน ${book.teacherName}`,landscapeWidth).length*PP5_TYPE.body+2,left=[20,38,150,40],dayW=(landscapeWidth-248-135)/days.length,summaryWidths=[18,18,18,18,20,23,20],dayX=x+248,summaryX=x+landscapeWidth-135;
- text(p,'แบบบันทึกเวลาเรียน',421,margin,PP5_TYPE.title,landscapeWidth,'center',true);text(p,`รายวิชา ${subject.subject_code} ${subject.name_th} ${period} ผู้สอน ${book.teacherName}`,421,94,PP5_TYPE.body,landscapeWidth,'center');
+ attendanceBlocks.forEach((days,block)=>{for(const chunk of chunks){const p=addPage(true),x=margin,y=metadataTop+wrap(`รายวิชา ${subject.subject_code} ${subject.name_th} ${period} ผู้สอน ${book.teacherName}`,landscapeWidth).length*PP5_TYPE.body+tableGap,left=[20,38,150,40],dayW=(landscapeWidth-248-135)/days.length,summaryWidths=[18,18,18,18,20,23,20],dayX=x+248,summaryX=x+landscapeWidth-135;
+ text(p,'แบบบันทึกเวลาเรียน',421,margin,gridTitleSize,landscapeWidth,'center',true);text(p,`รายวิชา ${subject.subject_code} ${subject.name_th} ${period} ผู้สอน ${book.teacherName}`,421,metadataTop,PP5_TYPE.body,landscapeWidth,'center');
  cell(p,'เลขที่',x,y,left[0],56,PP5_TYPE.tableHeader,true);cell(p,'เลขประจำตัว',x+20,y,left[1],56,PP5_TYPE.tableHeader,true);cell(p,'ชื่อ-สกุล',x+58,y,left[2],56,PP5_TYPE.tableHeader,true);
  ['สัปดาห์ที่','เดือน','วันที่','ชั่วโมง'].forEach((v,i)=>cell(p,v,x+208,y+i*14,40,14,PP5_TYPE.tableHeader,true));
  let from=0;while(from<days.length){let to=from+1;while(to<days.length&&days[to].week===days[from].week)to++;cell(p,days[from].week,dayX+from*dayW,y,(to-from)*dayW,14,PP5_TYPE.tableHeader,true);from=to;}
@@ -108,11 +109,11 @@ export async function createPp5Pdf(book:Pp5Book){
  const annual=!room.level_code.startsWith('ม.');
  function sheetHeader(p:PDFPage,title:string,width:number,scoreSheet=false){
   const center=p.getWidth()/2;
-  text(p,title,center,margin,PP5_TYPE.title,width,'center',true);
+  text(p,title,center,margin,gridTitleSize,width,'center',true);
   const subtitle=`${scoreSheet&&annual?'ปีการศึกษา '+year.year_be+' · คะแนนภาคเรียนที่ 1 และ 2':period} ชั้น ${roomLabel} รายวิชา ${subject.subject_code} ${subject.name_th} ครูผู้สอน ${book.teacherName}`;
   const lines=wrap(subtitle,width,PP5_TYPE.body);
-  lines.forEach((value,i)=>text(p,value,center,94+i*PP5_TYPE.body,PP5_TYPE.body,width,'center'));
-  return 94+lines.length*PP5_TYPE.body+2;
+  lines.forEach((value,i)=>text(p,value,center,metadataTop+i*PP5_TYPE.body,PP5_TYPE.body,width,'center'));
+  return metadataTop+lines.length*PP5_TYPE.body+tableGap;
  }
 
  function mergedCell(p:PDFPage,v:string,x:number,y:number,w:number,h:number){cell(p,v,x,y,w,h,PP5_TYPE.tableHeader,true);}
