@@ -55,7 +55,7 @@ export default function AppNavigation(){
   const {data:members}=await db.from('school_memberships').select('school_id').eq('user_id',user.id).eq('active',true).limit(1);
   if(!live||!members?.length)return;
   const school=members[0].school_id;setSchoolId(school);
-  if(pathname.startsWith('/teacher')){
+  {
    const [profile,schoolInfo]=await Promise.all([db.from('profiles').select('display_name').eq('user_id',user.id).maybeSingle(),db.from('schools').select('name_th').eq('id',school).maybeSingle()]);
    if(!live)return;setDisplayName(profile.data?.display_name??'');setSchoolName(schoolInfo.data?.name_th??'');
   }
@@ -73,7 +73,9 @@ export default function AppNavigation(){
  },[schoolId]);
  const isTeacher=pathname.startsWith('/teacher');
  const isAdmin=['/admin','/personnel','/academic','/curriculum','/students'].some(x=>pathname.startsWith(x));
- const sections=isTeacher?teacherSections:isAdmin?adminSections:[];
+ const isDirector=pathname.startsWith('/director');
+ const workspaceLabel=isTeacher?'พื้นที่ทำงานครู':isDirector?'พื้นที่ผู้บริหาร':pathname.startsWith('/students')?'งานทะเบียนนักเรียน':pathname.startsWith('/academic')||pathname.startsWith('/curriculum')?'งานวิชาการ':isAdmin?'บริหารสถานศึกษา':'ระบบบริหารงานวิชาการ';
+ const sections=isTeacher?teacherSections:isAdmin?adminSections:isDirector?[{title:'ติดตามงานวิชาการ',items:[{href:'/director',label:'ภาพรวมผู้บริหาร',icon:'chart' as const}]}]:[];
  const items=sections.flatMap(group=>group.items);
  const activeUrl=items.filter(item=>pathname===item.href.split('#')[0]||pathname.startsWith(item.href.split('#')[0]+'/')).sort((a,b)=>b.href.split('#')[0].length-a.href.split('#')[0].length)[0]?.href;
  async function signOut(){
@@ -92,13 +94,13 @@ export default function AppNavigation(){
     <AcademicIcon name={item.icon}/><span>{item.label}</span></Link>)}</div>
   </section>)}
  </nav>;
- return <div className={'app-shell'+(isTeacher?' teacher-workspace-shell':'')}>
+ return <div className={'app-shell unified-workspace-shell'+(items.length?' has-workspace-sidebar':'')}>
   <header className="app-topbar">
    <div className="flex min-w-0 items-center gap-3">
     {items.length>0&&<button onClick={()=>setOpen(x=>!x)} aria-expanded={open} aria-label="เปิดหรือปิดเมนู" className="rounded-lg border border-slate-200 px-3 py-2 text-lg lg:hidden"><AcademicIcon name="menu"/></button>}
     <Link href="/workspace" className="app-brand-link" aria-label="Wichakan เลือกพื้นที่ทำงาน"><WichakanBrand/></Link>
    </div>
-   <span className="app-workspace-label">{isTeacher?'พื้นที่ทำงานครู':isAdmin?'บริหารงานวิชาการ':'ระบบบริหารงานวิชาการ'}</span>
+   <span className="app-workspace-label">{workspaceLabel}</span>
    {(pathname==='/personnel'||isTeacher)?<label className="hidden items-center gap-2 rounded-xl border border-blue-100 bg-white px-3 py-2 text-sm font-semibold text-blue-900 md:flex"><AcademicIcon name="calendar"/><select aria-label={isTeacher?'ปีการศึกษาพื้นที่ครู':'ปีการศึกษาสรุปบุคลากร'} className="bg-transparent outline-none" value={currentYear} disabled={!years.length} onChange={e=>{setCurrentYear(e.target.value);setYearSelection(schoolId,e.target.value);}}>{!years.length&&<option value="">ยังไม่มีปีการศึกษา</option>}{years.map(y=><option key={y.id} value={y.id}>ปีการศึกษา {y.year_be}</option>)}</select></label>:null}
 
    <div className="flex items-center gap-2">
@@ -109,9 +111,9 @@ export default function AppNavigation(){
   {items.length>0&&<>
    {open&&<button className="fixed inset-0 z-30 bg-slate-950/30 lg:hidden" aria-label="ปิดเมนู" onClick={()=>setOpen(false)}/>}
    <aside className={`app-sidebar ${open?'app-sidebar-open':''}`} aria-label="เมนูหลัก">
-    {isTeacher?<Link href="/teacher" className="teacher-sidebar-brand" onClick={()=>setOpen(false)}><WichakanBrand/><span>{schoolName||'ระบบบริหารงานวิชาการ'}</span><b>พื้นที่ทำงานครู</b></Link>:<div className="mb-5 px-4 text-xs font-bold tracking-widest text-slate-400">จัดการสถานศึกษา</div>}
+    <Link href={isTeacher?'/teacher':isDirector?'/director':'/workspace'} className="workspace-sidebar-brand" onClick={()=>setOpen(false)}><WichakanBrand/><span>{schoolName||'ระบบบริหารงานวิชาการ'}</span><b>{workspaceLabel}</b></Link>
     {nav}
-    {isTeacher&&<div className="teacher-sidebar-account"><span className="teacher-account-avatar"><AcademicIcon name="users"/></span><div><strong>{displayName||'บัญชีครู'}</strong><span>ครูผู้สอน</span></div><Link href="/workspace" onClick={()=>setOpen(false)}>สลับบทบาท</Link><button type="button" onClick={signOut} disabled={busy}>{busy?'กำลังออก...':'ออกจากระบบ'}</button></div>}
+    {<div className="workspace-sidebar-account"><span className="workspace-account-avatar"><AcademicIcon name="users"/></span><div><strong>{displayName||'บัญชีผู้ใช้งาน'}</strong><span>{workspaceLabel}</span></div><Link href="/workspace" onClick={()=>setOpen(false)}>สลับบทบาท</Link><button type="button" onClick={signOut} disabled={busy}>{busy?'กำลังออก...':'ออกจากระบบ'}</button></div>}
     <div className="mt-8 border-t border-slate-100 pt-5"><Link href="/workspace" onClick={()=>setOpen(false)} className="block rounded-xl px-4 py-3 text-sm text-slate-500 hover:bg-slate-100">← เลือกพื้นที่ทำงาน</Link></div>
    </aside>
   </>}
