@@ -4,7 +4,7 @@ import {useEffect,useState} from 'react';
 import PageHeader from '@/components/page-header';
 import TeacherRecordTabs from '@/components/teacher-record-tabs';
 import TeacherScoreGrid from '@/components/teacher-score-grid';
-import {scoreMode} from '@/lib/teacher-scores';
+import {scoreMode,scoreOffering} from '@/lib/teacher-scores';
 import {resolveYear,setYearSelection} from '@/lib/academic-year-selection';
 import {useTeacherWorkspace,teacherRoomLabel,offeringRoster} from '@/lib/use-teacher-workspace';
 export default function TeacherScoresPage(){
@@ -36,6 +36,8 @@ export default function TeacherScoresPage(){
  const terms=data.terms.filter(t=>roomOfferings.some(o=>o.term_id===t.id));
  const validTerm=terms.some(t=>t.id===termId)?termId:terms[0]?.id??'';
  const selected=roomOfferings.find(o=>o.term_id===validTerm);
+ const ledger=selected?scoreOffering(data,selected):undefined;
+ const level=data.rooms.find(r=>r.id===validRoom)?.level_code??data.subjects.find(s=>s.id===validSubject)?.grade_level;
  const setting=data.settings.find(s=>s.subject_id===validSubject&&s.academic_year_id===validYear),students=selected?offeringRoster(data,selected):[];
  const ready=!loading&&!error&&initialized;
  function change(fn:()=>void){if(busy)return;if(dirty&&!window.confirm('มีคะแนนที่ยังไม่บันทึก ยืนยันเปลี่ยนรายวิชา?'))return;setDirty(false);setLinkError('');fn();}
@@ -51,7 +53,8 @@ export default function TeacherScoresPage(){
    <Link className="ui-secondary" href="/teacher/courses">← กลับหน้ารายวิชาที่สอน</Link>
   </section>
   {loading&&<p role="status" className="teacher-empty">กำลังโหลดรายวิชาและคะแนน...</p>}
-  {ready&&!linkError&&selected&&<TeacherScoreGrid key={selected.id} offeringId={selected.id} students={students} records={data.scores} setting={setting} mode={scoreMode(data.subjects.find(s=>s.id===validSubject)?.grade_level)} termNo={data.terms.find(t=>t.id===validTerm)?.term_no??1} onDirty={setDirty} onBusy={setBusy} onSaved={recordSaved}/>}
+  {ready&&!linkError&&selected&&level?.startsWith('ป.')&&<p role="note" className="mb-4 text-sm text-slate-600">คะแนนประถมศึกษาเป็นรายปี ภาคเรียนที่ 1 และ 2 ใช้ตารางบันทึกคะแนนชุดเดียวกัน สามารถกรอกคะแนนทั้งสองภาคเรียนในตารางนี้ได้</p>}
+  {ready&&!linkError&&selected&&ledger&&<TeacherScoreGrid key={ledger.id} offeringId={ledger.id} students={students} records={data.scores} setting={setting} mode={scoreMode(level)} termNo={data.terms.find(t=>t.id===validTerm)?.term_no??1} onDirty={setDirty} onBusy={setBusy} onSaved={recordSaved}/>}
   {ready&&!selected&&<p className="ui-panel teacher-empty">ไม่มีรายวิชาที่ได้รับมอบหมายในปีที่เลือก</p>}
  </main>;
 }

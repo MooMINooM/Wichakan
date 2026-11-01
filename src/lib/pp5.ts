@@ -1,4 +1,4 @@
-import {evaluateScore,SCORE_FIELDS,settingCaps,validCaps,scoreMode} from './teacher-scores';
+import {evaluateScore,SCORE_FIELDS,settingCaps,validCaps,scoreMode,scoreOffering} from './teacher-scores';
 import type {TeacherWorkspace,TeacherOffering,TeacherStudent} from './use-teacher-workspace';
 export type CourseAssessment={student_id:string;trait_scores:number[]|null;reading_scores:number[]|null};
 export type Attendance={student_id:string;class_date:string;session_no:number;attendance_status:string};
@@ -17,7 +17,7 @@ export function assessmentQuality(values:number[]|null|undefined,group:'traits'|
 }
 export function pp5Score(data:TeacherWorkspace,o:TeacherOffering,sid:string){
  const room=data.rooms.find(r=>r.id===o.classroom_id),term=data.terms.find(t=>t.id===o.term_id),mode=scoreMode(room?.level_code);
- const record=data.scores.find(r=>r.course_offering_id===o.id&&r.student_id===sid),caps=settingCaps(data.settings.find(s=>s.subject_id===o.subject_id&&s.academic_year_id===room?.academic_year_id));
+ const ledger=scoreOffering(data,o),record=data.scores.find(r=>r.course_offering_id===ledger.id&&r.student_id===sid),caps=settingCaps(data.settings.find(s=>s.subject_id===o.subject_id&&s.academic_year_id===room?.academic_year_id));
  const result=evaluateScore(SCORE_FIELDS.map(k=>record?.[k]==null?'':String(record[k])),record?.special_result??'',caps,mode,term?.term_no??1),offset=term?.term_no===2?3:0;
  const termScores=SCORE_FIELDS.slice(offset,offset+3).map(k=>record?.[k]??null),termReady=validCaps(caps,mode)&&result.valid&&(!!record?.special_result||termScores.every(n=>n!==null));
  // A first-term primary PP5 needs that term's scores, not future second-term scores.

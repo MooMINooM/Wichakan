@@ -1,3 +1,4 @@
+import type {TeacherWorkspace,TeacherOffering} from './use-teacher-workspace';
 export const SCORE_FIELDS=['term1_coursework','term1_midterm','term1_final','term2_coursework','term2_midterm','term2_final'] as const;
 export const SCORE_LABELS=['คะแนนเก็บ ภาคเรียน 1','กลางภาค ภาคเรียน 1','ปลายภาค ภาคเรียน 1','คะแนนเก็บ ภาคเรียน 2','กลางภาค ภาคเรียน 2','ปลายภาค ภาคเรียน 2'];
 export type ScoreSetting={subject_id:string;academic_year_id:string;term1_coursework:number;term1_midterm:number;term1_final:number;term2_coursework:number;term2_midterm:number;term2_final:number};
@@ -6,6 +7,18 @@ export const numericGrade=(total:number)=>total>=80?'4':total>=75?'3.5':total>=7
 export function settingCaps(setting?:ScoreSetting){return setting?SCORE_FIELDS.map(f=>setting[f]):[];}
 export type ScoreMode='annual'|'semester';
 export function scoreMode(level:string|null|undefined):ScoreMode{return level?.startsWith('ม.')?'semester':'annual';}
+// Primary scores contain both semesters in one row. Timetable offerings remain
+// separate, but every score entry point uses the first semester's annual ledger.
+// Only resolve within the caller's authorized offerings, same room and year.
+export function scoreOffering(data:Pick<TeacherWorkspace,'offerings'|'rooms'|'subjects'|'terms'>,offering:TeacherOffering):TeacherOffering{
+ const room=data.rooms.find(r=>r.id===offering.classroom_id);
+ const level=room?.level_code??data.subjects.find(s=>s.id===offering.subject_id)?.grade_level;
+ if(!level?.startsWith('ป.'))return offering;
+ const year=data.terms?.find(t=>t.id===offering.term_id)?.academic_year_id;
+ if(!year||year!==room?.academic_year_id)return offering;
+ return data.offerings.find(o=>o.classroom_id===offering.classroom_id&&o.subject_id===offering.subject_id
+  &&data.terms.some(t=>t.id===o.term_id&&t.academic_year_id===year&&t.term_no===1))??offering;
+}
 export function validCaps(caps:number[],mode:ScoreMode='annual'){return caps.length===6&&caps.every(n=>Number.isInteger(n)&&n>=0&&n<=100)&&(mode==='annual'?caps.slice(0,3).reduce((a,b)=>a+b,0)===50&&caps.slice(3).reduce((a,b)=>a+b,0)===50:caps.slice(0,3).reduce((a,b)=>a+b,0)===100&&caps.slice(3).reduce((a,b)=>a+b,0)===100);}
 export function evaluateScore(values:string[],special:string,caps:number[],mode:ScoreMode='annual',termNo=2){
  const numbers=values.map(v=>v.trim()===''?null:Number(v));
