@@ -48,7 +48,7 @@ export default function TeacherScoresPage(){
    <label>รายวิชา<select aria-label="รายวิชาคะแนน" disabled={!ready||busy} value={validSubject} onChange={e=>change(()=>{setSubjectId(e.target.value);setRoomId('');setTermId('');})}>{!availableSubjects.length&&<option value="">ยังไม่มีงานสอน</option>}{availableSubjects.map(s=><option key={s.id} value={s.id}>{s.subject_code} {s.name_th}</option>)}</select></label>
    <label>ห้องเรียน<select aria-label="ห้องเรียนคะแนน" disabled={!ready||busy} value={validRoom} onChange={e=>change(()=>{setRoomId(e.target.value);setTermId('');})}>{!rooms.length&&<option value="">ยังไม่มีห้องเรียน</option>}{rooms.map(r=><option key={r.id} value={r.id}>{teacherRoomLabel(r)}</option>)}</select></label>
    <label>ภาคเรียนที่เปิดสอน<select aria-label="ภาคเรียนที่เปิดสอนคะแนน" disabled={!ready||busy} value={validTerm} onChange={e=>change(()=>setTermId(e.target.value))}>{!terms.length&&<option value="">ยังไม่มีภาคเรียน</option>}{terms.map(t=><option key={t.id} value={t.id}>ภาคเรียนที่ {t.term_no}</option>)}</select></label>
-   <Link className="ui-secondary" href="/teacher#courses">← กลับหน้ารายวิชาที่สอน</Link>
+   <Link className="ui-secondary" href="/teacher/courses">← กลับหน้ารายวิชาที่สอน</Link>
   </section>
   {loading&&<p role="status" className="teacher-empty">กำลังโหลดรายวิชาและคะแนน...</p>}
   {ready&&!linkError&&selected&&<TeacherScoreGrid key={selected.id} offeringId={selected.id} students={students} records={data.scores} setting={setting} mode={scoreMode(data.subjects.find(s=>s.id===validSubject)?.grade_level)} termNo={data.terms.find(t=>t.id===validTerm)?.term_no??1} onDirty={setDirty} onBusy={setBusy} onSaved={recordSaved}/>}
