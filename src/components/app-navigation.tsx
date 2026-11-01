@@ -35,7 +35,7 @@ const teacherSections:NavSection[]=[
  {title:'ภาพรวม',items:[{href:'/teacher',label:'หน้าหลักครู',icon:'home'}]},
  {title:'การจัดการเรียนรู้',items:[
   {href:'/teacher/timetable',label:'ตารางสอนของฉัน',icon:'calendar'},
-  {href:'/teacher#courses',label:'รายวิชาที่สอน',icon:'book'},
+  {href:'/teacher/courses',label:'รายวิชาที่สอน',icon:'book'},
   {href:'/teacher/scores',label:'บันทึกคะแนน',icon:'chart'},
   {href:'/teacher/attendance',label:'เวลาเรียน',icon:'calendar'},
   {href:'/teacher/assessments',label:'คุณลักษณะ / อ่านคิดเขียน',icon:'check'},
