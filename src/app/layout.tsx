@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import './globals.css';
 import './academic-workspace.css';
+import './teacher-workspace.css';
 import AppNavigation from '@/components/app-navigation';
 
 export const metadata: Metadata = { title: 'Wichakan', description: 'School Academic Management System' };

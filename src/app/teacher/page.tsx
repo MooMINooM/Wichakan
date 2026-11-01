@@ -34,6 +34,24 @@ export default function TeacherPage(){
    <div className="teacher-filter-actions flex flex-wrap items-center justify-end gap-2"><button className="ui-secondary" disabled={loading} onClick={()=>void reload()}>อัปเดตข้อมูล</button><Link href="/teacher/timetable" className="ui-primary inline-flex items-center justify-center gap-2 whitespace-nowrap"><AcademicIcon name="calendar"/>ดูตารางสอน / ตารางเรียน</Link></div>
   </section>
   {data.hiddenAssignments>0&&ready&&<p role="alert" className="teacher-warning">มีงานสอน {data.hiddenAssignments} รายการที่อ่านรายละเอียดไม่ได้ กรุณาแจ้งผู้ดูแลระบบ</p>}
+  <section className="teacher-launch-section" aria-labelledby="teacher-record-heading">
+   <h2 id="teacher-record-heading"><AcademicIcon name="edit"/>บันทึกผลการเรียน</h2>
+   <div className="teacher-launch-grid">{([
+    {href:'/teacher/scores',title:'บันทึกคะแนน',detail:'คะแนนเก็บ กลางภาค และปลายภาค',icon:'chart',color:'green'},
+    {href:'/teacher/attendance',title:'บันทึกเวลาเรียน',detail:'การมาเรียนและเวลาเรียนรายคาบ',icon:'calendar',color:'blue'},
+    {href:'/teacher/assessments?group=traits',title:'คุณลักษณะอันพึงประสงค์',detail:'บันทึกผลการประเมินรายวิชา',icon:'check',color:'pink'},
+    {href:'/teacher/assessments?group=reading',title:'อ่าน คิดวิเคราะห์ และเขียน',detail:'บันทึกผลการประเมินรายวิชา',icon:'book',color:'purple'},
+   ] as const).map(item=><Link href={item.href} key={item.href} className={'teacher-launch-card '+item.color}><i><AcademicIcon name={item.icon}/></i><div><h3>{item.title}</h3><p>{item.detail}</p></div><span aria-hidden="true">›</span></Link>)}</div>
+  </section>
+  <section className="teacher-launch-section" aria-labelledby="teacher-documents-heading">
+   <h2 id="teacher-documents-heading"><AcademicIcon name="file"/>เอกสารและงานประจำชั้น</h2>
+   <div className="teacher-launch-grid">{([
+    {href:'/teacher/pp5',title:'ปพ.5 รายวิชา',detail:'ตรวจสอบและพิมพ์บันทึกผลการเรียน',icon:'book',color:'green'},
+    {href:'/teacher/pp6',title:'ปพ.6 และห้องประจำชั้น',detail:'รายงานผลการพัฒนาผู้เรียนรายบุคคล',icon:'file',color:'blue'},
+    {href:'/teacher/activities',title:'กิจกรรมพัฒนาผู้เรียน',detail:'บันทึกกิจกรรมตามงานที่ได้รับมอบหมาย',icon:'check',color:'purple'},
+    {href:'/teacher/timetable',title:'ตารางสอน / ตารางเรียน',detail:'ตารางของฉันและห้องประจำชั้น',icon:'calendar',color:'gold'},
+   ] as const).map(item=><Link href={item.href} key={item.href} className={'teacher-launch-card '+item.color}><i><AcademicIcon name={item.icon}/></i><div><h3>{item.title}</h3><p>{item.detail}</p></div><span aria-hidden="true">›</span></Link>)}</div>
+  </section>
   <section className="teacher-metrics" aria-label="สรุปงานสอน">
    <div className="teacher-metric blue"><i><AcademicIcon name="users"/></i><div><p>ห้องประจำชั้น</p><strong>{ready?(homeRooms.length?homeRooms.map(teacherRoomLabel).join(', '):'—'):'—'}</strong><span>{ready?homeRooms.length+' ห้อง':'รอข้อมูล'}</span></div></div>
    <div className="teacher-metric green"><i><AcademicIcon name="book"/></i><div><p>รายวิชาที่สอน</p><strong>{contextReady?courses.length:'—'}</strong><span>รายวิชา</span></div></div>
