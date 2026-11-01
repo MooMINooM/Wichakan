@@ -1,4 +1,4 @@
-import {recordTermProgress,settingCaps,validCaps,scoreMode} from './teacher-scores';
+import {recordTermProgress,settingCaps,validCaps,scoreMode,scoreOffering} from './teacher-scores';
 import type {TeacherWorkspace,TeacherOffering} from './use-teacher-workspace';
 export type CourseOverview={subjectId:string;code:string;name:string;offerings:TeacherOffering[];roomIds:string[];studentIds:string[];expected:number;saved:number;started:number;progress:number|null;configured:boolean;status:'complete'|'progress'|'empty'|'configuration'|'no-students'};
 export function teacherOverview(data:TeacherWorkspace,yearId:string,termId:string,selectedSubject=''):CourseOverview[]{
@@ -8,7 +8,7 @@ export function teacherOverview(data:TeacherWorkspace,yearId:string,termId:strin
   const subject=data.subjects.find(s=>s.id===subjectId),setting=data.settings.find(s=>s.subject_id===subjectId&&s.academic_year_id===yearId);
   const mode=scoreMode(subject?.grade_level||data.rooms.find(r=>r.id===offerings[0].classroom_id)?.level_code),termNo=data.terms?.find(t=>t.id===termId)?.term_no??1;
   const configured=validCaps(settingCaps(setting),mode),ids=new Set<string>();let expected=0,saved=0,started=0;
-  for(const o of offerings){const roster=new Set(data.enrollments.filter(e=>e.classroom_id===o.classroom_id&&e.academic_year_id===yearId&&['active','completed'].includes(e.status)).map(e=>e.student_id));expected+=roster.size;for(const id of roster){ids.add(id);const progress=recordTermProgress(data.scores.find(s=>s.course_offering_id===o.id&&s.student_id===id),setting,mode,termNo);if(progress.complete)saved++;if(progress.started)started++;}}
+  for(const o of offerings){const ledger=scoreOffering(data,o);const roster=new Set(data.enrollments.filter(e=>e.classroom_id===o.classroom_id&&e.academic_year_id===yearId&&['active','completed'].includes(e.status)).map(e=>e.student_id));expected+=roster.size;for(const id of roster){ids.add(id);const progress=recordTermProgress(data.scores.find(s=>s.course_offering_id===ledger.id&&s.student_id===id),setting,mode,termNo);if(progress.complete)saved++;if(progress.started)started++;}}
   const progress=configured&&expected?Math.floor(saved/expected*100):null;
   const status=!configured?'configuration':!expected?'no-students':saved===expected?'complete':started?'progress':'empty';
   return {subjectId,code:subject?.subject_code??'—',name:subject?.name_th??'ไม่พบรายวิชา',offerings,roomIds:[...new Set(offerings.map(o=>o.classroom_id))],studentIds:[...ids],expected,saved,started,progress,configured,status} as CourseOverview;
