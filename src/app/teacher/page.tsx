@@ -1,6 +1,7 @@
 'use client';
 import Link from 'next/link';
 import {useEffect,useState} from 'react';
+import {createPortal} from 'react-dom';
 import PageHeader from '@/components/page-header';
 import AcademicDialog from '@/components/academic-dialog';
 import {AcademicIcon} from '@/components/academic-visuals';
@@ -9,6 +10,8 @@ import {useTeacherWorkspace,teacherRoomLabel} from '@/lib/use-teacher-workspace'
 import {teacherOverview} from '@/lib/teacher-overview';
 export default function TeacherPage(){
  const {data,loading,error,reload}=useTeacherWorkspace();
+ const [periodTarget,setPeriodTarget]=useState<HTMLElement|null>(null);
+ useEffect(()=>{setPeriodTarget(document.getElementById('teacher-dashboard-period'));},[]);
  const [yearId,setYearId]=useState(''),[termId,setTermId]=useState(''),[rosterRoom,setRosterRoom]=useState('');
  useEffect(()=>{if(data.schoolId)setYearId(prev=>resolveYear(data.years,data.schoolId,prev));},[data.schoolId,data.years]);
  useEffect(()=>{if(!data.schoolId)return;const sync=(e:Event)=>{const d=(e as CustomEvent<{schoolId:string;yearId:string}>).detail;if(d?.schoolId===data.schoolId){setYearId(d.yearId);setTermId('');setRosterRoom('');}};window.addEventListener(YEAR_EVENT,sync);return()=>window.removeEventListener(YEAR_EVENT,sync);},[data.schoolId]);
@@ -21,12 +24,15 @@ export default function TeacherPage(){
  const homeRoster=(roomId:string)=>{const ids=new Set(data.enrollments.filter(e=>e.classroom_id===roomId&&e.academic_year_id===yearId).map(e=>e.student_id));return data.students.filter(s=>ids.has(s.id));};
  const roster=homeRoster(rosterRoom),selectedHome=data.rooms.find(r=>r.id===rosterRoom);
  return <main className="wichakan-page teacher-dashboard">
+  {periodTarget&&createPortal(<>
+   <label>ปีการศึกษา<select aria-label="ปีการศึกษา dashboard" disabled={!ready} value={yearId} onChange={e=>{setYearId(e.target.value);setTermId('');setYearSelection(data.schoolId,e.target.value);}}>{!data.years.length&&<option value="">ยังไม่มีปีการศึกษา</option>}{data.years.map(y=><option key={y.id} value={y.id}>{y.year_be}</option>)}</select></label>
+   <label>ภาคเรียน<select aria-label="ภาคเรียน dashboard" disabled={!ready} value={validTerm} onChange={e=>{setTermId(e.target.value);}}>{!yearTerms.length&&<option value="">ยังไม่มีภาคเรียน</option>}{yearTerms.map(t=><option key={t.id} value={t.id}>ภาคเรียนที่ {t.term_no}</option>)}</select></label>
+  </>,periodTarget)}
   <PageHeader title="แดชบอร์ดครู"/>
   {error&&<p role="alert" className="teacher-error">{error}<button onClick={()=>void reload()}>ลองอีกครั้ง</button></p>}
   {loading&&<p role="status" className="mb-4 text-sm text-slate-500">กำลังโหลดงานสอน...</p>}
-  <section className="ui-panel teacher-filters teacher-summary-filters" aria-label="เลือกงานสอน">
-   <label>ปีการศึกษา<select aria-label="ปีการศึกษา dashboard" disabled={!ready} value={yearId} onChange={e=>{setYearId(e.target.value);setTermId('');setYearSelection(data.schoolId,e.target.value);}}>{!data.years.length&&<option value="">ยังไม่มีปีการศึกษา</option>}{data.years.map(y=><option key={y.id} value={y.id}>{y.year_be}</option>)}</select></label>
-   <label>ภาคเรียน<select aria-label="ภาคเรียน dashboard" disabled={!ready} value={validTerm} onChange={e=>{setTermId(e.target.value);}}>{!yearTerms.length&&<option value="">ยังไม่มีภาคเรียน</option>}{yearTerms.map(t=><option key={t.id} value={t.id}>ภาคเรียนที่ {t.term_no}</option>)}</select></label>
+  <section className="ui-panel teacher-dashboard-actions" aria-label="เครื่องมืองานสอน">
+
 
    <div className="teacher-filter-actions flex flex-wrap items-center justify-end gap-2"><button className="ui-secondary" disabled={loading} onClick={()=>void reload()}>อัปเดตข้อมูล</button><Link href="/teacher/timetable" className="ui-primary inline-flex items-center justify-center gap-2 whitespace-nowrap"><AcademicIcon name="calendar"/>ดูตารางสอน / ตารางเรียน</Link></div>
   </section>
